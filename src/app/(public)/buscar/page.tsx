@@ -2,13 +2,15 @@ import Link from "next/link";
 import { sql } from "@/server/db";
 import { isUuid } from "@/server/action";
 
+const fold = (s: string) => s.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase();
+
 export const metadata = { title: "¿Cuándo juego?" };
 
 export default async function Search({ searchParams }: { searchParams: Promise<{ q?: string; t?: string }> }) {
   const sp = await searchParams;
   const q = (sp.q ?? "").trim();
   const t = sp.t && isUuid(sp.t) ? sp.t : null;
-  const words = q.toLowerCase().split(/\s+/).filter((w) => w.length >= 2).slice(0, 4);
+  const words = fold(q).split(/\s+/).filter((w) => w.length >= 2).slice(0, 4);
   // Solo se muestran jugadores que participan en torneos públicos; nunca datos de contacto.
   const rows = words.length
     ? await sql<{ id: string; first_name: string; last_name: string; code: string; tournaments: string | null }[]>`
@@ -18,7 +20,7 @@ export default async function Search({ searchParams }: { searchParams: Promise<{
              WHERE ep.player_id = p.id AND ep.replaced_at IS NULL AND t.is_public AND t.status IN ('OPEN','IN_PROGRESS')) AS tournaments
         FROM players p
         WHERE p.deleted_at IS NULL
-          ${words.reduce((acc, w) => sql`${acc} AND lower(p.first_name || ' ' || p.last_name) LIKE ${`%${w}%`}`, sql``)}
+          ${words.reduce((acc, w) => sql`${acc} AND translate(lower(p.first_name || ' ' || p.last_name), 'áéíóúüñàèìòù', 'aeiouunaeiou') LIKE ${`%${w}%`}`, sql``)}
           AND EXISTS (SELECT 1 FROM entry_players ep JOIN entries e ON e.id = ep.entry_id JOIN tournament_categories tc ON tc.id = e.tc_id
                       JOIN tournaments t ON t.id = tc.tournament_id WHERE ep.player_id = p.id AND t.is_public AND t.status <> 'DRAFT'
                       ${t ? sql`AND t.id = ${t}` : sql``})

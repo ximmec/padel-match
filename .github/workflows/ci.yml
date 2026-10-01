@@ -46,9 +46,15 @@ jobs:
         run: npm run test:db 2>&1 | tee -a ci-output.txt; exit ${PIPESTATUS[0]}
       - name: Compilar la aplicación (Next.js)
         run: npm run build:app 2>&1 | tee -a ci-output.txt; exit ${PIPESTATUS[0]}
-      - name: Prueba de humo (servidor real)
+      - name: Base limpia para la prueba con navegador
         run: |
-          npx next start -p 3000 >> ci-output.txt 2>&1 &
+          PGPASSWORD=padel psql -h localhost -U padel -d padel_test -c "CREATE DATABASE padel_e2e"
+          DATABASE_URL=postgres://padel:padel@localhost:5432/padel_e2e npm run migrate
+      - name: Prueba de humo (servidor real)
+        env:
+          DATABASE_URL: postgres://padel:padel@localhost:5432/padel_e2e
+        run: |
+          nohup npx next start -p 3000 >> ci-output.txt 2>&1 &
           for i in $(seq 1 30); do curl -sf http://localhost:3000/api/health && break; sleep 1; done
           curl -sf http://localhost:3000/api/health
           curl -sf -o /dev/null -w "home %{http_code}\n" http://localhost:3000/
@@ -57,6 +63,24 @@ jobs:
           code=$(curl -s -o /dev/null -w "%{http_code}" http://localhost:3000/)
           for p in / /setup /login /buscar /ranking /api/public/version?t=00000000-0000-0000-0000-000000000000; do echo "$p $(curl -s -o /dev/null -w "%{http_code}" "http://localhost:3000$p")" | tee -a ci-output.txt; done
           test "$code" = "200"
+      - name: Prueba de punta a punta (navegador real)
+        env:
+          DATABASE_URL: postgres://padel:padel@localhost:5432/padel_e2e
+        run: |
+          curl -sf http://localhost:3000/api/health || { nohup npx next start -p 3000 >> ci-output.txt 2>&1 & sleep 8; }
+          npx playwright install --with-deps chromium > /dev/null
+          mkdir -p e2e-shots
+          npx playwright test 2>&1 | tee -a ci-output.txt; exit ${PIPESTATUS[0]}
+      - name: Publicar capturas de pantalla
+        if: always()
+        run: |
+          if [ -d e2e-shots ] && [ "$(ls -A e2e-shots)" ]; then
+            cd e2e-shots
+            git init -q && git checkout -q -b ci-shots
+            git config user.email "ci@padel-match.net" && git config user.name "CI"
+            git add -A && git commit -qm "Capturas ${GITHUB_SHA::7}"
+            git push -qf "https://x-access-token:${{ github.token }}@github.com/${GITHUB_REPOSITORY}.git" ci-shots
+          fi
       - name: Publicar resumen del error
         if: failure()
         env:

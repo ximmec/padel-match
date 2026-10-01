@@ -15,7 +15,8 @@
     "typecheck": "tsc --noEmit",
     "test": "tsx --test tests/core/*.test.ts",
     "test:db": "tsx --test tests/db/*.test.ts",
-    "backup": "node scripts/backup.mjs"
+    "backup": "node scripts/backup.mjs",
+    "test:e2e": "playwright test"
   },
   "dependencies": {
     "exceljs": "^4.4.0",
@@ -30,6 +31,7 @@
     "@types/react": "^19.0.0",
     "@types/react-dom": "^19.0.0",
     "tsx": "^4.19.2",
-    "typescript": "^5.7.2"
+    "typescript": "^5.7.2",
+    "@playwright/test": "^1.49.1"
   }
 }
