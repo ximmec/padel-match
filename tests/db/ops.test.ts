@@ -4,7 +4,7 @@
  */
 import { test, before, after } from "node:test";
 import assert from "node:assert/strict";
-import { sql } from "../../src/server/db";
+import { sql, type Tx } from "../../src/server/db";
 import * as ops from "../../src/server/ops";
 import { NeedsConfirmation } from "../../src/server/errors";
 import { loadCategory } from "../../src/server/category";
@@ -19,8 +19,8 @@ let user: CurrentUser;
 let orgId: string;
 let venueId: string;
 
-async function tx<T>(fn: (t: Parameters<Parameters<typeof sql.begin>[0]>[0]) => Promise<T>): Promise<T> {
-  return sql.begin(fn) as Promise<T>;
+async function tx<T>(fn: (t: Tx) => Promise<T>): Promise<T> {
+  return sql.begin((t) => fn(t)) as Promise<T>;
 }
 
 before(async () => {
@@ -141,7 +141,8 @@ test("corrección de zona después del cuadro invalida resultados de cruces que 
   await result(row.id, [[6, 1], [6, 1]]);
 
   // Invertir un resultado de zona que cambia quién es 1° de la zona de la pareja ganadora
-  const winner = (first.a.kind === "ENTRY" && first.a.entryId)!;
+  if (first.a.kind !== "ENTRY") throw new Error("se esperaba pareja definida");
+  const winner = first.a.entryId;
   const zone = lc.zones.find((z) => z.entry_ids.includes(winner))!;
   const zm = lc.matches.filter((m) => m.zone_id === zone.id && (m.entry_a === winner || m.entry_b === winner));
   // La pareja pierde todos sus partidos de zona → deja de ser 1°

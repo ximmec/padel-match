@@ -6,6 +6,9 @@ on:
   pull_request:
   workflow_dispatch:
 
+permissions:
+  contents: write
+
 jobs:
   test:
     runs-on: ubuntu-latest
@@ -34,22 +37,37 @@ jobs:
       - name: Instalar dependencias
         run: npm install --no-audit --no-fund
       - name: Verificar tipos (TypeScript)
-        run: npx tsc --noEmit
+        run: npx tsc --noEmit 2>&1 | tee -a ci-output.txt; exit ${PIPESTATUS[0]}
       - name: Pruebas de la lógica de dominio
-        run: npm test
+        run: npm test 2>&1 | tee -a ci-output.txt; exit ${PIPESTATUS[0]}
       - name: Migraciones de base de datos
-        run: npm run migrate
+        run: npm run migrate 2>&1 | tee -a ci-output.txt; exit ${PIPESTATUS[0]}
       - name: Pruebas de integración con PostgreSQL
-        run: npm run test:db
+        run: npm run test:db 2>&1 | tee -a ci-output.txt; exit ${PIPESTATUS[0]}
       - name: Compilar la aplicación (Next.js)
-        run: npm run build:app
+        run: npm run build:app 2>&1 | tee -a ci-output.txt; exit ${PIPESTATUS[0]}
       - name: Prueba de humo (servidor real)
         run: |
-          npx next start -p 3000 &
+          npx next start -p 3000 >> ci-output.txt 2>&1 &
           for i in $(seq 1 30); do curl -sf http://localhost:3000/api/health && break; sleep 1; done
           curl -sf http://localhost:3000/api/health
           curl -sf -o /dev/null -w "home %{http_code}\n" http://localhost:3000/
           curl -s -o /dev/null -w "setup %{http_code}\n" http://localhost:3000/setup
           curl -s -o /dev/null -w "admin %{http_code}\n" http://localhost:3000/admin
           code=$(curl -s -o /dev/null -w "%{http_code}" http://localhost:3000/)
+          for p in / /setup /login /buscar /ranking /api/public/version?t=00000000-0000-0000-0000-000000000000; do echo "$p $(curl -s -o /dev/null -w "%{http_code}" "http://localhost:3000$p")" | tee -a ci-output.txt; done
           test "$code" = "200"
+      - name: Publicar resumen del error
+        if: failure()
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          {
+            echo "### CI falló en ${GITHUB_SHA::7}"
+            echo '```'
+            grep -E "error|Error|not ok|fail|✖|Failed|Type error" ci-output.txt | grep -v "node_modules" | head -150
+            echo '...'
+            tail -n 80 ci-output.txt
+            echo '```'
+          } > comment.md
+          gh api "repos/${GITHUB_REPOSITORY}/commits/${GITHUB_SHA}/comments" -F body=@comment.md > /dev/null
