@@ -336,7 +336,7 @@ export async function updateMembershipAction(_p: ActionState, fd: FormData): Pro
       const [before] = await tx`SELECT role, permissions FROM memberships WHERE user_id = ${userId} AND org_id = ${user.orgId}`;
       if (!before) throw new UserError("Usuario no encontrado.");
       const perms = { grant, revoke };
-      await tx`UPDATE memberships SET role = ${role}, permissions = ${JSON.stringify(perms)}::jsonb WHERE user_id = ${userId} AND org_id = ${user.orgId}`;
+      await tx`UPDATE memberships SET role = ${role}, permissions = ${JSON.stringify(perms)}::text::jsonb WHERE user_id = ${userId} AND org_id = ${user.orgId}`;
       if (fd.get("active") !== null) await tx`UPDATE users SET active = ${fd.get("active") === "on"} WHERE id = ${userId} AND id <> ${user.id}`;
       await audit(tx, user, { entity: "user", entityId: userId, action: "update", summary: "Rol y permisos modificados", before, after: { role, perms } });
     });

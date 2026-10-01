@@ -17,7 +17,7 @@ export async function audit(db: Db, user: CurrentUser | null, a: AuditInput) {
     INSERT INTO audit_log (org_id, user_id, user_name, tournament_id, entity, entity_id, action, summary, before, after)
     VALUES (${user?.orgId ?? null}, ${user?.id ?? null}, ${user?.name ?? "sistema"}, ${a.tournamentId ?? null},
             ${a.entity}, ${a.entityId ?? null}, ${a.action}, ${a.summary ?? null},
-            ${json(a.before)}::jsonb, ${json(a.after)}::jsonb)`;
+            ${json(a.before)}::text::jsonb, ${json(a.after)}::text::jsonb)`;
 }
 
 export const ACTION_LABELS: Record<string, string> = {

@@ -49,7 +49,7 @@ export async function addCategory(tx: Tx, user: CurrentUser, tournamentId: strin
   const [c] = await tx<{ name: string }[]>`SELECT name FROM categories WHERE id = ${categoryId} AND org_id = ${user.orgId}`;
   if (!c) throw new UserError("Categoría no encontrada.");
   const [tc] = await tx<{ id: string }[]>`
-    INSERT INTO tournament_categories (tournament_id, category_id, rules) VALUES (${tournamentId}, ${categoryId}, ${j(rules)}::jsonb) RETURNING id`;
+    INSERT INTO tournament_categories (tournament_id, category_id, rules) VALUES (${tournamentId}, ${categoryId}, ${j(rules)}::text::jsonb) RETURNING id`;
   await audit(tx, user, { entity: "tournament_category", entityId: tc.id, action: "create", tournamentId, summary: `Categoría ${c.name} agregada a ${t.name}`, after: rules });
   return tc.id;
 }
@@ -69,7 +69,7 @@ export async function updateRules(tx: Tx, user: CurrentUser, tcId: string, rules
     if (impact.some((i) => i.hadResult)) items.push("Algunos resultados del cuadro quedarán invalidados.");
     throw new NeedsConfirmation("Cambiar reglas de una categoría en juego", items);
   }
-  await tx`UPDATE tournament_categories SET rules = ${j(rules)}::jsonb, version = version + 1 WHERE id = ${tcId}`;
+  await tx`UPDATE tournament_categories SET rules = ${j(rules)}::text::jsonb, version = version + 1 WHERE id = ${tcId}`;
   await audit(tx, user, { entity: "tournament_category", entityId: tcId, action: "update", tournamentId: lc.tc.tournament_id, summary: `Reglas de ${lc.tc.category_name} modificadas`, before: lc.rules, after: rules });
   await afterChange(tx, user, tcId);
 }
@@ -296,7 +296,7 @@ export async function moveEntry(tx: Tx, user: CurrentUser, entryId: string, targ
 export async function setZoneManualOrder(tx: Tx, user: CurrentUser, zoneId: string, order: string[]) {
   const [z] = await tx<{ tc_id: string; name: string; manual_order: string[] }[]>`SELECT z.tc_id, z.name, z.manual_order FROM zones z JOIN tournament_categories tc ON tc.id = z.tc_id JOIN tournaments t ON t.id = tc.tournament_id WHERE z.id = ${zoneId} AND t.org_id = ${user.orgId}`;
   if (!z) throw new UserError("Zona no encontrada.");
-  await tx`UPDATE zones SET manual_order = ${j(order)}::jsonb WHERE id = ${zoneId}`;
+  await tx`UPDATE zones SET manual_order = ${j(order)}::text::jsonb WHERE id = ${zoneId}`;
   const lc = await loadCategory(tx, z.tc_id, user.orgId);
   await audit(tx, user, { entity: "zone", entityId: zoneId, action: "tiebreak", tournamentId: lc.tc.tournament_id, summary: `Desempate manual (sorteo) en Zona ${z.name}`, before: z.manual_order, after: order });
   await afterChange(tx, user, z.tc_id);
@@ -305,7 +305,7 @@ export async function setZoneManualOrder(tx: Tx, user: CurrentUser, zoneId: stri
 export async function setCrossManualOrder(tx: Tx, user: CurrentUser, tcId: string, pos: number, order: string[]) {
   const lc = await loadCategory(tx, tcId, user.orgId, { lock: true });
   const next = { ...(lc.tc.cross_manual_order ?? {}), [pos]: order };
-  await tx`UPDATE tournament_categories SET cross_manual_order = ${j(next)}::jsonb WHERE id = ${tcId}`;
+  await tx`UPDATE tournament_categories SET cross_manual_order = ${j(next)}::text::jsonb WHERE id = ${tcId}`;
   await audit(tx, user, { entity: "tournament_category", entityId: tcId, action: "tiebreak", tournamentId: lc.tc.tournament_id, summary: `Desempate manual entre zonas (${pos}° puestos)`, before: lc.tc.cross_manual_order, after: next });
   await afterChange(tx, user, tcId);
 }
@@ -326,7 +326,7 @@ export async function generateBracket(tx: Tx, user: CurrentUser, tcId: string) {
   for (const d of defs) {
     await tx`INSERT INTO matches (tc_id, phase, bracket_code, round) VALUES (${tcId}, 'BRACKET', ${d.code}, ${d.round})`;
   }
-  await tx`UPDATE tournament_categories SET bracket = ${j(defs)}::jsonb, status = 'PLAYOFFS', version = version + 1 WHERE id = ${tcId}`;
+  await tx`UPDATE tournament_categories SET bracket = ${j(defs)}::text::jsonb, status = 'PLAYOFFS', version = version + 1 WHERE id = ${tcId}`;
   await audit(tx, user, { entity: "bracket", entityId: tcId, action: "generate_bracket", tournamentId: lc.tc.tournament_id, summary: `Cuadro generado para ${lc.tc.category_name}: ${defs.filter((d) => d.round === 1).length * 2} lugares`, before: lc.tc.bracket, after: defs });
   await afterChange(tx, user, tcId);
 }
@@ -357,7 +357,7 @@ export async function setBracketSlot(tx: Tx, user: CurrentUser, tcId: string, co
     if (impact.some((i) => i.hadResult)) items.push("Hay partidos ya jugados cuyos participantes cambian: esos resultados quedarán invalidados.");
     throw new NeedsConfirmation("Modificar cruce del cuadro", items);
   }
-  await tx`UPDATE tournament_categories SET bracket = ${j(defs)}::jsonb, version = version + 1 WHERE id = ${tcId}`;
+  await tx`UPDATE tournament_categories SET bracket = ${j(defs)}::text::jsonb, version = version + 1 WHERE id = ${tcId}`;
   await audit(tx, user, { entity: "bracket", entityId: tcId, action: "edit_bracket", tournamentId: lc.tc.tournament_id, summary: `Cruce ${code} lado ${side.toUpperCase()} modificado manualmente`, before, after: ref });
   await afterChange(tx, user, tcId);
 }
@@ -374,11 +374,11 @@ async function saveMatchResult(
   const a = entryA === undefined ? m.entry_a : entryA;
   const b = entryB === undefined ? m.entry_b : entryB;
   const [u] = await tx<{ version: number }[]>`
-    UPDATE matches SET status = ${status}, outcome = ${outcome ? j(outcome) : null}::jsonb, entry_a = ${a}, entry_b = ${b},
+    UPDATE matches SET status = ${status}, outcome = ${outcome ? j(outcome) : null}::text::jsonb, entry_a = ${a}, entry_b = ${b},
            version = version + 1, updated_at = now()
     WHERE id = ${m.id} RETURNING version`;
   await tx`INSERT INTO match_result_versions (match_id, version, entry_a, entry_b, status, outcome, reason, user_id)
-           VALUES (${m.id}, ${u.version}, ${a}, ${b}, ${status}, ${outcome ? j(outcome) : null}::jsonb, ${reason}, ${user.id})`;
+           VALUES (${m.id}, ${u.version}, ${a}, ${b}, ${status}, ${outcome ? j(outcome) : null}::text::jsonb, ${reason}, ${user.id})`;
 }
 
 export async function matchContext(tx: Tx, user: CurrentUser, matchId: string) {
