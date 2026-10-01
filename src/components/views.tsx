@@ -125,7 +125,7 @@ export function StandingsTable({ lc, zoneId, compact = false }: { lc: LoadedCate
               return (
                 <tr key={r.entryId} className={`${q ? "q" : ""} ${withdrawn.has(r.entryId) ? "out" : ""}`}>
                   <td className="num">{r.unresolvedTie ? `${r.position}=` : r.position}</td>
-                  <td>{entryLabel(lc.entryMap.get(r.entryId))}{withdrawn.has(r.entryId) && <> <span className="badge err">Retirada</span></>}</td>
+                  <td style={{ whiteSpace: "nowrap", fontWeight: 600 }}>{entryLabel(lc.entryMap.get(r.entryId))}{withdrawn.has(r.entryId) && <> <span className="badge err">Retirada</span></>}</td>
                   <td className="num">{r.played}</td>
                   <td className="num"><b>{r.won}</b></td>
                   {!compact && <td className="num hide-sm">{r.lost}</td>}
