@@ -9,7 +9,9 @@ export default async function Dashboard() {
   const tournaments = await sql<{ id: string; name: string; slug: string; start_date: string; end_date: string; status: string;
     pending: number; in_play: number; played: number; entries: number; categories: number }[]>`
     SELECT t.id, t.name, t.slug, t.start_date, t.end_date, t.status,
-      (SELECT count(*)::int FROM matches m JOIN tournament_categories tc ON tc.id = m.tc_id WHERE tc.tournament_id = t.id AND m.status = 'PENDING') AS pending,
+      (SELECT count(*)::int FROM matches m JOIN tournament_categories tc ON tc.id = m.tc_id WHERE tc.tournament_id = t.id AND m.status = 'PENDING'
+        AND NOT (m.phase = 'BRACKET' AND EXISTS (SELECT 1 FROM jsonb_array_elements(tc.bracket) d
+                 WHERE d->>'code' = m.bracket_code AND (d->'a'->>'t' = 'BYE' OR d->'b'->>'t' = 'BYE')))) AS pending,
       (SELECT count(*)::int FROM matches m JOIN tournament_categories tc ON tc.id = m.tc_id WHERE tc.tournament_id = t.id AND m.status = 'IN_PLAY') AS in_play,
       (SELECT count(*)::int FROM matches m JOIN tournament_categories tc ON tc.id = m.tc_id WHERE tc.tournament_id = t.id AND m.status = 'PLAYED') AS played,
       (SELECT count(*)::int FROM entries e JOIN tournament_categories tc ON tc.id = e.tc_id WHERE tc.tournament_id = t.id AND e.status = 'ACTIVE') AS entries,

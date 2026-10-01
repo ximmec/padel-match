@@ -78,13 +78,15 @@ export async function loadTournamentSchedule(db: Db, tournamentId: string, orgId
         const def = lc.tc.bracket.find((d) => d.code === m.bracket_code);
         const rm = lc.view.bracket.find((b) => b.code === m.bracket_code);
         if (!def || !rm) continue;
-        if (rm.byeAdvance || (rm.a.kind === "BYE" && rm.b.kind === "BYE")) continue; // pase libre: no se juega
+        // Pase libre: no se juega (se detecta aunque las zonas aún no estén definidas)
+        if (def.a.t === "BYE" || def.b.t === "BYE" || rm.byeAdvance || (rm.a.kind === "BYE" && rm.b.kind === "BYE")) continue;
         const deps = [def.a, def.b].filter((r) => r.t === "WINNER").map((r) => (r.t === "WINNER" ? codeToId.get(r.match) : undefined)).filter((x): x is string => !!x);
         // Si un partido alimentador fue pase libre, no hay dependencia real.
         const realDeps = deps.filter((id) => {
           const code = lc.matches.find((x) => x.id === id)?.bracket_code;
           const feeder = lc.view.bracket.find((b) => b.code === code);
-          return feeder && !feeder.byeAdvance;
+          const fdef = lc.tc.bracket.find((d) => d.code === code);
+          return feeder && !feeder.byeAdvance && fdef && fdef.a.t !== "BYE" && fdef.b.t !== "BYE";
         });
         // Los partidos de primera ronda dependen de que terminen las zonas: van después de todos los de zona.
         const zoneIds = def.round === 1 ? lc.matches.filter((x) => x.phase === "ZONE" && x.status !== "ANNULLED").map((x) => x.id) : [];

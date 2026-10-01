@@ -33,7 +33,12 @@ export default async function CategoryPage({ params, searchParams }: { params: P
   try { lc = await loadCategory(sql, tcId, u.orgId); } catch { notFound(); }
   if (lc.tc.tournament_id !== id) notFound();
   const active = lc.entries.filter((e) => e.status === "ACTIVE");
-  const pending = lc.matches.filter((m) => m.status !== "PLAYED" && m.status !== "ANNULLED").length;
+  const isByeMatch = (code: string | null) => {
+    const d = lc.tc.bracket.find((x) => x.code === code);
+    const rm = lc.view.bracket.find((x) => x.code === code);
+    return !!d && (d.a.t === "BYE" || d.b.t === "BYE" || !!rm?.byeAdvance || (rm?.a.kind === "BYE" && rm?.b.kind === "BYE"));
+  };
+  const pending = lc.matches.filter((m) => m.status !== "PLAYED" && m.status !== "ANNULLED" && !(m.phase === "BRACKET" && isByeMatch(m.bracket_code))).length;
 
   return (
     <div className="stack">

@@ -165,8 +165,9 @@ export function BracketView({ lc, zoneNames, renderFoot }: { lc: LoadedCategory;
       {rounds.map((r) => {
         const ms = lc.view.bracket.filter((m) => m.round === r).sort((a, b) => a.index - b.index);
         return (
-          <div className="round" key={r}>
+          <div className="round-col" key={r}>
             <div className="round-title">{roundName(ms.length)}</div>
+            <div className="round">
             {ms.map((m) => {
               const row = lc.matches.find((x) => x.phase === "BRACKET" && x.bracket_code === m.code);
               const sideEl = (s: "A" | "B") => {
@@ -179,21 +180,21 @@ export function BracketView({ lc, zoneNames, renderFoot }: { lc: LoadedCategory;
                   </div>
                 );
               };
+              const isBye = m.byeAdvance || m.a.kind === "BYE" || m.b.kind === "BYE";
               return (
                 <div className={`bm ${m.staleResult ? "stale" : ""}`} key={m.code}>
-                  <span className="code">{m.code}</span>
                   {sideEl("A")}
                   {sideEl("B")}
-                  {(row?.scheduled_at || m.staleResult || renderFoot) && (
-                    <div className="foot">
-                      {m.staleResult && <span className="badge warn">Resultado a revisar</span>}{" "}
-                      {row?.scheduled_at && <>🕒 {fmtDateTime(row.scheduled_at)} {row.court_name ? `· ${row.court_name}` : ""}</>}
-                      {renderFoot?.(m, row)}
-                    </div>
-                  )}
+                  <div className="foot">
+                    <span className="code">{m.code}</span>{" "}
+                    {m.staleResult && <span className="badge warn">Resultado a revisar</span>}{" "}
+                    {!isBye && row?.scheduled_at && <>🕒 {fmtDateTime(row.scheduled_at)} {row.court_name ? `· ${row.court_name}` : ""}</>}
+                    {renderFoot?.(m, row)}
+                  </div>
                 </div>
               );
             })}
+            </div>
           </div>
         );
       })}
