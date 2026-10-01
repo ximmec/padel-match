@@ -19,9 +19,8 @@ export interface ActionState {
   at?: number;
 }
 
-export class NeedsConfirmation extends Error {
-  constructor(public title: string, public items: string[]) { super(title); }
-}
+import { NeedsConfirmation } from "./errors";
+export { NeedsConfirmation };
 
 export function isConfirmed(fd: FormData) {
   return fd.get("__confirm") === "1";

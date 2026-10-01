@@ -38,4 +38,5 @@ export const ACTION_LABELS: Record<string, string> = {
   ranking_adjust: "Ajuste manual de ranking",
   tiebreak: "Desempate manual",
   login: "Inicio de sesión",
+  export: "Exportación",
 };

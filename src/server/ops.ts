@@ -6,7 +6,7 @@ import type { Tx } from "./db";
 import { UserError } from "./db";
 import type { CurrentUser } from "./auth";
 import { audit } from "./audit";
-import { NeedsConfirmation } from "./action";
+import { NeedsConfirmation } from "./errors";
 import { loadCategory, entryLabel, type LoadedCategory, type MatchRow } from "./category";
 import { recalcRanking } from "./ranking";
 import {

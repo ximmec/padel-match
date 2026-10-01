@@ -1,0 +1,55 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: padel
+          POSTGRES_PASSWORD: padel
+          POSTGRES_DB: padel_test
+        ports: ["5432:5432"]
+        options: >-
+          --health-cmd "pg_isready -U padel"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    env:
+      DATABASE_URL: postgres://padel:padel@localhost:5432/padel_test
+      NEXT_TELEMETRY_DISABLED: "1"
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Instalar dependencias
+        run: npm install --no-audit --no-fund
+      - name: Verificar tipos (TypeScript)
+        run: npx tsc --noEmit
+      - name: Pruebas de la lógica de dominio
+        run: npm test
+      - name: Migraciones de base de datos
+        run: npm run migrate
+      - name: Pruebas de integración con PostgreSQL
+        run: npm run test:db
+      - name: Compilar la aplicación (Next.js)
+        run: npm run build:app
+      - name: Prueba de humo (servidor real)
+        run: |
+          npx next start -p 3000 &
+          for i in $(seq 1 30); do curl -sf http://localhost:3000/api/health && break; sleep 1; done
+          curl -sf http://localhost:3000/api/health
+          curl -sf -o /dev/null -w "home %{http_code}\n" http://localhost:3000/
+          curl -s -o /dev/null -w "setup %{http_code}\n" http://localhost:3000/setup
+          curl -s -o /dev/null -w "admin %{http_code}\n" http://localhost:3000/admin
+          code=$(curl -s -o /dev/null -w "%{http_code}" http://localhost:3000/)
+          test "$code" = "200"

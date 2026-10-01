@@ -5,7 +5,7 @@ import type { Db, Tx } from "./db";
 import { UserError } from "./db";
 import type { CurrentUser } from "./auth";
 import { audit } from "./audit";
-import { NeedsConfirmation } from "./action";
+import { NeedsConfirmation } from "./errors";
 import { loadCategory, entryLabel, type LoadedCategory, type MatchRow } from "./category";
 import { generateSchedule, rescheduleFrom, validateSchedule, type CourtInput, type SchedMatch, type Assignment } from "@/core/scheduling";
 import { roundName } from "@/core/bracket";
