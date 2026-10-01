@@ -145,7 +145,7 @@ test("corrección con confirmación e historial", async ({ page }) => {
   await first.locator('input[name="s1b"]').fill("6");
   await first.locator('input[name="s2a"]').fill("2");
   await first.locator('input[name="s2b"]').fill("6");
-  await first.locator('input[name="reason"]').fill("Error de carga");
+  await first.getByPlaceholder("Motivo de la corrección").fill("Error de carga");
   await first.getByRole("button", { name: "Corregir" }).click();
   const confirm = first.getByRole("button", { name: "Confirmar y aplicar" });
   await expect(first.getByText(/Resultado guardado|Esta corrección afecta/)).toBeVisible();
