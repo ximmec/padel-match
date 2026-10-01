@@ -437,6 +437,8 @@ export async function recordResult(tx: Tx, user: CurrentUser, matchId: string, o
   }
 
   await saveMatchResult(tx, user, m, "PLAYED", outcome, reason ?? (isCorrection ? "Corrección" : null), entryA, entryB);
+  // Con el primer resultado, el torneo pasa a "En curso"
+  await tx`UPDATE tournaments SET status = 'IN_PROGRESS', updated_at = now() WHERE id = ${lc.tc.tournament_id} AND status = 'OPEN'`;
   await audit(tx, user, {
     entity: "match", entityId: m.id, action: isCorrection ? "result_correction" : "result", tournamentId: lc.tc.tournament_id,
     summary: `${matchLabel(lc, m)} · ${isCorrection ? `${m.outcome ? scoreText(m.outcome) : "—"} → ` : ""}${scoreText(outcome)}${reason ? ` (${reason})` : ""}`,
