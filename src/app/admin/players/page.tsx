@@ -3,12 +3,12 @@ import { requireUser, can } from "@/server/auth";
 import { sql } from "@/server/db";
 import { ActionForm, Submit } from "@/components/ActionForm";
 import { PlayerFields } from "@/components/PlayerFields";
-import { createPlayerAction } from "@/server/actions/admin";
+import { createPlayerAction, importPlayersAction } from "@/server/actions/admin";
 
 export const metadata = { title: "Jugadores" };
 const PAGE = 50;
 
-export default async function PlayersPage({ searchParams }: { searchParams: Promise<{ q?: string; page?: string; new?: string; deleted?: string }> }) {
+export default async function PlayersPage({ searchParams }: { searchParams: Promise<{ q?: string; page?: string; new?: string; deleted?: string; import?: string }> }) {
   const u = await requireUser();
   const sp = await searchParams;
   const q = (sp.q ?? "").trim();
@@ -49,6 +49,34 @@ export default async function PlayersPage({ searchParams }: { searchParams: Prom
               <label className="checkbox" style={{ marginBottom: 12 }}><input type="checkbox" name="__force" value="1" /> Crear igual aunque exista alguien con el mismo nombre</label>
               <input type="hidden" name="__return" value="/admin/players" />
               <Submit className="btn primary">Crear jugador</Submit>
+            </ActionForm>
+          </div>
+        </details>
+      )}
+
+      {can(u, "players.manage") && (
+        <details className="card" open={sp.import === "1" || total === 0}>
+          <summary>📥 Importar jugadores desde Excel</summary>
+          <div style={{ marginTop: 12 }} className="stack">
+            <ol style={{ margin: 0, paddingLeft: 20, fontSize: 14 }}>
+              <li>Tu Excel tiene que tener en la <b>primera fila los títulos</b> de las columnas. Se reconocen: <b>Nombre</b>, <b>Apellido</b> (o una sola columna <b>Nombre y apellido</b>), <b>Sexo/Género</b>, <b>DNI</b>, <b>Teléfono/Celular</b>, <b>Email</b> y <b>Ciudad</b>. Solo nombre y apellido son obligatorios.</li>
+              <li>Elegí el archivo y tocá <b>Revisar</b>. Antes de cargar nada te muestro un resumen: cuántos son nuevos, cuáles ya existían y si alguna fila tiene problemas.</li>
+              <li>Si está todo bien, tocá <b>Confirmar y aplicar</b>.</li>
+            </ol>
+            <p className="muted" style={{ fontSize: 13, margin: 0 }}>¿No sabés cómo armarlo? <a href="/api/export?type=players-template">Descargá esta planilla modelo</a> y completala.</p>
+            <ActionForm action={importPlayersAction}>
+              <div className="grid grid-2" style={{ gap: 12 }}>
+                <div className="field"><label>Archivo (.xlsx o .csv)</label><input type="file" name="file" accept=".xlsx,.csv" required /></div>
+                <div className="field"><label>Si el Excel no tiene columna de género, usar:</label>
+                  <select name="default_gender" defaultValue="">
+                    <option value="">— Mi Excel tiene la columna de género —</option>
+                    <option value="M">Todos masculinos</option>
+                    <option value="F">Todas femeninas</option>
+                  </select>
+                  <div className="hint">Si la columna existe pero alguna celda está vacía, también se usa esta opción.</div>
+                </div>
+              </div>
+              <Submit className="btn primary" pendingText="Leyendo el archivo…">Revisar</Submit>
             </ActionForm>
           </div>
         </details>

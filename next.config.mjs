@@ -2,6 +2,9 @@
 const nextConfig = {
   serverExternalPackages: ["exceljs"],
   poweredByHeader: false,
+  experimental: {
+    serverActions: { bodySizeLimit: "5mb" },
+  },
   async headers() {
     return [
       {

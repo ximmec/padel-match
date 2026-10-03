@@ -3,7 +3,8 @@
 import { z } from "zod";
 import { sql, UserError } from "../db";
 import { audit } from "../audit";
-import { runAction, str, optStr, int, req, uuid, type ActionState } from "../action";
+import { runAction, str, optStr, int, req, uuid, isConfirmed, type ActionState } from "../action";
+import { importPlayers } from "../importPlayers";
 import { hashPassword, passwordProblems } from "../password";
 import { uniqueSlug, addCategory, slugify } from "../ops";
 import { DEFAULT_RULES } from "@/core/engine";
@@ -355,4 +356,17 @@ export async function createOrgAction(_p: ActionState, fd: FormData): Promise<Ac
     });
     return { message: "Organizador creado. Cambiá a él desde el selector superior." };
   }, ["/admin"]);
+}
+
+/* --------------------------- Importación de jugadores --------------------------- */
+
+export async function importPlayersAction(_p: ActionState, fd: FormData): Promise<ActionState> {
+  return runAction("players.manage", async (user) => {
+    const file = fd.get("file");
+    if (!(file instanceof File) || file.size === 0) throw new UserError("Elegí el archivo de Excel.");
+    const g = str(fd, "default_gender");
+    const defaultGender = g === "M" || g === "F" || g === "X" ? g : null;
+    const r = await sql.begin((tx) => importPlayers(tx, user, file, defaultGender, isConfirmed(fd)));
+    return { message: `¡Listo! Se cargaron ${r.created} jugador(es).${r.skipped ? ` ${r.skipped} ya existían y se omitieron.` : ""}${r.issues ? ` ${r.issues} fila(s) tenían problemas y no se cargaron.` : ""}` };
+  }, ["/admin/players"]);
 }

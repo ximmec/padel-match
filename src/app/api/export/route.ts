@@ -3,7 +3,7 @@ import { sql } from "@/server/db";
 import { getCurrentUser } from "@/server/auth";
 import { isUuid } from "@/server/action";
 import { audit } from "@/server/audit";
-import { tournamentWorkbook, categoryWorkbook, rankingWorkbook, auditWorkbook, playersWorkbook, fileName } from "@/server/export";
+import { tournamentWorkbook, categoryWorkbook, rankingWorkbook, auditWorkbook, playersWorkbook, playersTemplateWorkbook, fileName } from "@/server/export";
 
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
@@ -12,9 +12,9 @@ export const maxDuration = 60;
 export async function GET(req: Request) {
   const user = await getCurrentUser();
   if (!user) return NextResponse.json({ error: "Iniciá sesión" }, { status: 401 });
-  if (!user.permissions.has("exports.download")) return NextResponse.json({ error: "Sin permiso" }, { status: 403 });
   const p = new URL(req.url).searchParams;
   const type = p.get("type");
+  if (type !== "players-template" && !user.permissions.has("exports.download")) return NextResponse.json({ error: "Sin permiso" }, { status: 403 });
   const id = (k: string) => { const v = p.get(k); return v && isUuid(v) ? v : null; };
   try {
     let out;
@@ -34,6 +34,9 @@ export async function GET(req: Request) {
       }
       case "ranking":
         out = await rankingWorkbook(sql, user.orgId, { categoryId: id("category") ?? undefined, circuitId: id("circuit") ?? undefined, seasonId: id("season") ?? undefined });
+        break;
+      case "players-template":
+        out = await playersTemplateWorkbook();
         break;
       case "players":
         out = await playersWorkbook(sql, user.orgId);

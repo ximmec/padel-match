@@ -145,3 +145,12 @@ export function fileName(name: string) {
   const date = fmtDate(new Date()).replace(/\//g, "-");
   return `${name} ${date}.xlsx`.replace(/[^\w\s.\-áéíóúñÁÉÍÓÚÑ]/g, "").replace(/\s+/g, " ");
 }
+
+export async function playersTemplateWorkbook() {
+  const wb = new ExcelJS.Workbook();
+  sheet(wb, "Jugadores", ["Nombre", "Apellido", "Sexo", "DNI", "Celular", "Email", "Ciudad"], [
+    ["Juan", "Pérez", "M", "30123456", "11 5555-1234", "juan@ejemplo.com", "La Plata"],
+    ["Ana", "López", "F", "", "", "", ""],
+  ], [16, 18, 8, 14, 16, 26, 16]);
+  return { wb, name: "Planilla modelo de jugadores" };
+}
