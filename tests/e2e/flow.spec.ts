@@ -192,3 +192,30 @@ test("vista pública en celular", async ({ browser }) => {
   await shot(page, "26-movil-ranking");
   await ctx.close();
 });
+
+test("importar jugadores desde Excel", async ({ page }) => {
+  await login(page);
+  const ExcelJS = (await import("exceljs")).default;
+  const wb = new ExcelJS.Workbook();
+  const ws = wb.addWorksheet("Hoja1");
+  ws.addRow(["Listado de jugadores"]);
+  ws.addRow(["Nombre y apellido", "Sexo", "D.N.I.", "Celular"]);
+  ws.addRow(["LAURA FERNÁNDEZ", "F", "28.111.222", "221 555 0001"]);
+  ws.addRow(["Sofía Ramos", "Mujer", "", ""]);
+  ws.addRow(["Carla", "F", "", ""]); // sin apellido → problema
+  ws.addRow(["Juan Gómez", "M", "", ""]); // ya existe
+  const buffer = Buffer.from(await wb.xlsx.writeBuffer());
+
+  await page.goto("/admin/players?import=1");
+  await page.locator('input[name="file"]').setInputFiles({ name: "jugadores.xlsx", mimeType: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", buffer });
+  await page.getByRole("button", { name: "Revisar" }).click();
+  await expect(page.getByText(/Revisá antes de importar: 2 jugador/)).toBeVisible();
+  await expect(page.getByText(/ya existían/)).toBeVisible();
+  await expect(page.getByText(/Fila 5/)).toBeVisible();
+  await shot(page, "30-importar-revision");
+  await page.getByRole("button", { name: "Confirmar y aplicar" }).click();
+  await expect(page.getByText(/Se cargaron 2 jugador/)).toBeVisible();
+  await page.goto("/admin/players?q=fernandez");
+  await expect(page.getByText("Fernández").first()).toBeVisible();
+  await shot(page, "31-importar-resultado");
+});
