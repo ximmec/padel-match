@@ -74,6 +74,8 @@ jobs:
       - name: Publicar capturas de pantalla
         if: always()
         run: |
+          mkdir -p e2e-shots
+          if [ -d test-results ]; then find test-results -name "*.png" -exec sh -c 'cp "$1" "e2e-shots/fallo-$(basename "$(dirname "$1")").png"' _ {} \; ; fi
           if [ -d e2e-shots ] && [ "$(ls -A e2e-shots)" ]; then
             cd e2e-shots
             git init -q && git checkout -q -b ci-shots
@@ -93,5 +95,5 @@ jobs:
             echo '...'
             tail -n 80 ci-output.txt
             echo '```'
-          } > comment.md
+          } | sed 's/\x1b\[[0-9;]*m//g' | head -c 60000 > comment.md
           gh api "repos/${GITHUB_REPOSITORY}/commits/${GITHUB_SHA}/comments" -F body=@comment.md > /dev/null

@@ -11,5 +11,6 @@ export default defineConfig({
     locale: "es-AR",
     timezoneId: "America/Argentina/Buenos_Aires",
     viewport: { width: 1366, height: 900 },
+    screenshot: "only-on-failure",
   },
 });
