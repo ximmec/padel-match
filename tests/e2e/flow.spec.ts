@@ -210,7 +210,7 @@ test("importar jugadores desde Excel", async ({ page }) => {
   await page.locator('input[name="file"]').setInputFiles({ name: "jugadores.xlsx", mimeType: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", buffer });
   await page.getByRole("button", { name: "Revisar" }).click();
   await expect(page.getByText(/Revisá antes de importar: 2 jugador/)).toBeVisible();
-  await expect(page.getByText(/ya existían/)).toBeVisible();
+  await expect(page.getByText(/1 ya existían y se van a omitir/)).toBeVisible();
   await expect(page.getByText(/Fila 5/)).toBeVisible();
   await shot(page, "30-importar-revision");
   await page.getByRole("button", { name: "Confirmar y aplicar" }).click();
