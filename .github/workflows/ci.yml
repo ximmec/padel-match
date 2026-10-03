@@ -78,6 +78,7 @@ jobs:
           if [ -d test-results ]; then find test-results -name "*.png" -exec sh -c 'cp "$1" "e2e-shots/fallo-$(basename "$(dirname "$1")").png"' _ {} \; ; fi
           if [ -d e2e-shots ] && [ "$(ls -A e2e-shots)" ]; then
             cd e2e-shots
+            echo '{"git":{"deploymentEnabled":false}}' > vercel.json
             git init -q && git checkout -q -b ci-shots
             git config user.email "ci@padel-match.net" && git config user.name "CI"
             git add -A && git commit -qm "Capturas ${GITHUB_SHA::7}"
