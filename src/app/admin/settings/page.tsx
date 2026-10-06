@@ -7,7 +7,7 @@ import { PERMISSIONS, PERMISSION_LABELS, ROLE_LABELS, effectivePermissions, type
 
 export const metadata = { title: "Configuración" };
 
-const RULE_LABEL: Record<string, string> = { MALE: "Masculina", FEMALE: "Femenina", MIXED: "Mixta", OPEN: "Libre / personalizada" };
+const RULE_LABEL: Record<string, string> = { MALE: "Masculina", FEMALE: "Femenina", MIXED: "Mixta (cualquier combinación)", OPEN: "Libre / personalizada" };
 
 export default async function SettingsPage() {
   const u = await requireUser();

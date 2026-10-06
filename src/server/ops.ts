@@ -86,7 +86,7 @@ async function checkGender(tx: Tx, rule: string, playerIds: string[], orgId: str
   const g = ps.map((p) => p.gender).sort().join("");
   if (rule === "MALE" && g !== "MM") throw new UserError("Esta categoría es masculina: ambos jugadores deben ser hombres.");
   if (rule === "FEMALE" && g !== "FF") throw new UserError("Esta categoría es femenina: ambas jugadoras deben ser mujeres.");
-  if (rule === "MIXED" && g !== "FM") throw new UserError("Esta categoría es mixta: la pareja debe ser un hombre y una mujer.");
+  // Mixta: se permite cualquier combinación (dos hombres, dos mujeres o un hombre y una mujer).
   return ps;
 }
 

@@ -222,3 +222,16 @@ test("ajuste manual exige motivo y la auditoría es inalterable", async () => {
   assert.ok(r.some((x) => x.player_id === p && x.points === 50));
   await assert.rejects(sql`DELETE FROM audit_log WHERE org_id = ${orgId}`, /no se puede modificar/);
 });
+
+test("categoría mixta acepta dos hombres, dos mujeres o un hombre y una mujer", async () => {
+  const [cat] = await sql<{ id: string }[]>`INSERT INTO categories (org_id, name, gender_rule) VALUES (${orgId}, ${"Mixta " + Math.random()}, 'MIXED') RETURNING id`;
+  const [t] = await sql<{ id: string }[]>`INSERT INTO tournaments (org_id, name, slug, start_date, end_date) VALUES (${orgId}, 'Mixto', ${"m-" + Math.random()}, '2026-10-10', '2026-10-10') RETURNING id`;
+  const tcId = await tx((x) => ops.addCategory(x, user, t.id, cat.id, DEFAULT_RULES));
+  const men = await makePlayers(2, "M");
+  const women = await makePlayers(4, "F");
+  await tx((x) => ops.registerEntry(x, user, tcId, men[0], men[1], null));
+  await tx((x) => ops.registerEntry(x, user, tcId, women[0], women[1], null));
+  await tx((x) => ops.registerEntry(x, user, tcId, women[2], (await makePlayers(1, "M"))[0], null));
+  const [{ n }] = await sql<{ n: number }[]>`SELECT count(*)::int AS n FROM entries WHERE tc_id = ${tcId}`;
+  assert.equal(n, 3);
+});

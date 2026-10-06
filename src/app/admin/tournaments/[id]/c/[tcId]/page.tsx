@@ -71,7 +71,7 @@ export default async function CategoryPage({ params, searchParams }: { params: P
 /* ---------------------------------------------------------------- */
 
 async function EntriesTab({ lc, u }: { lc: LoadedCategory; u: CurrentUser }) {
-  const genderFilter = lc.tc.gender_rule === "MALE" ? ["M"] : lc.tc.gender_rule === "FEMALE" ? ["F"] : lc.tc.gender_rule === "MIXED" ? ["M", "F"] : ["M", "F", "X"];
+  const genderFilter = lc.tc.gender_rule === "MALE" ? ["M"] : lc.tc.gender_rule === "FEMALE" ? ["F"] : ["M", "F", "X"];
   const players = await sql<{ id: string; code: string; first_name: string; last_name: string; gender: string; category: string | null; busy: boolean }[]>`
     SELECT p.id, p.code, p.first_name, p.last_name, p.gender, p.category,
       EXISTS (SELECT 1 FROM entry_players ep WHERE ep.player_id = p.id AND ep.tc_id = ${lc.tc.id} AND ep.active) AS busy
@@ -162,7 +162,7 @@ async function EntriesTab({ lc, u }: { lc: LoadedCategory; u: CurrentUser }) {
             <Submit className="btn primary">Inscribir</Submit>
           </ActionForm>
           <p className="muted" style={{ fontSize: 13, marginTop: 12 }}>
-            Solo se muestran jugadores compatibles con la categoría ({lc.tc.gender_rule === "MALE" ? "masculina" : lc.tc.gender_rule === "FEMALE" ? "femenina" : lc.tc.gender_rule === "MIXED" ? "mixta: un hombre y una mujer" : "libre"}) que no estén ya inscriptos.
+            Solo se muestran jugadores compatibles con la categoría ({lc.tc.gender_rule === "MALE" ? "masculina" : lc.tc.gender_rule === "FEMALE" ? "femenina" : lc.tc.gender_rule === "MIXED" ? "mixta: cualquier combinación de hombres y mujeres" : "libre"}) que no estén ya inscriptos.
             ¿Falta alguien? <Link href="/admin/players?new=1" target="_blank">Crear jugador</Link> y recargá esta página.
           </p>
         </div>
