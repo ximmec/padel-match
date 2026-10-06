@@ -175,7 +175,7 @@ test("vista pública en celular", async ({ browser }) => {
   await shot(page, "20-movil-inicio");
   await page.getByText("Abierto de Primavera").click();
   await page.waitForURL(/\/t\//);
-  await expect(page.getByText("En vivo")).toBeVisible();
+  await expect(page.getByText("En vivo", { exact: true })).toBeVisible();
   await shot(page, "21-movil-torneo");
   await page.getByRole("link", { name: /Libre Masculina/ }).first().click();
   await expect(page.getByText(/Zona A/).first()).toBeVisible();
