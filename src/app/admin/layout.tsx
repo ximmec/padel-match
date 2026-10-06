@@ -22,12 +22,13 @@ export default async function AdminLayout({ children }: { children: React.ReactN
     <>
       <header className="topbar">
         <div className="topbar-inner">
-          <Brand href="/admin" />
+          <Brand href="/admin" tld={false} />
           <NavLinks
             exact={["/admin"]}
-            links={[...links.filter((l) => l[2]).map(([href, label]) => ({ href, label })), { href: "/", label: "Vista pública ↗", external: true }]}
+            links={[...links.filter((l) => l[2]).map(([href, label]) => ({ href, label }))]}
           />
           <div className="user">
+            <Link href="/" target="_blank" className="btn ghost sm">Vista pública ↗</Link>
             {u.orgs.length > 1 ? (
               <form action={switchOrgAction} className="row">
                 <select name="orgId" defaultValue={u.orgId} aria-label="Organizador">
