@@ -231,7 +231,8 @@ test("categoría mixta acepta dos hombres, dos mujeres o un hombre y una mujer",
   const women = await makePlayers(4, "F");
   await tx((x) => ops.registerEntry(x, user, tcId, men[0], men[1], null));
   await tx((x) => ops.registerEntry(x, user, tcId, women[0], women[1], null));
-  await tx((x) => ops.registerEntry(x, user, tcId, women[2], (await makePlayers(1, "M"))[0], null));
+  const [man3] = await makePlayers(1, "M");
+  await tx((x) => ops.registerEntry(x, user, tcId, women[2], man3, null));
   const [{ n }] = await sql<{ n: number }[]>`SELECT count(*)::int AS n FROM entries WHERE tc_id = ${tcId}`;
   assert.equal(n, 3);
 });
