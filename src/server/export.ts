@@ -149,8 +149,8 @@ export function fileName(name: string) {
 export async function playersTemplateWorkbook() {
   const wb = new ExcelJS.Workbook();
   sheet(wb, "Jugadores", ["Nombre", "Apellido", "Sexo", "Categoría", "DNI", "Celular", "Email", "Ciudad"], [
-    ["Juan", "Pérez", "M", "4ta", "30123456", "11 5555-1234", "juan@ejemplo.com", "La Plata"],
-    ["Ana", "López", "F", "6ta", "", "", "", ""],
+    ["Juan", "Pérez", "M", "Advanced", "30123456", "11 5555-1234", "juan@ejemplo.com", "La Plata"],
+    ["Ana", "López", "F", "Beginner", "", "", "", ""],
   ], [16, 18, 8, 12, 14, 16, 26, 16]);
   return { wb, name: "Planilla modelo de jugadores" };
 }

@@ -4,6 +4,7 @@ import { sql } from "@/server/db";
 import { ActionForm, Submit } from "@/components/ActionForm";
 import { PlayerFields } from "@/components/PlayerFields";
 import { createPlayerAction, importPlayersAction } from "@/server/actions/admin";
+import { PLAYER_CATEGORIES } from "@/core/playerImport";
 
 export const metadata = { title: "Jugadores" };
 const PAGE = 50;
@@ -16,9 +17,9 @@ export default async function PlayersPage({ searchParams }: { searchParams: Prom
   const showDeleted = sp.deleted === "1";
   const cat = (sp.cat ?? "").trim();
   const sexo = sp.sexo === "M" || sp.sexo === "F" || sp.sexo === "X" ? sp.sexo : "";
-  const categories = (await sql<{ category: string; n: number }[]>`
-    SELECT category, count(*)::int AS n FROM players WHERE org_id = ${u.orgId} AND deleted_at IS NULL AND category IS NOT NULL
-    GROUP BY category ORDER BY lower(category)`);
+  const counts = await sql<{ category: string; n: number }[]>`
+    SELECT category, count(*)::int AS n FROM players WHERE org_id = ${u.orgId} AND deleted_at IS NULL AND category IS NOT NULL GROUP BY category`;
+  const categories = PLAYER_CATEGORIES.map((c) => ({ category: c, n: counts.find((x) => x.category === c)?.n ?? 0 }));
   const like = `%${q.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase()}%`;
   const rows = await sql<{ id: string; code: string; first_name: string; last_name: string; gender: string; category: string | null; city: string | null; document: string | null; deleted_at: Date | null; points: number; events: number; total: number }[]>`
     SELECT p.id, p.code, p.first_name, p.last_name, p.gender, p.category, p.city, p.document, p.deleted_at,
@@ -74,7 +75,7 @@ export default async function PlayersPage({ searchParams }: { searchParams: Prom
           <summary>📥 Importar jugadores desde Excel</summary>
           <div style={{ marginTop: 12 }} className="stack">
             <ol style={{ margin: 0, paddingLeft: 20, fontSize: 14 }}>
-              <li>Tu Excel tiene que tener en la <b>primera fila los títulos</b> de las columnas. Se reconocen: <b>Nombre</b>, <b>Apellido</b> (o una sola columna <b>Nombre y apellido</b>), <b>Sexo/Género</b>, <b>Categoría</b>, <b>DNI</b>, <b>Teléfono/Celular</b>, <b>Email</b> y <b>Ciudad</b>. Solo nombre y apellido son obligatorios.</li>
+              <li>Tu Excel tiene que tener en la <b>primera fila los títulos</b> de las columnas. Se reconocen: <b>Nombre</b>, <b>Apellido</b> (o una sola columna <b>Nombre y apellido</b>), <b>Sexo/Género</b>, <b>Categoría</b> (Beginner o Advanced), <b>DNI</b>, <b>Teléfono/Celular</b>, <b>Email</b> y <b>Ciudad</b>. Solo nombre y apellido son obligatorios.</li>
               <li>Elegí el archivo y tocá <b>Revisar</b>. Antes de cargar nada te muestro un resumen: cuántos son nuevos, cuáles ya existían y si alguna fila tiene problemas.</li>
               <li>Si está todo bien, tocá <b>Confirmar y aplicar</b>.</li>
             </ol>

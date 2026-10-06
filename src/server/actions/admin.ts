@@ -5,6 +5,7 @@ import { sql, UserError } from "../db";
 import { audit } from "../audit";
 import { runAction, str, optStr, int, req, uuid, isConfirmed, type ActionState } from "../action";
 import { importPlayers } from "../importPlayers";
+import { PLAYER_CATEGORIES } from "@/core/playerImport";
 import { hashPassword, passwordProblems } from "../password";
 import { uniqueSlug, addCategory, slugify } from "../ops";
 import { DEFAULT_RULES } from "@/core/engine";
@@ -21,7 +22,7 @@ const playerSchema = z.object({
   phone: z.string().trim().max(30).optional().transform((v) => v || null),
   email: z.string().trim().max(120).optional().transform((v) => v || null).refine((v) => !v || /^\S+@\S+\.\S+$/.test(v), "Email inválido"),
   city: z.string().trim().max(60).optional().transform((v) => v || null),
-  category: z.string().trim().max(40).optional().transform((v) => v || null),
+  category: z.string().trim().optional().transform((v) => v || null).refine((v) => v === null || (PLAYER_CATEGORIES as readonly string[]).includes(v), "Categoría inválida"),
   notes: z.string().trim().max(500).optional().transform((v) => v || null),
 });
 

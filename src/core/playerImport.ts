@@ -5,6 +5,19 @@
 
 export type Gender = "M" | "F" | "X";
 
+/** Categorías de jugador disponibles. */
+export const PLAYER_CATEGORIES = ["Beginner", "Advanced"] as const;
+export type PlayerCategory = (typeof PLAYER_CATEGORIES)[number];
+
+/** Reconoce la categoría escrita de distintas formas (en inglés o castellano). */
+export function parsePlayerCategory(v: string): PlayerCategory | null {
+  const c = fold(v).replace(/[^a-z]/g, "");
+  if (!c) return null;
+  if (/^(beginner|begginer|principiante|inicial|iniciante|basico|b)$/.test(c)) return "Beginner";
+  if (/^(advanced|advance|avanzado|avanzada|a)$/.test(c)) return "Advanced";
+  return null;
+}
+
 export interface ImportedPlayer {
   row: number; // número de fila en la planilla (1 = primera)
   first_name: string;
@@ -136,6 +149,9 @@ export function parsePlayerSheet(rows: string[][], defaultGender: Gender | null)
     const email = emailRaw && /^\S+@\S+\.\S+$/.test(emailRaw) ? emailRaw.toLowerCase().slice(0, 120) : null;
     if (emailRaw && !email) issues.push({ row: rowNo, message: `Email inválido «${emailRaw}» (se importa sin email).` });
 
+    if (cell("category") && !parsePlayerCategory(cell("category"))) {
+      issues.push({ row: rowNo, message: `Categoría «${cell("category")}» no reconocida: usá Beginner o Advanced (se importa sin categoría).` });
+    }
     const p: ImportedPlayer = {
       row: rowNo,
       first_name: niceName(first).slice(0, 60),
@@ -145,7 +161,7 @@ export function parsePlayerSheet(rows: string[][], defaultGender: Gender | null)
       phone: cell("phone").slice(0, 30) || null,
       email,
       city: cell("city") ? niceName(cell("city")).slice(0, 60) : null,
-      category: cell("category") ? cell("category").replace(/\s+/g, " ").trim().slice(0, 40) : null,
+      category: parsePlayerCategory(cell("category")),
     };
     const key = document ? `doc:${document}` : `name:${fold(p.first_name)}|${fold(p.last_name)}`;
     if (seen.has(key)) { issues.push({ row: rowNo, message: `Repetido en la planilla (igual a la fila ${seen.get(key)}).` }); continue; }
