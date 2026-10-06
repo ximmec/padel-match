@@ -369,6 +369,6 @@ export async function importPlayersAction(_p: ActionState, fd: FormData): Promis
     const g = str(fd, "default_gender");
     const defaultGender = g === "M" || g === "F" || g === "X" ? g : null;
     const r = await sql.begin((tx) => importPlayers(tx, user, file, defaultGender, isConfirmed(fd)));
-    return { message: `¡Listo! Se cargaron ${r.created} jugador(es).${r.skipped ? ` ${r.skipped} ya existían y se omitieron.` : ""}${r.issues ? ` ${r.issues} fila(s) tenían problemas y no se cargaron.` : ""}` };
+    return { message: `¡Listo! Se cargaron ${r.created} jugador(es).${r.updated ? ` Se actualizó la categoría de ${r.updated}.` : ""}${r.skipped ? ` ${r.skipped} ya existían sin cambios.` : ""}${r.issues ? ` ${r.issues} fila(s) tenían problemas y no se cargaron.` : ""}` };
   }, ["/admin/players"]);
 }

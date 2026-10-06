@@ -210,7 +210,7 @@ test("importar jugadores desde Excel", async ({ page }) => {
   await page.locator('input[name="file"]').setInputFiles({ name: "jugadores.xlsx", mimeType: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", buffer });
   await page.getByRole("button", { name: "Revisar" }).click();
   await expect(page.getByText(/Revisá antes de importar: 2 jugador/)).toBeVisible();
-  await expect(page.getByText(/1 ya existían y se van a omitir/)).toBeVisible();
+  await expect(page.getByText(/1 ya existían sin cambios/)).toBeVisible();
   await expect(page.getByText(/Fila 5/)).toBeVisible();
   await shot(page, "30-importar-revision");
   await page.getByRole("button", { name: "Confirmar y aplicar" }).click();
@@ -221,5 +221,18 @@ test("importar jugadores desde Excel", async ({ page }) => {
   await page.goto("/admin/players?cat=Beginner");
   await expect(page.getByText("Ramos").first()).toBeVisible();
   await expect(page.getByText("1 jugador(es)")).toBeVisible();
+
+  // Segunda importación: solo actualiza la categoría de un jugador existente
+  const wb2 = new ExcelJS.Workbook();
+  const ws2 = wb2.addWorksheet("Hoja1");
+  ws2.addRow(["Nombre", "Apellido", "Categoría"]);
+  ws2.addRow(["Juan", "Gómez", "Advanced"]);
+  await page.goto("/admin/players?import=1");
+  await page.locator('input[name="file"]').setInputFiles({ name: "categorias.xlsx", mimeType: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", buffer: Buffer.from(await wb2.xlsx.writeBuffer()) });
+  await page.locator('select[name="default_gender"]').selectOption("M");
+  await page.getByRole("button", { name: "Revisar" }).click();
+  await expect(page.getByText(/1 ya existían: se les actualiza la categoría/)).toBeVisible();
+  await page.getByRole("button", { name: "Confirmar y aplicar" }).click();
+  await expect(page.getByText(/Se actualizó la categoría de 1/)).toBeVisible();
   await shot(page, "31-importar-resultado");
 });

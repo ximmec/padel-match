@@ -72,15 +72,19 @@ export async function importPlayers(tx: Tx, user: CurrentUser, file: File, defau
   if (parsed.players.length > MAX_ROWS) throw new UserError(`Máximo ${MAX_ROWS} jugadores por archivo.`);
 
   // Jugadores que ya existen (por documento o por nombre y apellido)
-  const existing = await tx<{ first_name: string; last_name: string; document: string | null }[]>`
-    SELECT first_name, last_name, document FROM players WHERE org_id = ${user.orgId} AND deleted_at IS NULL`;
-  const docs = new Set(existing.filter((e) => e.document).map((e) => e.document!));
-  const names = new Set(existing.map((e) => `${fold(e.first_name)}|${fold(e.last_name)}`));
+  const existing = await tx<{ id: string; first_name: string; last_name: string; document: string | null; category: string | null }[]>`
+    SELECT id, first_name, last_name, document, category FROM players WHERE org_id = ${user.orgId} AND deleted_at IS NULL`;
+  const byDoc = new Map(existing.filter((e) => e.document).map((e) => [e.document!, e]));
+  const byName = new Map(existing.map((e) => [`${fold(e.first_name)}|${fold(e.last_name)}`, e]));
   const toCreate: ImportedPlayer[] = [];
   const skipped: ImportedPlayer[] = [];
+  // Existentes cuya categoría cambia: se actualiza (útil para completar la categoría de jugadores ya cargados)
+  const toUpdate: { id: string; p: ImportedPlayer; from: string | null }[] = [];
   for (const p of parsed.players) {
-    const dup = p.document ? docs.has(p.document) : names.has(`${fold(p.first_name)}|${fold(p.last_name)}`);
-    if (dup) skipped.push(p); else toCreate.push(p);
+    const match = (p.document ? byDoc.get(p.document) : undefined) ?? byName.get(`${fold(p.first_name)}|${fold(p.last_name)}`);
+    if (!match) toCreate.push(p);
+    else if (p.category && p.category !== match.category) toUpdate.push({ id: match.id, p, from: match.category });
+    else skipped.push(p);
   }
 
   if (!confirmed) {
@@ -91,14 +95,15 @@ export async function importPlayers(tx: Tx, user: CurrentUser, file: File, defau
     if (toCreate.length) {
       items.push(`Ejemplos: ${toCreate.slice(0, 3).map((p) => `${p.first_name} ${p.last_name} (${p.gender === "M" ? "Masc." : p.gender === "F" ? "Fem." : "Otro"}${p.category ? `, ${p.category}` : ""}${p.document ? `, DNI ${p.document}` : ""})`).join(" · ")}`);
     }
-    if (skipped.length) items.push(`⏭ ${skipped.length} ya existían y se van a omitir (por ejemplo: ${skipped.slice(0, 3).map((p) => `${p.first_name} ${p.last_name}`).join(", ")}).`);
+    if (toUpdate.length) items.push(`🔄 ${toUpdate.length} ya existían: se les actualiza la categoría (por ejemplo: ${toUpdate.slice(0, 3).map((u) => `${u.p.first_name} ${u.p.last_name} → ${u.p.category}`).join(", ")}).`);
+    if (skipped.length) items.push(`⏭ ${skipped.length} ya existían sin cambios y se van a omitir (por ejemplo: ${skipped.slice(0, 3).map((p) => `${p.first_name} ${p.last_name}`).join(", ")}).`);
     if (parsed.issues.length) {
       items.push(`⚠ ${parsed.issues.length} fila(s) con problemas que no se van a cargar:`);
       for (const i of parsed.issues.slice(0, 8)) items.push(`Fila ${i.row}: ${i.message}`);
       if (parsed.issues.length > 8) items.push(`… y ${parsed.issues.length - 8} más.`);
     }
-    if (!toCreate.length) throw new UserError(items.slice(1).join(" "));
-    throw new NeedsConfirmation(`Revisá antes de importar: ${toCreate.length} jugador(es)`, items);
+    if (!toCreate.length && !toUpdate.length) throw new UserError(items.slice(1).join(" "));
+    throw new NeedsConfirmation(`Revisá antes de importar: ${toCreate.length} jugador(es) nuevo(s)${toUpdate.length ? ` y ${toUpdate.length} categoría(s) a actualizar` : ""}`, items);
   }
 
   for (const p of toCreate) {
@@ -107,10 +112,13 @@ export async function importPlayers(tx: Tx, user: CurrentUser, file: File, defau
       INSERT INTO players (org_id, code, first_name, last_name, gender, document, phone, email, city, category)
       VALUES (${user.orgId}, ${`PM-${n.padStart(5, "0")}`}, ${p.first_name}, ${p.last_name}, ${p.gender}, ${p.document}, ${p.phone}, ${p.email}, ${p.city}, ${p.category})`;
   }
+  for (const u of toUpdate) {
+    await tx`UPDATE players SET category = ${u.p.category}, updated_at = now() WHERE id = ${u.id}`;
+  }
   await audit(tx, user, {
     entity: "player", action: "create",
-    summary: `Importación desde «${file.name}»: ${toCreate.length} jugador(es) creados, ${skipped.length} ya existentes omitidos, ${parsed.issues.length} fila(s) con problemas`,
-    after: { file: file.name, created: toCreate.length, skipped: skipped.length, issues: parsed.issues.slice(0, 50) },
+    summary: `Importación desde «${file.name}»: ${toCreate.length} jugador(es) creados, ${toUpdate.length} categoría(s) actualizadas, ${skipped.length} ya existentes sin cambios, ${parsed.issues.length} fila(s) con problemas`,
+    after: { file: file.name, created: toCreate.length, updated: toUpdate.map((u) => ({ id: u.id, from: u.from, to: u.p.category })), skipped: skipped.length, issues: parsed.issues.slice(0, 50) },
   });
-  return { created: toCreate.length, skipped: skipped.length, issues: parsed.issues.length };
+  return { created: toCreate.length, updated: toUpdate.length, skipped: skipped.length, issues: parsed.issues.length };
 }
