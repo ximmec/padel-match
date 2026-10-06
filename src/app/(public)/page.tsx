@@ -58,7 +58,7 @@ export default async function Home() {
       <section className="hero">
         <div className="inner hero-home">
           <div>
-            <div className="hero-kicker">Torneos de pádel en vivo</div>
+            <div className="hero-kicker">Play around the world</div>
             <h1>Tu torneo, <span className="accent">en tiempo real</span></h1>
             <p style={{ fontSize: 17, maxWidth: 520 }}>Resultados, zonas, cuadros, horarios y ranking. Buscá tu nombre y enterate cuándo y en qué cancha jugás.</p>
             <form action="/buscar" className="search-big">
@@ -75,7 +75,7 @@ export default async function Home() {
             </div>
           </div>
           {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img className="logo" src="/logo.webp" alt="PADEL-MATCH.NET" width={420} height={420} />
+          <img className="logo" src="/logo.webp" alt="PADEL-MATCH.NET" width={340} height={340} />
         </div>
       </section>
 
