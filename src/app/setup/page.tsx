@@ -14,7 +14,7 @@ export default async function SetupPage() {
       <header className="topbar"><div className="topbar-inner"><Brand /></div></header>
       <div style={{ textAlign: "center", marginTop: 28 }}>
         {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img src="/logo.webp" alt="PADEL-MATCH.NET" width={170} height={170} style={{ borderRadius: "50%", filter: "drop-shadow(0 12px 40px rgba(255,115,0,.3))" }} />
+        <img src="/logo.webp" alt="PADEL-MATCH.NET" width={200} height={200} style={{ mixBlendMode: "lighten" }} />
       </div>
       <main className="container" style={{ maxWidth: 520 }}>
         <div className="card" style={{ marginTop: 12 }}>
