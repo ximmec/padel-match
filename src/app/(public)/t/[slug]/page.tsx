@@ -68,7 +68,7 @@ export default async function PublicTournament({ params }: { params: Promise<{ s
             <div className="card-head"><h2>Próximos partidos</h2></div>
             {[...byDay.entries()].map(([k, items]) => (
               <div key={k}>
-                <div style={{ padding: "8px 12px", background: "#f8fafc", fontWeight: 700, fontSize: 13, textTransform: "capitalize" }}>{fmtDay(items[0].start)}</div>
+                <div style={{ padding: "8px 12px", background: "var(--surface-3)", color: "var(--orange-hi)", fontWeight: 700, fontSize: 13, textTransform: "capitalize" }}>{fmtDay(items[0].start)}</div>
                 {items.slice(0, 60).map((i) => (
                   <div key={i.matchId} className="match">
                     <div><div className="side">{i.sideA}</div><div className="side">{i.sideB}</div></div>

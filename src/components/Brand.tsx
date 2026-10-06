@@ -3,8 +3,10 @@ import Link from "next/link";
 export function Brand({ href = "/" }: { href?: string }) {
   return (
     <Link href={href} className="brand" aria-label="PADEL MATCH">
-      <span className="ball" aria-hidden />
-      PADEL <em>MATCH</em>
+      {/* eslint-disable-next-line @next/next/no-img-element */}
+      <img src="/mark.webp" alt="" width={38} height={38} />
+      <span>PADEL<em>-MATCH</em></span>
+      <span className="tld">.NET</span>
     </Link>
   );
 }

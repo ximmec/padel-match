@@ -49,8 +49,8 @@ export default async function AuditPage({ searchParams }: { searchParams: Promis
                   <details style={{ fontSize: 12 }}>
                     <summary className="muted">Valores anteriores y nuevos</summary>
                     <div className="grid grid-2" style={{ gap: 8 }}>
-                      <pre style={{ whiteSpace: "pre-wrap", background: "#fef2f2", padding: 6, borderRadius: 6, margin: 0 }}>{JSON.stringify(r.before, null, 1)}</pre>
-                      <pre style={{ whiteSpace: "pre-wrap", background: "#f0fdf4", padding: 6, borderRadius: 6, margin: 0 }}>{JSON.stringify(r.after, null, 1)}</pre>
+                      <pre style={{ whiteSpace: "pre-wrap", background: "var(--err-bg)", padding: 6, borderRadius: 6, margin: 0 }}>{JSON.stringify(r.before, null, 1)}</pre>
+                      <pre style={{ whiteSpace: "pre-wrap", background: "var(--ok-bg)", padding: 6, borderRadius: 6, margin: 0 }}>{JSON.stringify(r.after, null, 1)}</pre>
                     </div>
                   </details>
                 )}

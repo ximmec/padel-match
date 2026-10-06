@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { NavLinks } from "@/components/NavLinks";
 import { requireUser, can } from "@/server/auth";
 import { logoutAction, switchOrgAction } from "@/server/actions/auth";
 import { Brand } from "@/components/Brand";
@@ -22,21 +23,21 @@ export default async function AdminLayout({ children }: { children: React.ReactN
       <header className="topbar">
         <div className="topbar-inner">
           <Brand href="/admin" />
-          <nav className="nav">
-            {links.filter((l) => l[2]).map(([href, label]) => <Link key={href} href={href}>{label}</Link>)}
-            <Link href="/" target="_blank">Vista pública ↗</Link>
-          </nav>
+          <NavLinks
+            exact={["/admin"]}
+            links={[...links.filter((l) => l[2]).map(([href, label]) => ({ href, label })), { href: "/", label: "Vista pública ↗", external: true }]}
+          />
           <div className="user">
             {u.orgs.length > 1 ? (
               <form action={switchOrgAction} className="row">
                 <select name="orgId" defaultValue={u.orgId} aria-label="Organizador">
                   {u.orgs.map((o) => <option key={o.id} value={o.id}>{o.name}</option>)}
                 </select>
-                <button className="btn sm ghost" style={{ color: "#fff", borderColor: "#2a4675" }}>Cambiar</button>
+                <button className="btn sm ghost">Cambiar</button>
               </form>
             ) : <span>{u.orgName}</span>}
             <span title={ROLE_LABELS[u.role]}>· {u.name}</span>
-            <form action={logoutAction}><button className="btn sm ghost" style={{ color: "#fff", borderColor: "#2a4675" }}>Salir</button></form>
+            <form action={logoutAction}><button className="btn sm ghost">Salir</button></form>
           </div>
         </div>
       </header>

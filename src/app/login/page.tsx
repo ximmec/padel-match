@@ -15,8 +15,12 @@ export default async function LoginPage({ searchParams }: { searchParams: Promis
   return (
     <>
       <header className="topbar"><div className="topbar-inner"><Brand /></div></header>
+      <div style={{ textAlign: "center", marginTop: 28 }}>
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        <img src="/logo.webp" alt="PADEL-MATCH.NET" width={190} height={190} style={{ filter: "drop-shadow(0 12px 40px rgba(255,115,0,.25))" }} />
+      </div>
       <main className="container" style={{ maxWidth: 420 }}>
-        <div className="card" style={{ marginTop: 32 }}>
+        <div className="card" style={{ marginTop: 12 }}>
           <h1>Ingresar</h1>
           <p className="muted">Panel de administración para organizadores.</p>
           <ActionForm action={loginAction}>
