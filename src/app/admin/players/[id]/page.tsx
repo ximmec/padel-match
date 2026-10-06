@@ -14,8 +14,8 @@ export default async function PlayerPage({ params }: { params: Promise<{ id: str
   const { id } = await params;
   if (!isUuid(id)) notFound();
   const u = await requireUser();
-  const [p] = await sql<{ id: string; code: string; first_name: string; last_name: string; gender: string; document: string | null; phone: string | null; email: string | null; city: string | null; notes: string | null; deleted_at: Date | null }[]>`
-    SELECT id, code, first_name, last_name, gender, document, phone, email, city, notes, deleted_at FROM players WHERE id = ${id} AND org_id = ${u.orgId}`;
+  const [p] = await sql<{ id: string; code: string; first_name: string; last_name: string; gender: string; document: string | null; phone: string | null; email: string | null; city: string | null; category: string | null; notes: string | null; deleted_at: Date | null }[]>`
+    SELECT id, code, first_name, last_name, gender, document, phone, email, city, category, notes, deleted_at FROM players WHERE id = ${id} AND org_id = ${u.orgId}`;
   if (!p) notFound();
 
   const participations = await sql<{ entry_id: string; tc_id: string; tournament_id: string; tournament: string; start_date: string; category: string; status: string; active: boolean; replaced_at: Date | null; partner: string | null }[]>`
@@ -26,6 +26,7 @@ export default async function PlayerPage({ params }: { params: Promise<{ id: str
     JOIN tournaments t ON t.id = tc.tournament_id JOIN categories c ON c.id = tc.category_id
     WHERE ep.player_id = ${id} ORDER BY t.start_date DESC`;
   const points = await playerPointsHistory(sql, id);
+  const cats = await sql<{ category: string }[]>`SELECT DISTINCT category FROM players WHERE org_id = ${u.orgId} AND category IS NOT NULL ORDER BY category`;
   const total = points.filter((x) => !x.superseded_at).reduce((a, b) => a + b.points, 0);
 
   return (
@@ -34,7 +35,7 @@ export default async function PlayerPage({ params }: { params: Promise<{ id: str
       <div className="page-head">
         <div>
           <h1>{p.first_name} {p.last_name}</h1>
-          <div className="row"><code>{p.code}</code>{p.deleted_at && <span className="badge err">Dado de baja</span>}<span className="badge lime">{total} pts</span></div>
+          <div className="row"><code>{p.code}</code>{p.category && <span className="badge">{p.category}</span>}{p.deleted_at && <span className="badge err">Dado de baja</span>}<span className="badge lime">{total} pts</span></div>
         </div>
       </div>
 
@@ -44,7 +45,7 @@ export default async function PlayerPage({ params }: { params: Promise<{ id: str
           {can(u, "players.manage") ? (
             <ActionForm action={updatePlayerAction}>
               <input type="hidden" name="id" value={p.id} />
-              <PlayerFields p={p} />
+              <PlayerFields p={p} categories={cats.map((c) => c.category)} />
               <Submit className="btn primary">Guardar cambios</Submit>
             </ActionForm>
           ) : <p>{p.gender} · {p.city}</p>}

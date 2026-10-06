@@ -124,10 +124,10 @@ export async function rankingWorkbook(db: Db, orgId: string, f: { categoryId?: s
 
 export async function playersWorkbook(db: Db, orgId: string) {
   const wb = new ExcelJS.Workbook();
-  const rows = await db<{ code: string; first_name: string; last_name: string; gender: string; document: string | null; phone: string | null; email: string | null; city: string | null; deleted_at: Date | null }[]>`
-    SELECT code, first_name, last_name, gender, document, phone, email, city, deleted_at FROM players WHERE org_id = ${orgId} ORDER BY lower(last_name), lower(first_name)`;
-  sheet(wb, "Jugadores", ["Código", "Apellido", "Nombre", "Género", "Documento", "Teléfono", "Email", "Ciudad", "Estado"],
-    rows.map((p) => [p.code, p.last_name, p.first_name, p.gender, p.document, p.phone, p.email, p.city, p.deleted_at ? "Baja" : "Activo"]), [12, 18, 18, 8, 14, 16, 26, 16, 10]);
+  const rows = await db<{ code: string; first_name: string; last_name: string; gender: string; category: string | null; document: string | null; phone: string | null; email: string | null; city: string | null; deleted_at: Date | null }[]>`
+    SELECT code, first_name, last_name, gender, category, document, phone, email, city, deleted_at FROM players WHERE org_id = ${orgId} ORDER BY lower(last_name), lower(first_name)`;
+  sheet(wb, "Jugadores", ["Código", "Apellido", "Nombre", "Sexo", "Categoría", "DNI", "Celular", "Email", "Ciudad", "Estado"],
+    rows.map((p) => [p.code, p.last_name, p.first_name, p.gender, p.category, p.document, p.phone, p.email, p.city, p.deleted_at ? "Baja" : "Activo"]), [12, 18, 18, 8, 12, 14, 16, 26, 16, 10]);
   return { wb, name: "Jugadores" };
 }
 
@@ -148,9 +148,9 @@ export function fileName(name: string) {
 
 export async function playersTemplateWorkbook() {
   const wb = new ExcelJS.Workbook();
-  sheet(wb, "Jugadores", ["Nombre", "Apellido", "Sexo", "DNI", "Celular", "Email", "Ciudad"], [
-    ["Juan", "Pérez", "M", "30123456", "11 5555-1234", "juan@ejemplo.com", "La Plata"],
-    ["Ana", "López", "F", "", "", "", ""],
-  ], [16, 18, 8, 14, 16, 26, 16]);
+  sheet(wb, "Jugadores", ["Nombre", "Apellido", "Sexo", "Categoría", "DNI", "Celular", "Email", "Ciudad"], [
+    ["Juan", "Pérez", "M", "4ta", "30123456", "11 5555-1234", "juan@ejemplo.com", "La Plata"],
+    ["Ana", "López", "F", "6ta", "", "", "", ""],
+  ], [16, 18, 8, 12, 14, 16, 26, 16]);
   return { wb, name: "Planilla modelo de jugadores" };
 }

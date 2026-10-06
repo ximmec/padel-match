@@ -72,13 +72,13 @@ export default async function CategoryPage({ params, searchParams }: { params: P
 
 async function EntriesTab({ lc, u }: { lc: LoadedCategory; u: CurrentUser }) {
   const genderFilter = lc.tc.gender_rule === "MALE" ? ["M"] : lc.tc.gender_rule === "FEMALE" ? ["F"] : lc.tc.gender_rule === "MIXED" ? ["M", "F"] : ["M", "F", "X"];
-  const players = await sql<{ id: string; code: string; first_name: string; last_name: string; gender: string; busy: boolean }[]>`
-    SELECT p.id, p.code, p.first_name, p.last_name, p.gender,
+  const players = await sql<{ id: string; code: string; first_name: string; last_name: string; gender: string; category: string | null; busy: boolean }[]>`
+    SELECT p.id, p.code, p.first_name, p.last_name, p.gender, p.category,
       EXISTS (SELECT 1 FROM entry_players ep WHERE ep.player_id = p.id AND ep.tc_id = ${lc.tc.id} AND ep.active) AS busy
     FROM players p WHERE p.org_id = ${u.orgId} AND p.deleted_at IS NULL AND p.gender = ANY(${genderFilter})
     ORDER BY lower(p.last_name), lower(p.first_name)`;
   const free = players.filter((p) => !p.busy);
-  const opt = (p: (typeof players)[number]) => <option key={p.id} value={p.id}>{p.last_name}, {p.first_name} ({p.code}){lc.tc.gender_rule === "MIXED" ? ` · ${p.gender}` : ""}</option>;
+  const opt = (p: (typeof players)[number]) => <option key={p.id} value={p.id}>{p.last_name}, {p.first_name}{p.category ? ` · ${p.category}` : ""} ({p.code}){lc.tc.gender_rule === "MIXED" ? ` · ${p.gender}` : ""}</option>;
   const manage = can(u, "players.manage");
   const zoneOf = new Map(lc.zones.flatMap((z) => z.entry_ids.map((e) => [e, z.name] as const)));
 

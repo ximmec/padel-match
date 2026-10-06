@@ -14,6 +14,7 @@ export interface ImportedPlayer {
   phone: string | null;
   email: string | null;
   city: string | null;
+  category: string | null;
 }
 
 export interface ImportIssue { row: number; message: string }
@@ -28,7 +29,7 @@ export interface ImportResult {
 
 export const fold = (s: string) => s.normalize("NFD").replace(/[̀-ͯ]/g, "").toLowerCase().trim();
 
-type Field = "first_name" | "last_name" | "full_first" | "full_last" | "gender" | "document" | "phone" | "email" | "city";
+type Field = "first_name" | "last_name" | "full_first" | "full_last" | "gender" | "document" | "phone" | "email" | "city" | "category";
 
 /** Reconoce el encabezado de una columna. */
 export function detectField(header: string): Field | null {
@@ -43,6 +44,7 @@ export function detectField(header: string): Field | null {
   if (/(telefono|celular|cel|tel|whatsapp|movil)/.test(h)) return "phone";
   if (/(e ?mail|correo)/.test(h)) return "email";
   if (/^(ciudad|localidad|zona|barrio)$/.test(h)) return "city";
+  if (/^(categoria|cat|nivel|division|categoria del jugador)$/.test(h)) return "category";
   return null;
 }
 
@@ -81,7 +83,7 @@ function niceName(s: string) {
 
 const FIELD_LABELS: Record<Field, string> = {
   first_name: "Nombre", last_name: "Apellido", full_first: "Nombre y apellido", full_last: "Apellido y nombre",
-  gender: "Género", document: "Documento", phone: "Teléfono", email: "Email", city: "Ciudad",
+  gender: "Género", document: "Documento", phone: "Teléfono", email: "Email", city: "Ciudad", category: "Categoría",
 };
 
 /**
@@ -143,6 +145,7 @@ export function parsePlayerSheet(rows: string[][], defaultGender: Gender | null)
       phone: cell("phone").slice(0, 30) || null,
       email,
       city: cell("city") ? niceName(cell("city")).slice(0, 60) : null,
+      category: cell("category") ? cell("category").replace(/\s+/g, " ").trim().slice(0, 40) : null,
     };
     const key = document ? `doc:${document}` : `name:${fold(p.first_name)}|${fold(p.last_name)}`;
     if (seen.has(key)) { issues.push({ row: rowNo, message: `Repetido en la planilla (igual a la fila ${seen.get(key)}).` }); continue; }

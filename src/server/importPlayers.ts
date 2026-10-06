@@ -89,7 +89,7 @@ export async function importPlayers(tx: Tx, user: CurrentUser, file: File, defau
       `✅ ${toCreate.length} jugador(es) nuevo(s) para cargar.`,
     ];
     if (toCreate.length) {
-      items.push(`Ejemplos: ${toCreate.slice(0, 3).map((p) => `${p.first_name} ${p.last_name} (${p.gender === "M" ? "Masc." : p.gender === "F" ? "Fem." : "Otro"}${p.document ? `, DNI ${p.document}` : ""})`).join(" · ")}`);
+      items.push(`Ejemplos: ${toCreate.slice(0, 3).map((p) => `${p.first_name} ${p.last_name} (${p.gender === "M" ? "Masc." : p.gender === "F" ? "Fem." : "Otro"}${p.category ? `, ${p.category}` : ""}${p.document ? `, DNI ${p.document}` : ""})`).join(" · ")}`);
     }
     if (skipped.length) items.push(`⏭ ${skipped.length} ya existían y se van a omitir (por ejemplo: ${skipped.slice(0, 3).map((p) => `${p.first_name} ${p.last_name}`).join(", ")}).`);
     if (parsed.issues.length) {
@@ -104,8 +104,8 @@ export async function importPlayers(tx: Tx, user: CurrentUser, file: File, defau
   for (const p of toCreate) {
     const [{ n }] = await tx<{ n: string }[]>`SELECT nextval('player_code_seq')::text AS n`;
     await tx`
-      INSERT INTO players (org_id, code, first_name, last_name, gender, document, phone, email, city)
-      VALUES (${user.orgId}, ${`PM-${n.padStart(5, "0")}`}, ${p.first_name}, ${p.last_name}, ${p.gender}, ${p.document}, ${p.phone}, ${p.email}, ${p.city})`;
+      INSERT INTO players (org_id, code, first_name, last_name, gender, document, phone, email, city, category)
+      VALUES (${user.orgId}, ${`PM-${n.padStart(5, "0")}`}, ${p.first_name}, ${p.last_name}, ${p.gender}, ${p.document}, ${p.phone}, ${p.email}, ${p.city}, ${p.category})`;
   }
   await audit(tx, user, {
     entity: "player", action: "create",

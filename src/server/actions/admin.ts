@@ -21,11 +21,12 @@ const playerSchema = z.object({
   phone: z.string().trim().max(30).optional().transform((v) => v || null),
   email: z.string().trim().max(120).optional().transform((v) => v || null).refine((v) => !v || /^\S+@\S+\.\S+$/.test(v), "Email inválido"),
   city: z.string().trim().max(60).optional().transform((v) => v || null),
+  category: z.string().trim().max(40).optional().transform((v) => v || null),
   notes: z.string().trim().max(500).optional().transform((v) => v || null),
 });
 
 function parsePlayer(fd: FormData) {
-  const r = playerSchema.safeParse(Object.fromEntries(["first_name", "last_name", "gender", "document", "phone", "email", "city", "notes"].map((k) => [k, str(fd, k)])));
+  const r = playerSchema.safeParse(Object.fromEntries(["first_name", "last_name", "gender", "document", "phone", "email", "city", "category", "notes"].map((k) => [k, str(fd, k)])));
   if (!r.success) throw new UserError(r.error.issues[0].message);
   return r.data;
 }
@@ -43,8 +44,8 @@ export async function createPlayerAction(_p: ActionState, fd: FormData): Promise
       const [{ n }] = await tx<{ n: string }[]>`SELECT nextval('player_code_seq')::text AS n`;
       const code = `PM-${n.padStart(5, "0")}`;
       const [p] = await tx<{ id: string }[]>`
-        INSERT INTO players (org_id, code, first_name, last_name, gender, document, phone, email, city, notes)
-        VALUES (${user.orgId}, ${code}, ${d.first_name}, ${d.last_name}, ${d.gender}, ${d.document}, ${d.phone}, ${d.email}, ${d.city}, ${d.notes})
+        INSERT INTO players (org_id, code, first_name, last_name, gender, document, phone, email, city, category, notes)
+        VALUES (${user.orgId}, ${code}, ${d.first_name}, ${d.last_name}, ${d.gender}, ${d.document}, ${d.phone}, ${d.email}, ${d.city}, ${d.category}, ${d.notes})
         RETURNING id`;
       await audit(tx, user, { entity: "player", entityId: p.id, action: "create", summary: `Jugador ${d.first_name} ${d.last_name} (${code})`, after: d });
       return p.id;
@@ -58,10 +59,10 @@ export async function updatePlayerAction(_p: ActionState, fd: FormData): Promise
     const id = uuid(fd, "id");
     const d = parsePlayer(fd);
     await sql.begin(async (tx) => {
-      const [before] = await tx`SELECT first_name, last_name, gender, document, phone, email, city, notes FROM players WHERE id = ${id} AND org_id = ${user.orgId} FOR UPDATE`;
+      const [before] = await tx`SELECT first_name, last_name, gender, document, phone, email, city, category, notes FROM players WHERE id = ${id} AND org_id = ${user.orgId} FOR UPDATE`;
       if (!before) throw new UserError("Jugador no encontrado.");
       await tx`UPDATE players SET first_name = ${d.first_name}, last_name = ${d.last_name}, gender = ${d.gender}, document = ${d.document},
-               phone = ${d.phone}, email = ${d.email}, city = ${d.city}, notes = ${d.notes}, updated_at = now() WHERE id = ${id}`;
+               phone = ${d.phone}, email = ${d.email}, city = ${d.city}, category = ${d.category}, notes = ${d.notes}, updated_at = now() WHERE id = ${id}`;
       await audit(tx, user, { entity: "player", entityId: id, action: "update", summary: `Jugador ${d.first_name} ${d.last_name} modificado`, before, after: d });
     });
     return { message: "Cambios guardados." };

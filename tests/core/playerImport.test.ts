@@ -12,6 +12,8 @@ test("reconoce columnas típicas", () => {
   assert.equal(detectField("Celular"), "phone");
   assert.equal(detectField("E-mail"), "email");
   assert.equal(detectField("Sexo"), "gender");
+  assert.equal(detectField("Categoría"), "category");
+  assert.equal(detectField("NIVEL"), "category");
 });
 
 test("separa nombre completo", () => {
@@ -40,7 +42,7 @@ test("planilla con nombre y apellido separados, encabezado en la fila 2", () => 
   ], null);
   assert.equal(r.headerRow, 2);
   assert.equal(r.players.length, 2);
-  assert.deepEqual(r.players[0], { row: 3, first_name: "Juan", last_name: "Pérez", gender: "M", document: "30123456", phone: null, email: null, city: null });
+  assert.deepEqual(r.players[0], { row: 3, first_name: "Juan", last_name: "Pérez", gender: "M", document: "30123456", phone: null, email: null, city: null, category: null });
   assert.equal(r.players[1].first_name, "Ana");
   assert.equal(r.issues.length, 2); // fila 6 sin apellido, fila 7 repetida
 });
@@ -56,4 +58,11 @@ test("sin columnas reconocibles", () => {
   const r = parsePlayerSheet([["a", "b"], ["1", "2"]], "M");
   assert.equal(r.players.length, 0);
   assert.equal(r.issues.length, 1);
+});
+
+test("columna de categoría", () => {
+  const r = parsePlayerSheet([["Nombre", "Apellido", "Categoría"], ["Juan", "Pérez", " 4ta "], ["Ana", "López", ""]], "M");
+  assert.equal(r.players[0].category, "4ta");
+  assert.equal(r.players[1].category, null);
+  assert.ok(r.columns.includes("Categoría"));
 });

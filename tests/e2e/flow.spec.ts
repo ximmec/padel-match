@@ -199,11 +199,11 @@ test("importar jugadores desde Excel", async ({ page }) => {
   const wb = new ExcelJS.Workbook();
   const ws = wb.addWorksheet("Hoja1");
   ws.addRow(["Listado de jugadores"]);
-  ws.addRow(["Nombre y apellido", "Sexo", "D.N.I.", "Celular"]);
-  ws.addRow(["LAURA FERNÁNDEZ", "F", "28.111.222", "221 555 0001"]);
-  ws.addRow(["Sofía Ramos", "Mujer", "", ""]);
-  ws.addRow(["Carla", "F", "", ""]); // sin apellido → problema
-  ws.addRow(["Juan Gómez", "M", "", ""]); // ya existe
+  ws.addRow(["Nombre y apellido", "Sexo", "Categoría", "D.N.I.", "Celular"]);
+  ws.addRow(["LAURA FERNÁNDEZ", "F", "5ta", "28.111.222", "221 555 0001"]);
+  ws.addRow(["Sofía Ramos", "Mujer", "6ta", "", ""]);
+  ws.addRow(["Carla", "F", "", "", ""]); // sin apellido → problema
+  ws.addRow(["Juan Gómez", "M", "", "", ""]); // ya existe
   const buffer = Buffer.from(await wb.xlsx.writeBuffer());
 
   await page.goto("/admin/players?import=1");
@@ -217,5 +217,9 @@ test("importar jugadores desde Excel", async ({ page }) => {
   await expect(page.getByText(/Se cargaron 2 jugador/)).toBeVisible();
   await page.goto("/admin/players?q=fernandez");
   await expect(page.getByText("Fernández").first()).toBeVisible();
+  await expect(page.locator("td .badge", { hasText: "5ta" })).toBeVisible();
+  await page.goto("/admin/players?cat=6ta");
+  await expect(page.getByText("Ramos").first()).toBeVisible();
+  await expect(page.getByText("1 jugador(es)")).toBeVisible();
   await shot(page, "31-importar-resultado");
 });
