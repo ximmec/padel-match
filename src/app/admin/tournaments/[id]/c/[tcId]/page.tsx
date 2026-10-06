@@ -323,7 +323,7 @@ function StandingsTab({ lc, u }: { lc: LoadedCategory; u: CurrentUser }) {
   const manage = can(u, "tournaments.manage");
   return (
     <div className="stack">
-      <div className="grid grid-2">
+      <div className="grid grid-zones">
         {lc.zones.map((z) => {
           const s = lc.view.standings.get(z.id);
           const tied = s?.rows.filter((r) => r.unresolvedTie) ?? [];

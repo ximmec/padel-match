@@ -37,7 +37,7 @@ export default async function PublicCategory({ params, searchParams }: { params:
         ))}
       </nav>
       {tab === "zonas" && (
-        <div className="grid grid-2">
+        <div className="grid grid-zones">
           {lc.zones.map((z) => <StandingsTable key={z.id} lc={lc} zoneId={z.id} compact />)}
           {lc.zones.length === 0 && <div className="card empty">Las zonas todavía no fueron sorteadas.</div>}
         </div>

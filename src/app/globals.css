@@ -292,7 +292,9 @@ progress { accent-color: var(--orange); }
   content: ""; position: absolute; left: 0; right: 0; bottom: 0; height: 3px;
   background: linear-gradient(90deg, transparent, var(--orange), transparent);
 }
-.hero .inner { max-width: 1180px; margin: 0 auto; position: relative; z-index: 1; }
+.hero .inner { max-width: 1180px; margin: 0 auto; position: relative; }
+.grid-zones { grid-template-columns: repeat(auto-fit, minmax(420px, 1fr)); }
+@media (max-width: 480px) { .grid-zones { grid-template-columns: 1fr; } }
 .hero h1 { font-size: 46px; margin-bottom: 6px; text-shadow: 0 2px 24px rgba(0, 0, 0, .6); }
 .hero p { color: #c4c4c4; margin: 0; }
 .hero-home { display: grid; grid-template-columns: 1.15fr .85fr; gap: 24px; align-items: center; }
