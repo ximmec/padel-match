@@ -408,7 +408,7 @@ details[open] > summary::before { content: "▾ "; }
 .auth-submit { margin-top: 8px; padding: 17px 24px; font-size: 17px; border-radius: 12px; }
 .auth-foot { font-size: 13px; text-align: center; margin: 16px 0 0; }
 .auth-divider { height: 1px; background: var(--line-2); margin: 18px 0 0; }
-.auth-tagline { padding-top: 345px; }
+.auth-tagline { padding-top: 215px; text-shadow: 0 2px 16px rgba(0, 0, 0, .9); }
 .auth-tagline .hero-kicker { margin-bottom: 12px; }
 .auth-tagline h2 { font-size: 54px; line-height: 1; margin-bottom: 14px; color: var(--silver); }
 .auth-tagline h2 span { color: var(--lime); }
