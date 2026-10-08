@@ -57,9 +57,9 @@ export default async function Home() {
     <>
       <section className="hero-photo">
         <picture className="hero-photo-bg">
-          <source media="(max-width: 760px)" srcSet="/banner-m.webp" />
+          <source media="(max-width: 760px)" srcSet="/hero-mundo-m.webp" />
           {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img src="/banner.webp" alt="" width={2056} height={765} fetchPriority="high" />
+          <img src="/hero-mundo.webp" alt="" width={2149} height={732} fetchPriority="high" />
         </picture>
         <div className="hero-photo-inner">
           <div className="hero-kicker">Play around the world</div>
