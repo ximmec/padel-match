@@ -253,6 +253,7 @@ test("importar jugadores desde Excel", async ({ page }) => {
   await shot(page, "33-movil-panel");
   await page.getByRole("button", { name: "Abrir menú" }).click();
   await expect(page.locator(".admin-side a", { hasText: "Jugadores" })).toBeVisible();
+  await page.waitForTimeout(500);
   await page.screenshot({ path: "e2e-shots/34-movil-menu.png" });
   await page.locator(".admin-side a", { hasText: "Jugadores" }).click();
   await page.waitForURL("**/admin/players");
