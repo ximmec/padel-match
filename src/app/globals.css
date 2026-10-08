@@ -386,7 +386,8 @@ details[open] > summary::before { content: "▾ "; }
 /* ----- Ingreso (login / configuración inicial) ----- */
 .auth { position: relative; min-height: 100vh; min-height: 100dvh; overflow: hidden; background: #050505; display: flex; flex-direction: column; }
 .auth-bg { position: absolute; inset: 0; }
-.auth-bg img { width: 100%; height: 100%; object-fit: cover; object-position: 78% 30%; opacity: .75; }
+.auth-bg picture { position: absolute; inset: 0; }
+.auth-bg img { width: 100%; height: 100%; object-fit: cover; object-position: 70% 35%; opacity: .9; }
 .auth-bg::after { content: ""; position: absolute; inset: 0; background:
   linear-gradient(90deg, #050505 0%, rgba(5, 5, 5, .92) 30%, rgba(5, 5, 5, .35) 60%, rgba(5, 5, 5, .15) 100%),
   linear-gradient(0deg, rgba(5, 5, 5, .9) 0%, transparent 45%); }
@@ -417,7 +418,7 @@ details[open] > summary::before { content: "▾ "; }
   .auth-main { grid-template-columns: 1fr; gap: 0; padding: 0 14px 28px; align-items: start; }
   .auth-tagline { display: none; }
   .auth-bg { bottom: auto; height: 300px; }
-  .auth-bg img { object-position: 50% 30%; opacity: .8; }
+  .auth-bg img { object-position: 50% 25%; opacity: .9; }
   .auth-bg::after { background: linear-gradient(180deg, rgba(5, 5, 5, .35) 0%, rgba(5, 5, 5, .6) 55%, #050505 100%); }
   .auth-card { margin-top: 120px; padding: 26px 20px 22px; }
   .auth-card h1 { font-size: 30px; }
