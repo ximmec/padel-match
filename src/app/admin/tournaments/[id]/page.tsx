@@ -4,9 +4,8 @@ import { requireUser, can } from "@/server/auth";
 import { sql } from "@/server/db";
 import { isUuid } from "@/server/action";
 import { ActionForm, Submit } from "@/components/ActionForm";
-import { TournamentFields } from "@/components/TournamentFields";
 import { StatusBadge } from "@/components/views";
-import { updateTournamentAction, addCategoryAction, removeCategoryAction, addAvailabilityAction, removeAvailabilityAction } from "@/server/actions/admin";
+import { addCategoryAction, removeCategoryAction, addAvailabilityAction, removeAvailabilityAction } from "@/server/actions/admin";
 import { fmtDate, fmtDateTime, toLocalInput } from "@/lib/format";
 import { ResetForm } from "@/components/ResetForm";
 
@@ -46,6 +45,7 @@ export default async function TournamentPage({ params }: { params: Promise<{ id:
           <div className="row"><StatusBadge status={t.status} /><span className="muted">{fmtDate(t.start_date)}{t.end_date !== t.start_date ? ` al ${fmtDate(t.end_date)}` : ""} · {t.venue ?? "Sin sede"}</span></div>
         </div>
         <div className="row">
+          {can(u, "tournaments.manage") && <Link className="btn" href={`/admin/tournaments/${id}/edit`}>✏️ Editar torneo</Link>}
           <Link className="btn" href={`/admin/tournaments/${id}/schedule`}>🗓 Cronograma</Link>
           {can(u, "results.enter") && <Link className="btn primary" href={`/admin/results?t=${id}`}>⚡ Resultados</Link>}
           <Link className="btn ghost" href={`/t/${t.slug}`} target="_blank">Vista pública ↗</Link>
@@ -88,14 +88,16 @@ export default async function TournamentPage({ params }: { params: Promise<{ id:
 
       <div className="grid grid-2">
         <div className="card">
-          <h2>Datos del torneo</h2>
-          {can(u, "tournaments.manage") ? (
-            <ActionForm action={updateTournamentAction}>
-              <input type="hidden" name="id" value={id} />
-              <TournamentFields t={t} venues={venues} circuits={circuits} seasons={seasons} withStatus />
-              <Submit className="btn primary">Guardar</Submit>
-            </ActionForm>
-          ) : <p>{t.rules_text}</p>}
+          <div className="row between"><h2 style={{ margin: 0 }}>Datos del torneo</h2>{can(u, "tournaments.manage") && <Link className="btn sm" href={`/admin/tournaments/${id}/edit`}>✏️ Editar</Link>}</div>
+          <dl className="facts">
+            <dt>Fechas</dt><dd>{fmtDate(t.start_date)}{t.end_date !== t.start_date ? ` al ${fmtDate(t.end_date)}` : ""}</dd>
+            <dt>Sede</dt><dd>{t.venue ?? "Sin sede"}</dd>
+            <dt>Circuito</dt><dd>{circuits.find((c) => c.id === t.circuit_id)?.name ?? "—"}</dd>
+            <dt>Temporada</dt><dd>{seasons.find((c) => c.id === t.season_id)?.name ?? "—"}</dd>
+            <dt>Partidos</dt><dd>{t.match_duration_min} min · descanso {t.min_rest_min} min</dd>
+            <dt>Vista pública</dt><dd>{t.is_public ? "Visible" : "Oculto"}</dd>
+          </dl>
+          {t.rules_text && <p className="muted" style={{ whiteSpace: "pre-wrap", marginTop: 12 }}>{t.rules_text}</p>}
         </div>
 
         <div className="stack">

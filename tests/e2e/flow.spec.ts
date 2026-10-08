@@ -67,6 +67,10 @@ test("torneo, inscripciones, zonas, cuadro y cronograma", async ({ page }) => {
   await page.waitForURL(/\/admin\/tournaments\/[0-9a-f-]{36}$/);
   state.tournamentUrl = page.url();
   state.tournamentId = page.url().split("/").pop();
+  await page.goto(`${state.tournamentUrl}/edit`);
+  await expect(page.getByRole("button", { name: "Guardar cambios" })).toBeVisible();
+  await shot(page, "05b-editar-torneo");
+  await page.goto(state.tournamentUrl);
 
   await page.getByRole("button", { name: "+ Agregar franja horaria" }).click();
   await expect(page.getByText("Disponibilidad agregada.")).toBeVisible();

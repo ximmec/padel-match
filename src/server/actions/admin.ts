@@ -9,7 +9,8 @@ import { importPlayers } from "../importPlayers";
 import { PLAYER_CATEGORIES } from "@/core/playerImport";
 import { hashPassword, passwordProblems } from "../password";
 import { uniqueSlug, addCategory, slugify } from "../ops";
-import { DEFAULT_RULES } from "@/core/engine";
+import { DEFAULT_RULES, type CategoryRules } from "@/core/engine";
+import { FORMATS, type FormatKey } from "@/core/scoring";
 import { fromLocalInput } from "@/lib/format";
 import { PERMISSIONS, type Permission, type Role } from "../permissions";
 
@@ -132,6 +133,19 @@ async function resolveVenue(tx: Tx, fd: FormData, user: CurrentUser): Promise<st
   return v.id;
 }
 
+/** Reglas iniciales de las categorías a partir de «Estructura deportiva». */
+function structureRules(fd: FormData): CategoryRules {
+  const fk = str(fd, "format") as FormatKey;
+  const format = fk && fk in FORMATS ? FORMATS[fk] : DEFAULT_RULES.format;
+  const size = int(fd, "zone_size", DEFAULT_RULES.preferredZoneSize) ?? DEFAULT_RULES.preferredZoneSize;
+  if (size < 2 || size > 8) throw new UserError("Parejas por zona inválido.");
+  const pz = str(fd, "per_zone");
+  const perZone: number | "ALL" = pz === "ALL" ? "ALL" : pz ? Number(pz) : DEFAULT_RULES.qualification.perZone;
+  if (perZone !== "ALL" && (!Number.isInteger(perZone) || perZone < 1 || perZone > 8)) throw new UserError("Clasificados por zona inválido.");
+  const bestNext = perZone === "ALL" ? 0 : Math.max(0, Math.min(8, int(fd, "best_next", 0) ?? 0));
+  return { ...DEFAULT_RULES, format: { ...format }, preferredZoneSize: size, qualification: { perZone, bestNext } };
+}
+
 export async function createTournamentAction(_p: ActionState, fd: FormData): Promise<ActionState> {
   return runAction("tournaments.manage", async (user) => {
     const r = tournamentSchema.safeParse({
@@ -151,7 +165,8 @@ export async function createTournamentAction(_p: ActionState, fd: FormData): Pro
                 ${fd.get("is_public") === "on"}, ${optStr(fd, "rules_text")}, ${r.data.match_duration_min}, ${r.data.min_rest_min})
         RETURNING id`;
       await audit(tx, user, { entity: "tournament", entityId: t.id, action: "create", tournamentId: t.id, summary: `Torneo ${r.data.name} creado`, after: r.data });
-      for (const c of categoryIds) await addCategory(tx, user, t.id, uuid(c), DEFAULT_RULES);
+      const rules = structureRules(fd);
+      for (const c of categoryIds) await addCategory(tx, user, t.id, uuid(c), rules);
       return t.id;
     });
     return { message: "Torneo creado.", redirectTo: `/admin/tournaments/${id}` };
