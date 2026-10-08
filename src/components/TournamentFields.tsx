@@ -1,3 +1,5 @@
+import { VenueSelect } from "@/components/VenueSelect";
+
 type Opt = { id: string; name: string };
 type T = { name?: string; start_date?: string; end_date?: string; venue_id?: string | null; circuit_id?: string | null; season_id?: string | null; is_public?: boolean; rules_text?: string | null; match_duration_min?: number; min_rest_min?: number; status?: string };
 
@@ -9,8 +11,7 @@ export function TournamentFields({ t = {}, venues, circuits, seasons, withStatus
         <div className="field"><label>Fecha de inicio *</label><input type="date" name="start_date" defaultValue={t.start_date} required /></div>
         <div className="field"><label>Fecha de fin</label><input type="date" name="end_date" defaultValue={t.end_date} /></div>
         <div className="field"><label>Sede</label>
-          <select name="venue_id" defaultValue={t.venue_id ?? ""}><option value="">Sin sede</option>{venues.map((v) => <option key={v.id} value={v.id}>{v.name}</option>)}</select>
-          <div className="hint">Las canchas de la sede se usan para el cronograma.</div></div>
+          <VenueSelect venues={venues} value={t.venue_id ?? ""} /></div>
         <div className="field"><label>Circuito</label>
           <select name="circuit_id" defaultValue={t.circuit_id ?? ""}><option value="">Ninguno</option>{circuits.map((v) => <option key={v.id} value={v.id}>{v.name}</option>)}</select></div>
         <div className="field"><label>Temporada</label>

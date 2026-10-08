@@ -1,7 +1,8 @@
 "use server";
 
 import { z } from "zod";
-import { sql, UserError } from "../db";
+import { sql, UserError, type Tx } from "../db";
+import type { CurrentUser } from "../auth";
 import { audit } from "../audit";
 import { runAction, str, optStr, int, req, uuid, isConfirmed, type ActionState } from "../action";
 import { importPlayers } from "../importPlayers";
@@ -117,6 +118,20 @@ async function orgRef(table: "venues" | "circuits" | "seasons", id: string | nul
   return id;
 }
 
+/** Sede elegida, o crea una nueva si se eligió «+ Agregar nueva sede…». */
+async function resolveVenue(tx: Tx, fd: FormData, user: CurrentUser): Promise<string | null> {
+  if (str(fd, "venue_id") !== "__new__") return orgRef("venues", optStr(fd, "venue_id"), user.orgId);
+  const name = str(fd, "new_venue_name").trim();
+  if (name.length < 2) throw new UserError("Escribí el nombre de la nueva sede.");
+  const [dup] = await tx<{ id: string }[]>`SELECT id FROM venues WHERE org_id = ${user.orgId} AND lower(name) = lower(${name})`;
+  if (dup) return dup.id;
+  const courts = Math.max(0, Math.min(40, int(fd, "new_venue_courts", 0) ?? 0));
+  const [v] = await tx<{ id: string }[]>`INSERT INTO venues (org_id, name, address) VALUES (${user.orgId}, ${name}, ${optStr(fd, "new_venue_address")}) RETURNING id`;
+  for (let i = 1; i <= courts; i++) await tx`INSERT INTO courts (venue_id, name, sort) VALUES (${v.id}, ${`Cancha ${i}`}, ${i})`;
+  await audit(tx, user, { entity: "venue", entityId: v.id, action: "create", summary: `Sede ${name} con ${courts} cancha(s)` });
+  return v.id;
+}
+
 export async function createTournamentAction(_p: ActionState, fd: FormData): Promise<ActionState> {
   return runAction("tournaments.manage", async (user) => {
     const r = tournamentSchema.safeParse({
@@ -124,11 +139,11 @@ export async function createTournamentAction(_p: ActionState, fd: FormData): Pro
       match_duration_min: str(fd, "match_duration_min") || 60, min_rest_min: str(fd, "min_rest_min") || 30,
     });
     if (!r.success) throw new UserError(r.error.issues[0].message);
-    const venue = await orgRef("venues", optStr(fd, "venue_id"), user.orgId);
     const circuit = await orgRef("circuits", optStr(fd, "circuit_id"), user.orgId);
     const season = await orgRef("seasons", optStr(fd, "season_id"), user.orgId);
     const categoryIds = fd.getAll("category_ids").map(String).filter(Boolean);
     const id = await sql.begin(async (tx) => {
+      const venue = await resolveVenue(tx, fd, user);
       const slug = await uniqueSlug(tx, `${r.data.name} ${r.data.start_date.slice(0, 4)}`);
       const [t] = await tx<{ id: string }[]>`
         INSERT INTO tournaments (org_id, name, slug, venue_id, circuit_id, season_id, start_date, end_date, status, is_public, rules_text, match_duration_min, min_rest_min)
@@ -153,10 +168,10 @@ export async function updateTournamentAction(_p: ActionState, fd: FormData): Pro
     if (!r.success) throw new UserError(r.error.issues[0].message);
     const status = str(fd, "status");
     if (!["DRAFT", "OPEN", "IN_PROGRESS", "FINISHED", "CANCELLED"].includes(status)) throw new UserError("Estado inválido.");
-    const venue = await orgRef("venues", optStr(fd, "venue_id"), user.orgId);
     const circuit = await orgRef("circuits", optStr(fd, "circuit_id"), user.orgId);
     const season = await orgRef("seasons", optStr(fd, "season_id"), user.orgId);
     await sql.begin(async (tx) => {
+      const venue = await resolveVenue(tx, fd, user);
       const [before] = await tx`SELECT name, start_date, end_date, status, venue_id, circuit_id, season_id, is_public, match_duration_min, min_rest_min FROM tournaments WHERE id = ${id} AND org_id = ${user.orgId} FOR UPDATE`;
       if (!before) throw new UserError("Torneo no encontrado.");
       await tx`UPDATE tournaments SET name = ${r.data.name}, start_date = ${r.data.start_date}, end_date = ${r.data.end_date}, status = ${status},

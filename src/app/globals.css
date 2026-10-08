@@ -505,3 +505,4 @@ details[open] > summary::before { content: "▾ "; }
 .choice input { margin-top: 3px; width: 18px; height: 18px; accent-color: var(--orange); flex: none; }
 .choice b { display: block; color: var(--silver); font-size: 15px; }
 .choice small { color: var(--muted); font-size: 13px; }
+.new-venue { display: grid; gap: 8px; margin-top: 8px; padding: 12px; border: 1px dashed var(--orange); border-radius: 12px; background: rgba(255, 115, 0, .05); }
