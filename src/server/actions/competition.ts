@@ -294,3 +294,27 @@ export async function recalcRankingAction(_p: ActionState, fd: FormData): Promis
     return { message: r.changed ? `Ranking recalculado (${r.awarded} jugadores).` : "El ranking ya estaba al día: no hubo cambios." };
   }, REVAL);
 }
+
+/* --------------------------- Reiniciar --------------------------- */
+
+function resetMode(fd: FormData): ops.ResetMode {
+  const m = str(fd, "mode");
+  if (m !== "RESULTS" && m !== "ALL") throw new UserError("Elegí qué querés reiniciar.");
+  return m;
+}
+
+export async function resetCategoryAction(_p: ActionState, fd: FormData): Promise<ActionState> {
+  return runAction("tournaments.manage", async (user) => {
+    const mode = resetMode(fd);
+    await sql.begin((tx) => ops.resetCategory(tx, user, uuid(fd, "tc_id"), mode, isConfirmed(fd)));
+    return { message: mode === "RESULTS" ? "Listo: se borraron los resultados. Las inscripciones, zonas y horarios siguen igual." : "Listo: la categoría quedó como recién inscripta. Ya podés volver a generar las zonas." };
+  }, REVAL);
+}
+
+export async function resetTournamentAction(_p: ActionState, fd: FormData): Promise<ActionState> {
+  return runAction("tournaments.manage", async (user) => {
+    const mode = resetMode(fd);
+    await sql.begin((tx) => ops.resetTournament(tx, user, uuid(fd, "tournament_id"), mode, isConfirmed(fd)));
+    return { message: mode === "RESULTS" ? "Listo: se borraron todos los resultados del torneo. Las inscripciones siguen igual." : "Listo: el torneo quedó como recién inscripto. Ya podés volver a generar las zonas de cada categoría." };
+  }, REVAL);
+}

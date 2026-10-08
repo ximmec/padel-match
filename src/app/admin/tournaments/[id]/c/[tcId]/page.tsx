@@ -13,6 +13,7 @@ import { TIEBREAK_LABELS, DEFAULT_TIEBREAKS, type TiebreakCriterion } from "@/co
 import { STAGE_LABELS, STAGE_ORDER, roundName } from "@/core/bracket";
 import { FORMATS, formatLabel, scoreText, type MatchOutcome } from "@/core/scoring";
 import { fmtDateTime } from "@/lib/format";
+import { ResetForm } from "@/components/ResetForm";
 
 const TABS: [string, string][] = [
   ["inscripciones", "Inscripciones"],
@@ -64,6 +65,7 @@ export default async function CategoryPage({ params, searchParams }: { params: P
       {tab === "cuadro" && <BracketTab lc={lc} u={u} />}
       {tab === "reglas" && <RulesTab lc={lc} u={u} />}
       {tab === "historial" && <HistoryTab lc={lc} />}
+      {can(u, "tournaments.manage") && (tab === "reglas" || tab === "zonas" || tab === "historial") && <ResetForm scope="category" id={lc.tc.id} />}
     </div>
   );
 }

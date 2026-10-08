@@ -498,3 +498,10 @@ details[open] > summary::before { content: "▾ "; }
   .stat.center .l { letter-spacing: .1em; }
 }
 @media print { .admin-top, .admin-side { display: none !important; } .admin-main { margin-left: 0; } }
+.reset-card { border-color: rgba(255, 77, 77, .25); }
+.reset-card > summary { color: #ff8080; }
+.choice { display: flex; gap: 12px; align-items: flex-start; padding: 12px 14px; border: 1px solid var(--line-2); border-radius: 12px; margin-bottom: 10px; cursor: pointer; font-weight: 400; }
+.choice:has(input:checked) { border-color: var(--orange); background: rgba(255, 115, 0, .08); }
+.choice input { margin-top: 3px; width: 18px; height: 18px; accent-color: var(--orange); flex: none; }
+.choice b { display: block; color: var(--silver); font-size: 15px; }
+.choice small { color: var(--muted); font-size: 13px; }

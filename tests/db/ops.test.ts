@@ -236,3 +236,46 @@ test("categoría mixta acepta dos hombres, dos mujeres o un hombre y una mujer",
   const [{ n }] = await sql<{ n: number }[]>`SELECT count(*)::int AS n FROM entries WHERE tc_id = ${tcId}`;
   assert.equal(n, 3);
 });
+
+test("reiniciar categoría y torneo conserva las inscripciones", async () => {
+  const { tournamentId, tcId } = await makeTournament({ ...DEFAULT_RULES, qualification: { perZone: 2, bestNext: 0 } });
+  const players = await makePlayers(16);
+  const entries = await register(tcId, players); // 8 parejas
+  await tx((x) => ops.generateZones(x, user, tcId, null, 7));
+  await tx((x) => ops.generateBracket(x, user, tcId));
+  await playZones(tcId, entries);
+  await playBracket(tcId);
+  const [{ n: pts }] = await sql<{ n: number }[]>`SELECT count(*)::int AS n FROM ranking_ledger WHERE tc_id = ${tcId} AND kind = 'AUTO' AND superseded_at IS NULL`;
+  assert.equal(pts, 16);
+
+  // Solo resultados: pide confirmación, luego todo vuelve a pendiente y se quitan los puntos
+  await assert.rejects(tx((x) => ops.resetCategory(x, user, tcId, "RESULTS", false)), (e) => e instanceof NeedsConfirmation);
+  await tx((x) => ops.resetCategory(x, user, tcId, "RESULTS", true));
+  let lc = await loadCategory(sql, tcId, orgId);
+  assert.equal(lc.entries.filter((e) => e.status === "ACTIVE").length, 8);
+  assert.ok(lc.zones.length > 0 && lc.tc.bracket.length > 0);
+  assert.equal(lc.matches.filter((m) => m.status === "PLAYED").length, 0);
+  const [{ n: pts2 }] = await sql<{ n: number }[]>`SELECT count(*)::int AS n FROM ranking_ledger WHERE tc_id = ${tcId} AND kind = 'AUTO' AND superseded_at IS NULL`;
+  assert.equal(pts2, 0);
+  const [t1] = await sql<{ status: string }[]>`SELECT status FROM tournaments WHERE id = ${tournamentId}`;
+  assert.equal(t1.status, "OPEN");
+
+  // Se puede volver a jugar
+  await playZones(tcId, entries);
+  lc = await loadCategory(sql, tcId, orgId);
+  assert.ok([...lc.view.standings.values()].every((s) => s.final));
+
+  // Torneo completo desde cero
+  await assert.rejects(tx((x) => ops.resetTournament(x, user, tournamentId, "ALL", false)), (e) => e instanceof NeedsConfirmation);
+  await tx((x) => ops.resetTournament(x, user, tournamentId, "ALL", true));
+  lc = await loadCategory(sql, tcId, orgId);
+  assert.equal(lc.entries.filter((e) => e.status === "ACTIVE").length, 8);
+  assert.equal(lc.zones.length, 0);
+  assert.equal(lc.matches.length, 0);
+  assert.equal(lc.tc.bracket.length, 0);
+  assert.equal(lc.tc.status, "REGISTRATION");
+  // y se puede volver a sortear
+  await tx((x) => ops.generateZones(x, user, tcId, null, 99));
+  lc = await loadCategory(sql, tcId, orgId);
+  assert.ok(lc.zones.length > 0);
+});

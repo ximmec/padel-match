@@ -45,7 +45,7 @@ export async function assertTournament(tx: Tx, user: CurrentUser, tournamentId: 
 }
 
 export async function addCategory(tx: Tx, user: CurrentUser, tournamentId: string, categoryId: string, rules: CategoryRules) {
-  const t = await assertTournament(tx, user, tournamentId);
+  await assertTournament(tx, user, tournamentId);
   const [c] = await tx<{ name: string }[]>`SELECT name FROM categories WHERE id = ${categoryId} AND org_id = ${user.orgId}`;
   if (!c) throw new UserError("Categoría no encontrada.");
   const [tc] = await tx<{ id: string }[]>`
@@ -487,4 +487,89 @@ export async function afterChange(tx: Tx, user: CurrentUser, tcId: string) {
 
 export function parseRules(raw: unknown): CategoryRules {
   return normalizeRules(raw as Partial<CategoryRules>);
+}
+
+/* --------------------------- Reiniciar --------------------------- */
+
+export type ResetMode = "RESULTS" | "ALL";
+
+/**
+ * Reinicia una categoría SIN tocar las inscripciones.
+ * - RESULTS: borra los resultados (vuelven a pendientes). Se mantienen zonas, cruces y horarios.
+ * - ALL: borra zonas, partidos, cuadro y horarios. La categoría vuelve a "Inscripción".
+ * Las parejas retiradas siguen retiradas. Los puntos de ranking de la categoría se quitan.
+ */
+async function resetCategoryCore(tx: Tx, user: CurrentUser, tcId: string, mode: ResetMode) {
+  const lc = await loadCategory(tx, tcId, user.orgId, { lock: true });
+  const withdrawn = new Set(lc.entries.filter((e) => e.status === "WITHDRAWN").map((e) => e.id));
+  const played = lc.matches.filter((m) => m.status === "PLAYED" || m.status === "IN_PLAY");
+  if (mode === "RESULTS") {
+    for (const m of played) {
+      if (m.phase === "ZONE" && ((m.entry_a && withdrawn.has(m.entry_a)) || (m.entry_b && withdrawn.has(m.entry_b)))) continue;
+      await saveMatchResult(tx, user, m, "PENDING", null, "Reinicio de la categoría", m.phase === "BRACKET" ? null : undefined, m.phase === "BRACKET" ? null : undefined);
+    }
+    await tx`UPDATE zones SET manual_order = '[]'::jsonb WHERE tc_id = ${tcId}`;
+    await tx`UPDATE tournament_categories SET cross_manual_order = '{}'::jsonb, version = version + 1,
+             status = ${lc.tc.bracket.length ? "PLAYOFFS" : lc.zones.length ? "ZONES" : "REGISTRATION"} WHERE id = ${tcId}`;
+  } else {
+    await tx`DELETE FROM matches WHERE tc_id = ${tcId}`;
+    await tx`DELETE FROM zones WHERE tc_id = ${tcId}`;
+    await tx`UPDATE tournament_categories SET bracket = '[]'::jsonb, cross_manual_order = '{}'::jsonb, status = 'REGISTRATION', version = version + 1 WHERE id = ${tcId}`;
+  }
+  await audit(tx, user, {
+    entity: "tournament_category", entityId: tcId, action: "reset", tournamentId: lc.tc.tournament_id,
+    summary: mode === "RESULTS"
+      ? `${lc.tc.category_name}: resultados borrados (${played.length} partido(s)). Se mantienen inscripciones, zonas y cuadro.`
+      : `${lc.tc.category_name}: reiniciada desde cero. Se mantienen las ${lc.entries.filter((e) => e.status === "ACTIVE").length} inscripciones.`,
+    before: { zones: lc.zones.map((z) => ({ name: z.name, entries: z.entry_ids })), bracket: lc.tc.bracket, results: played.map((m) => ({ id: m.id, a: m.entry_a, b: m.entry_b, outcome: m.outcome })) },
+  });
+  await afterChange(tx, user, tcId);
+  return lc;
+}
+
+function resetItems(mode: ResetMode, cats: { name: string; played: number; zones: number; bracket: boolean; entries: number }[]): string[] {
+  const items = cats.map((c) => mode === "RESULTS"
+    ? `${c.name}: se borran ${c.played} resultado(s); quedan las ${c.entries} parejas, las zonas${c.bracket ? ", el cuadro" : ""} y los horarios.`
+    : `${c.name}: se borran ${c.zones} zona(s), todos los partidos${c.bracket ? ", el cuadro" : ""} y los horarios; quedan las ${c.entries} parejas inscriptas.`);
+  items.push("Los puntos de ranking que ya se habían dado por estas categorías se quitan.");
+  items.push("Queda registrado en el historial. Esta acción no se puede deshacer.");
+  return items;
+}
+
+async function setTournamentStatusAfterReset(tx: Tx, tournamentId: string) {
+  const [r] = await tx<{ n: number }[]>`SELECT count(*)::int AS n FROM matches m JOIN tournament_categories tc ON tc.id = m.tc_id
+    WHERE tc.tournament_id = ${tournamentId} AND m.status IN ('PLAYED','IN_PLAY')`;
+  if (r.n === 0) await tx`UPDATE tournaments SET status = 'OPEN', updated_at = now() WHERE id = ${tournamentId} AND status IN ('IN_PROGRESS','FINISHED')`;
+}
+
+async function resetSummary(tx: Tx, tcIds: string[]) {
+  return tx<{ id: string; name: string; played: number; zones: number; bracket: boolean; entries: number }[]>`
+    SELECT tc.id, c.name,
+      (SELECT count(*)::int FROM matches m WHERE m.tc_id = tc.id AND m.status IN ('PLAYED','IN_PLAY')) AS played,
+      (SELECT count(*)::int FROM zones z WHERE z.tc_id = tc.id) AS zones,
+      jsonb_array_length(tc.bracket) > 0 AS bracket,
+      (SELECT count(*)::int FROM entries e WHERE e.tc_id = tc.id AND e.status = 'ACTIVE') AS entries
+    FROM tournament_categories tc JOIN categories c ON c.id = tc.category_id WHERE tc.id = ANY(${tcIds}::uuid[]) ORDER BY c.name`;
+}
+
+export async function resetCategory(tx: Tx, user: CurrentUser, tcId: string, mode: ResetMode, confirmed: boolean) {
+  const lc = await loadCategory(tx, tcId, user.orgId);
+  if (!confirmed) {
+    const sum = await resetSummary(tx, [tcId]);
+    throw new NeedsConfirmation(mode === "RESULTS" ? `Borrar los resultados de ${lc.tc.category_name}` : `Reiniciar ${lc.tc.category_name} desde cero`, resetItems(mode, sum));
+  }
+  await resetCategoryCore(tx, user, tcId, mode);
+  await setTournamentStatusAfterReset(tx, lc.tc.tournament_id);
+}
+
+export async function resetTournament(tx: Tx, user: CurrentUser, tournamentId: string, mode: ResetMode, confirmed: boolean) {
+  await assertTournament(tx, user, tournamentId);
+  const tcs = await tx<{ id: string }[]>`SELECT id FROM tournament_categories WHERE tournament_id = ${tournamentId}`;
+  if (!tcs.length) throw new UserError("El torneo no tiene categorías.");
+  if (!confirmed) {
+    const sum = await resetSummary(tx, tcs.map((x) => x.id));
+    throw new NeedsConfirmation(mode === "RESULTS" ? `Borrar todos los resultados del torneo` : `Reiniciar todo el torneo desde cero`, resetItems(mode, sum));
+  }
+  for (const tc of tcs) await resetCategoryCore(tx, user, tc.id, mode);
+  await setTournamentStatusAfterReset(tx, tournamentId);
 }

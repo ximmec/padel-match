@@ -8,6 +8,7 @@ import { TournamentFields } from "@/components/TournamentFields";
 import { StatusBadge } from "@/components/views";
 import { updateTournamentAction, addCategoryAction, removeCategoryAction, addAvailabilityAction, removeAvailabilityAction } from "@/server/actions/admin";
 import { fmtDate, fmtDateTime, toLocalInput } from "@/lib/format";
+import { ResetForm } from "@/components/ResetForm";
 
 export default async function TournamentPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
@@ -136,6 +137,7 @@ export default async function TournamentPage({ params }: { params: Promise<{ id:
               </div>
             </div>
           )}
+          {can(u, "tournaments.manage") && <ResetForm scope="tournament" id={id} />}
         </div>
       </div>
     </div>

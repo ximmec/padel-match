@@ -39,4 +39,5 @@ export const ACTION_LABELS: Record<string, string> = {
   tiebreak: "Desempate manual",
   login: "Inicio de sesión",
   export: "Exportación",
+  reset: "Reinicio",
 };
