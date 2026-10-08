@@ -190,7 +190,15 @@ test("vista pública en celular", async ({ browser }) => {
   await shot(page, "25-movil-jugador");
   await page.goto("/ranking");
   await shot(page, "26-movil-ranking");
+  await page.goto("/login");
+  await expect(page.getByRole("button", { name: "Ingresar" })).toBeVisible();
+  await shot(page, "27-movil-login");
   await ctx.close();
+  const desk = await browser.newContext({ viewport: { width: 1366, height: 768 } });
+  const dp = await desk.newPage();
+  await dp.goto("/login");
+  await dp.screenshot({ path: "e2e-shots/18-login.png" });
+  await desk.close();
 });
 
 test("importar jugadores desde Excel", async ({ page }) => {
