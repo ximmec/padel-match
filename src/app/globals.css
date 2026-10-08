@@ -544,9 +544,9 @@ details[open] > summary::before { content: "▾ "; }
 .facts dd { margin: 0; font-weight: 600; }
 
 /* ----- Portada con foto de fondo ----- */
-.hero-photo { position: relative; overflow: hidden; background: #050505; border-bottom: 1px solid var(--line); min-height: min(82vh, 760px); display: flex; align-items: center; }
+.hero-photo { position: relative; overflow: hidden; background: #050505; border-bottom: 1px solid var(--line); min-height: clamp(520px, 40vw, 780px); display: flex; align-items: center; }
 .hero-photo-bg, .hero-photo-bg img { position: absolute; inset: 0; width: 100%; height: 100%; }
-.hero-photo-bg img { object-fit: cover; object-position: 50% 40%; }
+.hero-photo-bg img { object-fit: cover; object-position: 50% 35%; }
 .hero-photo::after { content: ""; position: absolute; inset: 0; pointer-events: none; background:
   radial-gradient(ellipse 46% 55% at 50% 55%, rgba(5, 5, 5, .72), rgba(5, 5, 5, .25) 70%, transparent 100%),
   linear-gradient(180deg, rgba(5, 5, 5, .35) 0, transparent 22%, transparent 70%, #050505 100%); }
@@ -564,7 +564,7 @@ details[open] > summary::before { content: "▾ "; }
 .hero-photo-stats span { font-size: 11px; text-transform: uppercase; letter-spacing: .14em; color: #bdbdbd; font-weight: 700; margin-top: 4px; }
 @media (max-width: 760px) {
   .hero-photo { min-height: 0; }
-  .hero-photo::after { background: linear-gradient(180deg, rgba(5, 5, 5, .45) 0, rgba(5, 5, 5, .6) 45%, rgba(5, 5, 5, .85) 80%, #050505 100%); }
+  .hero-photo::after { background: linear-gradient(180deg, rgba(5, 5, 5, .2) 0, rgba(5, 5, 5, .45) 40%, rgba(5, 5, 5, .8) 78%, #050505 100%); }
   .hero-photo-inner { padding: 40px 16px 30px; }
   .hero-photo h1 { font-size: 38px; }
   .hero-photo p { font-size: 16px; }
