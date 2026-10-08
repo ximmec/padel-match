@@ -55,30 +55,23 @@ export default async function Home() {
 
   return (
     <>
-      <section className="banner">
-        <picture>
-          <source media="(max-width: 760px)" srcSet="/banner-sm.webp" />
+      <section className="hero-photo">
+        <picture className="hero-photo-bg">
+          <source media="(max-width: 760px)" srcSet="/banner-m.webp" />
           {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img src="/banner.webp" alt="PADEL-MATCH · Play around the world" width={2056} height={765} fetchPriority="high" />
+          <img src="/banner.webp" alt="" width={2056} height={765} fetchPriority="high" />
         </picture>
-      </section>
-      <section className="hero hero-slim">
-        <div className="inner hero-home">
-          <div>
-            <div className="hero-kicker">Play around the world</div>
-            <h1>Tu torneo, <span className="accent">en tiempo real</span></h1>
-            <p style={{ fontSize: 17, maxWidth: 560 }}>Resultados, zonas, cuadros, horarios y ranking. Buscá tu nombre y enterate cuándo y en qué cancha jugás.</p>
-            <form action="/buscar" className="search-big">
-              <input name="q" placeholder="Tu nombre o apellido…" aria-label="Buscar jugador" />
-              <button className="btn primary lg">Buscar</button>
-            </form>
-          </div>
-          <div className="hero-stats">
+        <div className="hero-photo-inner">
+          <div className="hero-kicker">Play around the world</div>
+          <h1>Tu torneo, <span className="accent">en tiempo real</span></h1>
+          <p>Resultados, zonas, cuadros, horarios y ranking. Buscá tu nombre y enterate cuándo y en qué cancha jugás.</p>
+          <form action="/buscar" className="search-big">
+            <input name="q" placeholder="Tu nombre o apellido…" aria-label="Buscar jugador" />
+            <button className="btn primary lg">Buscar</button>
+          </form>
+          <div className="hero-photo-stats">
             {[[stats.tournaments, "Torneos"], [stats.players, "Jugadores"], [stats.played, "Partidos jugados"]].map(([n, l]) => (
-              <div key={String(l)} className="card stat" style={{ padding: "12px 14px" }}>
-                <div className="n" style={{ fontSize: 32 }}>{n}</div>
-                <div className="l">{l}</div>
-              </div>
+              <div key={String(l)}><b>{n}</b><span>{l}</span></div>
             ))}
           </div>
         </div>
