@@ -45,7 +45,7 @@ export async function assertTournament(tx: Tx, user: CurrentUser, tournamentId: 
 }
 
 export async function addCategory(tx: Tx, user: CurrentUser, tournamentId: string, categoryId: string, rules: CategoryRules) {
-  await assertTournament(tx, user, tournamentId);
+  const t = await assertTournament(tx, user, tournamentId);
   const [c] = await tx<{ name: string }[]>`SELECT name FROM categories WHERE id = ${categoryId} AND org_id = ${user.orgId}`;
   if (!c) throw new UserError("Categoría no encontrada.");
   const [tc] = await tx<{ id: string }[]>`
