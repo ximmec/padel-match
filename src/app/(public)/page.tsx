@@ -75,7 +75,7 @@ export default async function Home() {
             </div>
           </div>
           {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img className="logo" src="/logo.webp" alt="PADEL-MATCH.NET" width={400} height={400} />
+          <img className="logo" src="/logo-v2.webp" alt="PADEL-MATCH.NET" width={400} height={400} />
         </div>
       </section>
 
