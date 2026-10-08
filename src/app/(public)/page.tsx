@@ -55,27 +55,32 @@ export default async function Home() {
 
   return (
     <>
-      <section className="hero">
+      <section className="banner">
+        <picture>
+          <source media="(max-width: 760px)" srcSet="/banner-sm.webp" />
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img src="/banner.webp" alt="PADEL-MATCH · Play around the world" width={2056} height={765} fetchPriority="high" />
+        </picture>
+      </section>
+      <section className="hero hero-slim">
         <div className="inner hero-home">
           <div>
             <div className="hero-kicker">Play around the world</div>
             <h1>Tu torneo, <span className="accent">en tiempo real</span></h1>
-            <p style={{ fontSize: 17, maxWidth: 520 }}>Resultados, zonas, cuadros, horarios y ranking. Buscá tu nombre y enterate cuándo y en qué cancha jugás.</p>
+            <p style={{ fontSize: 17, maxWidth: 560 }}>Resultados, zonas, cuadros, horarios y ranking. Buscá tu nombre y enterate cuándo y en qué cancha jugás.</p>
             <form action="/buscar" className="search-big">
               <input name="q" placeholder="Tu nombre o apellido…" aria-label="Buscar jugador" />
               <button className="btn primary lg">Buscar</button>
             </form>
-            <div className="grid" style={{ gridTemplateColumns: "repeat(3, minmax(0, 1fr))", gap: 10, marginTop: 22, maxWidth: 560 }}>
-              {[[stats.tournaments, "Torneos"], [stats.players, "Jugadores"], [stats.played, "Partidos jugados"]].map(([n, l]) => (
-                <div key={String(l)} className="card stat" style={{ padding: "12px 14px" }}>
-                  <div className="n" style={{ fontSize: 32 }}>{n}</div>
-                  <div className="l">{l}</div>
-                </div>
-              ))}
-            </div>
           </div>
-          {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img className="logo" src="/logo-v2.webp" alt="PADEL-MATCH.NET" width={400} height={400} />
+          <div className="hero-stats">
+            {[[stats.tournaments, "Torneos"], [stats.players, "Jugadores"], [stats.played, "Partidos jugados"]].map(([n, l]) => (
+              <div key={String(l)} className="card stat" style={{ padding: "12px 14px" }}>
+                <div className="n" style={{ fontSize: 32 }}>{n}</div>
+                <div className="l">{l}</div>
+              </div>
+            ))}
+          </div>
         </div>
       </section>
 

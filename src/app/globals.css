@@ -305,6 +305,13 @@ progress { accent-color: var(--orange); }
 @keyframes float { 50% { transform: translateY(-8px) rotate(-2deg); } }
 @media (prefers-reduced-motion: reduce) { .hero-home .logo { animation: none; } }
 .logo-blend { mix-blend-mode: lighten; }
+.banner { position: relative; background: #050505; line-height: 0; }
+.banner img { display: block; width: 100%; height: auto; max-height: 640px; object-fit: cover; object-position: 50% 30%; }
+.banner::after { content: ""; position: absolute; left: 0; right: 0; bottom: 0; height: 30%; background: linear-gradient(180deg, transparent, #050505); pointer-events: none; }
+.hero.hero-slim { padding-top: 10px; }
+.hero-slim::before { display: none; }
+.hero-slim .hero-home { grid-template-columns: 1.4fr .6fr; align-items: end; }
+.hero-stats { display: grid; gap: 10px; }
 .hero-home h1 { font-size: 54px; line-height: .95; }
 .hero-kicker { display: inline-flex; gap: 8px; align-items: center; color: var(--lime); font-weight: 800; text-transform: uppercase; letter-spacing: .12em; font-size: 12px; margin-bottom: 10px; }
 .hero-kicker::before { content: ""; width: 26px; height: 2px; background: var(--lime); }
@@ -334,7 +341,9 @@ details[open] > summary::before { content: "▾ "; }
 
 /* ----- Celular ----- */
 @media (max-width: 760px) {
-  .hero-home { grid-template-columns: 1fr; }
+  .hero-home, .hero-slim .hero-home { grid-template-columns: 1fr; }
+  .banner img { height: 230px; }
+  .hero-stats { grid-template-columns: repeat(3, minmax(0, 1fr)); }
   .hero-home .logo { max-width: 200px; order: -1; margin-bottom: 0; }
   .hero-home h1 { font-size: 38px; }
 }
