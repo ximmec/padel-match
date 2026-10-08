@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { Brand } from "@/components/Brand";
+import { Icon } from "@/components/Icon";
 
 /** Pantalla dividida para ingresar / configurar: formulario a la izquierda, foto a la derecha. */
 export function AuthShell({ children }: { children: React.ReactNode }) {
@@ -16,8 +17,19 @@ export function AuthShell({ children }: { children: React.ReactNode }) {
       <main className="auth-main">
         <div className="auth-card">{children}</div>
         <div className="auth-tagline">
+          <div className="hero-kicker">Play around the world</div>
           <h2>Organizá. Jugá. <span>Ganá.</span></h2>
-          <p>Zonas, cuadros, horarios, resultados y ranking de tus torneos de pádel, en tiempo real y desde cualquier celular.</p>
+          <p>La plataforma para organizar torneos de pádel de manera simple y profesional: los jugadores siguen todo en vivo desde el celular.</p>
+          <ul className="auth-feats">
+            {[
+              ["grid", "Zonas y cuadros", "Sorteo automático, byes y cruces editables."],
+              ["bolt", "Resultados en vivo", "Posiciones que se actualizan solas."],
+              ["calendar", "Cronograma", "Canchas y horarios sin superposiciones."],
+              ["chart", "Ranking", "Puntos acumulados por circuito y temporada."],
+            ].map(([icon, title, text]) => (
+              <li key={title}><span className="quick-ico"><Icon name={icon} size={20} /></span><span><b>{title}</b><small>{text}</small></span></li>
+            ))}
+          </ul>
         </div>
       </main>
     </div>
