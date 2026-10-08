@@ -86,7 +86,7 @@ export default async function TournamentPage({ params }: { params: Promise<{ id:
         )}
       </div>
 
-      <div className="grid grid-2">
+      <div className="grid grid-2" style={{ alignItems: "start" }}>
         <div className="card">
           <div className="row between"><h2 style={{ margin: 0 }}>Datos del torneo</h2>{can(u, "tournaments.manage") && <Link className="btn sm" href={`/admin/tournaments/${id}/edit`}>✏️ Editar</Link>}</div>
           <dl className="facts">

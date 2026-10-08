@@ -39,7 +39,7 @@ export function StructureFields({ children }: { children?: React.ReactNode }) {
           <div className="hint">Solo para el cálculo; después se usan las inscriptas.</div></div>
         <div className="field"><label htmlFor="s-size">Parejas por zona</label>
           <select id="s-size" name="zone_size" value={size} onChange={(e) => setSize(Number(e.target.value))}>
-            {[3, 4, 5, 6].map((n) => <option key={n} value={n}>{n} parejas ({n - 1} partidos garantizados)</option>)}
+            {[3, 4, 5, 6].map((n) => <option key={n} value={n}>{n} parejas · {n - 1} partidos</option>)}
           </select></div>
         <div className="field"><label htmlFor="s-per">Pasan al playoff por zona</label>
           <select id="s-per" name="per_zone" value={perZone} onChange={(e) => setPerZone(e.target.value)}>
