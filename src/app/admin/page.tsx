@@ -3,6 +3,7 @@ import { requireUser, can } from "@/server/auth";
 import { sql } from "@/server/db";
 import { StatusBadge } from "@/components/views";
 import { fmtDate, fmtTime } from "@/lib/format";
+import { Icon } from "@/components/Icon";
 
 export default async function Dashboard() {
   const u = await requireUser();
@@ -37,20 +38,44 @@ export default async function Dashboard() {
 
   return (
     <div className="stack">
-      <div className="page-head">
-        <div><h1>Hola, {u.name.split(" ")[0]}</h1><p className="muted" style={{ margin: 0 }}>{u.orgName}</p></div>
-        <div className="row">
-          {can(u, "results.enter") && <Link className="btn primary lg" href="/admin/results">⚡ Cargar resultados</Link>}
-          {can(u, "tournaments.manage") && <Link className="btn ghost" href="/admin/tournaments/new">+ Nuevo torneo</Link>}
-          {can(u, "players.manage") && <Link className="btn ghost" href="/admin/players?new=1">+ Jugador</Link>}
+      <div className="dash-head">
+        <div>
+          <div className="dash-eyebrow">Hola, {u.name.split(" ")[0]} 👋</div>
+          <h1 className="dash-org">{u.orgName}</h1>
+          <div className="muted">{u.email}</div>
+        </div>
+        <div className="row dash-actions">
+          {can(u, "results.enter") && <Link className="btn primary pill lg" href="/admin/results">Cargar resultados <span className="pill-ico"><Icon name="arrow" size={16} /></span></Link>}
+          {can(u, "tournaments.manage") && <Link className="btn ghost pill lg" href="/admin/tournaments/new">Crear torneo</Link>}
+          <Link className="btn ghost pill lg" href="/admin/tournaments">Mis torneos</Link>
         </div>
       </div>
 
-      <div className="grid grid-4">
-        <div className="card stat"><div className="n">{tournaments.length}</div><div className="l">Torneos activos</div></div>
-        <div className="card stat"><div className="n" style={{ color: "var(--live)" }}>{totals.in_play}</div><div className="l">Partidos en juego</div></div>
-        <div className="card stat"><div className="n">{totals.pending}</div><div className="l">Partidos pendientes</div></div>
-        <div className="card stat"><div className="n" style={{ color: "var(--ok)" }}>{totals.played}</div><div className="l">Partidos finalizados</div></div>
+      <div className="grid grid-4 dash-stats">
+        <div className="card stat center"><div className="l">Torneos activos</div><div className="n">{tournaments.length}</div></div>
+        <div className="card stat center"><div className="l">En juego</div><div className="n" style={{ color: "var(--live)" }}>{totals.in_play}</div></div>
+        <div className="card stat center"><div className="l">Pendientes</div><div className="n">{totals.pending}</div></div>
+        <div className="card stat center"><div className="l">Finalizados</div><div className="n" style={{ color: "var(--lime)" }}>{totals.played}</div></div>
+      </div>
+
+      <div>
+        <div className="dash-eyebrow" style={{ marginTop: 18 }}>Accesos rápidos</div>
+        <h2 className="dash-q">¿Qué querés hacer?</h2>
+        <div className="grid quick-grid">
+          {([
+            [can(u, "results.enter"), "/admin/results", "bolt", "Cargar resultados", "Partidos en juego y pendientes"],
+            [can(u, "tournaments.manage"), "/admin/tournaments/new", "plus", "Crear torneo", "Fechas, sede y categorías"],
+            [true, "/admin/tournaments", "trophy", "Mis torneos", "Zonas, cuadros y cronograma"],
+            [can(u, "players.manage"), "/admin/players?new=1", "users", "Agregar jugador", "Alta manual o desde Excel"],
+            [true, "/admin/ranking", "chart", "Ranking", "Puntos acumulados por circuito"],
+            [true, "/", "globe", "Vista pública", "Lo que ven los jugadores"],
+          ] as [boolean, string, string, string, string][]).filter((q) => q[0]).map(([, href, icon, title, text]) => (
+            <Link key={href} href={href} className="quick" target={href === "/" ? "_blank" : undefined}>
+              <span className="quick-ico"><Icon name={icon} size={22} /></span>
+              <span><b>{title}</b><small>{text}</small></span>
+            </Link>
+          ))}
+        </div>
       </div>
 
       <div className="grid grid-2">

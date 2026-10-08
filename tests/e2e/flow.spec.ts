@@ -243,4 +243,18 @@ test("importar jugadores desde Excel", async ({ page }) => {
   await page.getByRole("button", { name: "Confirmar y aplicar" }).click();
   await expect(page.getByText(/Se actualizó la categoría de 1/)).toBeVisible();
   await shot(page, "31-importar-resultado");
+
+  // Panel: escritorio y celular
+  await page.setViewportSize({ width: 1366, height: 900 });
+  await page.goto("/admin");
+  await page.screenshot({ path: "e2e-shots/32-panel-inicio.png" });
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.goto("/admin");
+  await shot(page, "33-movil-panel");
+  await page.getByRole("button", { name: "Abrir menú" }).click();
+  await expect(page.locator(".admin-side a", { hasText: "Jugadores" })).toBeVisible();
+  await page.screenshot({ path: "e2e-shots/34-movil-menu.png" });
+  await page.locator(".admin-side a", { hasText: "Jugadores" }).click();
+  await page.waitForURL("**/admin/players");
+  await shot(page, "35-movil-jugadores");
 });
