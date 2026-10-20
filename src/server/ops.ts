@@ -584,3 +584,32 @@ export async function resetTournament(tx: Tx, user: CurrentUser, tournamentId: s
   for (const tc of tcs) await resetCategoryCore(tx, user, tc.id, mode);
   await setTournamentStatusAfterReset(tx, tournamentId);
 }
+
+/* --------------------------- Eliminar torneo --------------------------- */
+
+/**
+ * Elimina un torneo con sus categorías, inscripciones, zonas, partidos y horarios.
+ * Los puntos de ranking automáticos que dio se quitan. Los jugadores y las sedes no se tocan.
+ * El historial de auditoría conserva el registro de lo eliminado.
+ */
+export async function deleteTournament(tx: Tx, user: CurrentUser, tournamentId: string, confirmed: boolean) {
+  const [t] = await tx<{ id: string; name: string }[]>`SELECT id, name FROM tournaments WHERE id = ${tournamentId} AND org_id = ${user.orgId} FOR UPDATE`;
+  if (!t) throw new UserError("Torneo no encontrado.");
+  const [s] = await tx<{ cats: number; entries: number; played: number; points: number }[]>`
+    SELECT (SELECT count(*)::int FROM tournament_categories WHERE tournament_id = ${t.id}) AS cats,
+      (SELECT count(*)::int FROM entries e JOIN tournament_categories tc ON tc.id = e.tc_id WHERE tc.tournament_id = ${t.id}) AS entries,
+      (SELECT count(*)::int FROM matches m JOIN tournament_categories tc ON tc.id = m.tc_id WHERE tc.tournament_id = ${t.id} AND m.status = 'PLAYED') AS played,
+      (SELECT count(*)::int FROM ranking_ledger r JOIN tournament_categories tc ON tc.id = r.tc_id WHERE tc.tournament_id = ${t.id} AND r.kind = 'AUTO' AND r.superseded_at IS NULL) AS points`;
+  if (!confirmed) {
+    const items = [
+      `Se borran ${s.cats} categoría(s) con sus ${s.entries} inscripción(es), zonas, cuadros y horarios.`,
+      s.played ? `Se pierden ${s.played} resultado(s) cargado(s).` : "No tiene resultados cargados.",
+    ];
+    if (s.points) items.push(`Se quitan del ranking los puntos que dio este torneo (${s.points} jugador(es)).`);
+    items.push("Los jugadores, sedes y categorías no se borran.", "Esta acción no se puede deshacer.");
+    throw new NeedsConfirmation(`Eliminar «${t.name}»`, items);
+  }
+  await tx`DELETE FROM ranking_ledger WHERE kind = 'AUTO' AND tc_id IN (SELECT id FROM tournament_categories WHERE tournament_id = ${t.id})`;
+  await tx`DELETE FROM tournaments WHERE id = ${t.id}`;
+  await audit(tx, user, { entity: "tournament", entityId: t.id, action: "delete", tournamentId: t.id, summary: `Torneo ${t.name} eliminado (${s.cats} categorías, ${s.entries} inscripciones, ${s.played} resultados)` });
+}

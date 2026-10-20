@@ -302,3 +302,23 @@ test("eliminación directa: sin zonas, cuadro con todas las parejas, byes a los 
   // No se puede cambiar a zonas con el cuadro armado
   await assert.rejects(tx((x) => ops.updateRules(x, user, tcId, { ...DEFAULT_RULES, mode: "ZONES" }, true)), /eliminá las zonas y el cuadro/);
 });
+
+test("eliminar torneo: pide confirmación, borra todo y quita los puntos", async () => {
+  const { tournamentId, tcId } = await makeTournament({ ...DEFAULT_RULES, mode: "KNOCKOUT" });
+  const players = await makePlayers(8);
+  await register(tcId, players);
+  await tx((x) => ops.generateBracket(x, user, tcId, 3));
+  await playBracket(tcId);
+  const [{ n: before }] = await sql<{ n: number }[]>`SELECT count(*)::int AS n FROM ranking_ledger WHERE tc_id = ${tcId} AND kind = 'AUTO'`;
+  assert.ok(before > 0);
+  await assert.rejects(tx((x) => ops.deleteTournament(x, user, tournamentId, false)), (e) => e instanceof NeedsConfirmation);
+  await tx((x) => ops.deleteTournament(x, user, tournamentId, true));
+  const [{ n: t }] = await sql<{ n: number }[]>`SELECT count(*)::int AS n FROM tournaments WHERE id = ${tournamentId}`;
+  assert.equal(t, 0);
+  const [{ n: pts }] = await sql<{ n: number }[]>`SELECT count(*)::int AS n FROM ranking_ledger WHERE player_id = ANY(${players}::uuid[]) AND kind = 'AUTO'`;
+  assert.equal(pts, 0, "no quedan puntos huérfanos");
+  const [{ n: pl }] = await sql<{ n: number }[]>`SELECT count(*)::int AS n FROM players WHERE id = ANY(${players}::uuid[])`;
+  assert.equal(pl, 8, "los jugadores se conservan");
+  const [{ n: aud }] = await sql<{ n: number }[]>`SELECT count(*)::int AS n FROM audit_log WHERE tournament_id = ${tournamentId} AND action = 'delete'`;
+  assert.equal(aud, 1);
+});

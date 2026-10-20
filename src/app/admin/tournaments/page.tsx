@@ -98,6 +98,7 @@ export default async function TournamentsPage({ searchParams }: { searchParams: 
                     <Link href={`/admin/tournaments/${t.id}/schedule`}><Icon name="calendar" size={18} /> Cronograma</Link>
                     {can(u, "results.enter") && <Link href={`/admin/results?t=${t.id}`}><Icon name="bolt" size={18} /> Cargar resultados</Link>}
                     <a href={`/t/${t.slug}`} target="_blank" rel="noreferrer"><Icon name="external" size={18} /> Vista pública</a>
+                    {manage && <Link href={`/admin/tournaments/${t.id}?eliminar=1#eliminar`} className="danger"><Icon name="x" size={18} /> Eliminar torneo</Link>}
                   </div>
                 </details>
               </div>

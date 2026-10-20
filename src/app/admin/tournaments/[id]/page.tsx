@@ -8,9 +8,11 @@ import { StatusBadge } from "@/components/views";
 import { addCategoryAction, removeCategoryAction, addAvailabilityAction, removeAvailabilityAction } from "@/server/actions/admin";
 import { fmtDate, fmtDateTime, toLocalInput } from "@/lib/format";
 import { ResetForm } from "@/components/ResetForm";
+import { DeleteTournament } from "@/components/DeleteTournament";
 
-export default async function TournamentPage({ params }: { params: Promise<{ id: string }> }) {
+export default async function TournamentPage({ params, searchParams }: { params: Promise<{ id: string }>; searchParams: Promise<{ eliminar?: string }> }) {
   const { id } = await params;
+  const sp = await searchParams;
   if (!isUuid(id)) notFound();
   const u = await requireUser();
   const [t] = await sql<{ id: string; name: string; slug: string; start_date: string; end_date: string; status: string; venue_id: string | null; circuit_id: string | null; season_id: string | null; is_public: boolean; rules_text: string | null; match_duration_min: number; min_rest_min: number; venue: string | null }[]>`
@@ -140,6 +142,7 @@ export default async function TournamentPage({ params }: { params: Promise<{ id:
             </div>
           )}
           {can(u, "tournaments.manage") && <ResetForm scope="tournament" id={id} />}
+          {can(u, "tournaments.manage") && <DeleteTournament id={id} open={sp.eliminar === "1"} />}
         </div>
       </div>
     </div>

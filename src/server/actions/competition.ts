@@ -319,3 +319,10 @@ export async function resetTournamentAction(_p: ActionState, fd: FormData): Prom
     return { message: mode === "RESULTS" ? "Listo: se borraron todos los resultados del torneo. Las inscripciones siguen igual." : "Listo: el torneo quedó como recién inscripto. Ya podés volver a generar las zonas de cada categoría." };
   }, REVAL);
 }
+
+export async function deleteTournamentAction(_p: ActionState, fd: FormData): Promise<ActionState> {
+  return runAction("tournaments.manage", async (user) => {
+    await sql.begin((tx) => ops.deleteTournament(tx, user, uuid(fd, "tournament_id"), isConfirmed(fd)));
+    return { message: "Torneo eliminado.", redirectTo: "/admin/tournaments" };
+  }, REVAL);
+}

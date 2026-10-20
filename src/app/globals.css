@@ -666,3 +666,4 @@ details[open] > summary::before { content: "▾ "; }
 @media (max-width: 900px) { .publisher { grid-template-columns: 1fr; } }
 @media (max-width: 640px) { .fgrid-3 { grid-template-columns: 1fr; } .toggle-row { padding: 14px 16px; } }
 .tcard2-public { display: block; color: inherit; } .tcard2-public:hover { color: inherit; text-decoration: none; }
+.tmenu-pop a.danger, .tmenu-pop a.danger .icon { color: #ff7a7a; }
