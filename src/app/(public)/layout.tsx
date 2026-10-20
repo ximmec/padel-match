@@ -16,7 +16,10 @@ export default function PublicLayout({ children }: { children: React.ReactNode }
               { href: "/ranking", label: "Ranking" },
             ]}
           />
-          <Link href="/login" className="btn ghost sm">Organizadores</Link>
+          <div className="top-cta">
+            <Link href="/login" className="top-login">Ingresar</Link>
+            <Link href="/login" className="btn primary pill">Crear torneo</Link>
+          </div>
         </div>
       </header>
       {children}

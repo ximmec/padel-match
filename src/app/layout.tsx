@@ -1,8 +1,9 @@
 import type { Metadata, Viewport } from "next";
-import { Barlow, Exo_2 } from "next/font/google";
+import { Barlow, Exo_2, Outfit } from "next/font/google";
 import "./globals.css";
 
 const body = Barlow({ subsets: ["latin"], weight: ["400", "500", "600", "700"], variable: "--font-body", display: "swap" });
+const hero = Outfit({ subsets: ["latin"], weight: ["600", "700", "800", "900"], variable: "--font-hero", display: "swap" });
 const display = Exo_2({ subsets: ["latin"], weight: ["700", "800", "900"], style: ["italic", "normal"], variable: "--font-display", display: "swap" });
 
 export const dynamic = "force-dynamic";
@@ -22,7 +23,7 @@ export const viewport: Viewport = {
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="es" className={`${body.variable} ${display.variable}`}>
+    <html lang="es" className={`${body.variable} ${display.variable} ${hero.variable}`}>
       <body>{children}</body>
     </html>
   );

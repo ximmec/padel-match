@@ -2,6 +2,7 @@ import Link from "next/link";
 import { sql } from "@/server/db";
 import { StatusBadge } from "@/components/views";
 import { fmtDate } from "@/lib/format";
+import { Icon } from "@/components/Icon";
 
 type Row = { id: string; name: string; slug: string; start_date: string; end_date: string; status: string; venue: string | null; org_name: string; categories: string | null; entries: number };
 
@@ -55,29 +56,33 @@ export default async function Home() {
 
   return (
     <>
-      <section className="hero-photo">
-        <picture className="hero-photo-bg">
-          <source media="(max-width: 760px)" srcSet="/hero-mundo-m.webp" />
+      <section className="hero-split">
+        <div className="hero-split-bg" aria-hidden>
           {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img src="/hero-mundo.webp" alt="" width={2149} height={732} fetchPriority="high" />
-        </picture>
-        <div className="hero-photo-inner">
-          <div className="hero-kicker">Play around the world</div>
-          <h1>Tu torneo, <span className="accent">en tiempo real</span></h1>
-          <p>Resultados, zonas, cuadros, horarios y ranking. Buscá tu nombre y enterate cuándo y en qué cancha jugás.</p>
-          <form action="/buscar" className="search-big">
-            <input name="q" placeholder="Tu nombre o apellido…" aria-label="Buscar jugador" />
-            <button className="btn primary lg">Buscar</button>
+          <img src="/hero-right.webp" alt="" width={1247} height={732} fetchPriority="high" />
+        </div>
+        <div className="hero-split-inner">
+          <h1 className="hero-title">Tu torneo de pádel, <span>en tiempo real</span></h1>
+          <p className="hero-lead">Zonas, resultados, cuadros, horarios y ranking en un solo lugar. Buscá tu nombre y enterate cuándo y en qué cancha jugás.</p>
+          <form action="/buscar" className="hero-search">
+            <input name="q" placeholder="Buscá tu nombre o apellido…" aria-label="Buscar jugador" />
+            <button className="btn primary pill">Buscar <span aria-hidden>→</span></button>
           </form>
-          <div className="hero-photo-stats">
-            {[[stats.tournaments, "Torneos"], [stats.players, "Jugadores"], [stats.played, "Partidos jugados"]].map(([n, l]) => (
-              <div key={String(l)}><b>{n}</b><span>{l}</span></div>
-            ))}
+          <div className="hero-links">
+            <Link href="#torneos"><Icon name="trophy" size={24} /> Torneos</Link>
+            <Link href="/buscar"><Icon name="calendar" size={24} /> ¿Cuándo juego?</Link>
+            <Link href="/ranking"><Icon name="chart" size={24} /> Ranking</Link>
+            <Link href="/login"><Icon name="users" size={24} /> Organizadores</Link>
+          </div>
+          <div className="hero-mini-stats">
+            <span><b>{stats.tournaments}</b> torneos</span>
+            <span><b>{stats.players}</b> jugadores</span>
+            <span><b>{stats.played}</b> partidos jugados</span>
           </div>
         </div>
       </section>
 
-      <main className="container stack">
+      <main className="container stack" id="torneos">
         {live.length > 0 && (
           <>
             <h2 className="section-title"><span className="badge live">En vivo</span> Jugándose ahora</h2>
