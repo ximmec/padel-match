@@ -252,6 +252,8 @@ test("importar jugadores desde Excel", async ({ page }) => {
 
   // Panel: escritorio y celular
   await page.setViewportSize({ width: 1366, height: 900 });
+  await page.goto("/admin/tournaments");
+  await shot(page, "37-mis-torneos");
   await page.goto("/admin");
   await page.screenshot({ path: "e2e-shots/32-panel-inicio.png" });
   await page.setViewportSize({ width: 390, height: 844 });
