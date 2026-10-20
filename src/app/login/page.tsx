@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { redirect } from "next/navigation";
 import { ActionForm, Submit } from "@/components/ActionForm";
 import { AuthShell, FieldIcon } from "@/components/AuthShell";
@@ -27,7 +28,7 @@ export default async function LoginPage({ searchParams }: { searchParams: Promis
         </div>
         <Submit className="btn primary block lg auth-submit" pendingText="Ingresando…">Ingresar →</Submit>
       </ActionForm>
-      <p className="muted auth-foot">¿Olvidaste tu contraseña? Pedile al administrador de tu organización que te asigne una nueva.</p>
+      <p className="muted auth-foot"><Link href="/recuperar">¿Olvidaste tu contraseña o tu email?</Link></p>
       <div className="auth-divider" />
       <p className="auth-foot">¿Sos jugador? No necesitás cuenta: <a href="/">buscá tu torneo acá</a>.</p>
     </AuthShell>

@@ -77,3 +77,48 @@ export async function changePasswordAction(_prev: ActionState, fd: FormData): Pr
     return { error: friendlyDbError(e), at: Date.now() };
   }
 }
+
+/**
+ * Recuperar acceso: quien conoce la SETUP_KEY (configurada en Vercel) puede
+ * poner una contraseña nueva a cualquier cuenta. Con límite de intentos.
+ */
+export async function recoverAction(_prev: ActionState, fd: FormData): Promise<ActionState> {
+  let userId: string | null = null;
+  try {
+    const setupKey = process.env.SETUP_KEY;
+    if (!setupKey) throw new UserError("La recuperación no está habilitada: falta la variable SETUP_KEY en Vercel.");
+    const { clientIp, isLoginBlocked } = await import("../auth");
+    const ip = await clientIp();
+    if (await isLoginBlocked("__recover__", ip)) throw new UserError("Demasiados intentos. Esperá 15 minutos y volvé a probar.");
+    const { timingSafeEqual, createHash } = await import("node:crypto");
+    const h = (s: string) => createHash("sha256").update(s).digest();
+    if (!timingSafeEqual(h(str(fd, "setupKey")), h(setupKey))) {
+      await sql`INSERT INTO login_attempts (email, ip, success) VALUES ('__recover__', ${ip}, false)`;
+      throw new UserError("La clave de instalación no es correcta.");
+    }
+    const email = str(fd, "email").toLowerCase();
+    const [u] = email ? await sql<{ id: string; name: string }[]>`SELECT id, name FROM users WHERE email = ${email}` : [];
+    if (!u) {
+      const admins = await sql<{ email: string }[]>`
+        SELECT DISTINCT u.email FROM users u LEFT JOIN memberships m ON m.user_id = u.id
+        WHERE u.is_superadmin OR m.role = 'ADMIN' ORDER BY u.email`;
+      throw new UserError(`${email ? "No hay ninguna cuenta con ese email." : "Escribí el email de la cuenta."} Cuentas de administrador: ${admins.map((a) => a.email).join(", ") || "ninguna"}.`);
+    }
+    const password = String(fd.get("password") ?? "");
+    const pp = passwordProblems(password);
+    if (pp) throw new UserError(pp);
+    const hash = await hashPassword(password);
+    await sql.begin(async (tx) => {
+      await tx`UPDATE users SET password_hash = ${hash}, active = true WHERE id = ${u.id}`;
+      await tx`DELETE FROM sessions WHERE user_id = ${u.id}`;
+      await tx`INSERT INTO login_attempts (email, ip, success) VALUES ('__recover__', ${ip}, true)`;
+      await tx`DELETE FROM login_attempts WHERE success = false AND (email = ${email} OR email = '__recover__')`;
+      await audit(tx, null, { entity: "user", entityId: u.id, action: "update", summary: `Contraseña restablecida con la clave de instalación (${email})` });
+    });
+    userId = u.id;
+  } catch (e) {
+    return { error: friendlyDbError(e), at: Date.now() };
+  }
+  await createSession(userId!);
+  redirect("/admin");
+}

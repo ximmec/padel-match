@@ -53,6 +53,7 @@ jobs:
       - name: Prueba de humo (servidor real)
         env:
           DATABASE_URL: postgres://padel:padel@localhost:5432/padel_e2e
+          SETUP_KEY: clave-ci-123
         run: |
           nohup npx next start -p 3000 >> ci-output.txt 2>&1 &
           for i in $(seq 1 30); do curl -sf http://localhost:3000/api/health && break; sleep 1; done

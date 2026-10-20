@@ -24,6 +24,8 @@ test("configuración inicial y datos base", async ({ page }) => {
   await page.goto("/");
   await shot(page, "01-publico-vacio");
   await page.goto("/setup");
+  const key = page.locator('input[name="setupKey"]');
+  if (await key.count()) await key.fill("clave-ci-123");
   await page.locator('input[name="orgName"]').fill("Circuito de Prueba");
   await page.locator('input[name="name"]').fill("Admin Prueba");
   await page.locator('input[name="email"]').fill("admin@padel-match.net");
@@ -262,4 +264,20 @@ test("importar jugadores desde Excel", async ({ page }) => {
   await page.locator(".admin-side a", { hasText: "Jugadores" }).click();
   await page.waitForURL("**/admin/players");
   await shot(page, "35-movil-jugadores");
+});
+
+test("recuperar acceso con la clave de instalación", async ({ page }) => {
+  await page.goto("/recuperar");
+  if (await page.getByText(/no está habilitada/).count()) return;
+  await page.locator('input[name="setupKey"]').fill("clave-mala");
+  await page.getByRole("button", { name: /Guardar y entrar/ }).click();
+  await expect(page.getByText("La clave de instalación no es correcta.")).toBeVisible();
+  await page.locator('input[name="setupKey"]').fill("clave-ci-123");
+  await page.getByRole("button", { name: /Guardar y entrar/ }).click();
+  await expect(page.getByText(/admin@padel-match\.net/)).toBeVisible();
+  await page.locator('input[name="email"]').fill("admin@padel-match.net");
+  await page.locator('input[name="password"]').fill("Prueba12345");
+  await shot(page, "36-recuperar");
+  await page.getByRole("button", { name: /Guardar y entrar/ }).click();
+  await page.waitForURL("**/admin");
 });
