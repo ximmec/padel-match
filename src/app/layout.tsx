@@ -1,3 +1,4 @@
+import { env } from "@/lib/env";
 import type { Metadata, Viewport } from "next";
 import { Barlow, Exo_2, Outfit } from "next/font/google";
 import "./globals.css";
@@ -9,7 +10,7 @@ const display = Exo_2({ subsets: ["latin"], weight: ["700", "800", "900"], style
 export const dynamic = "force-dynamic";
 
 export const metadata: Metadata = {
-  metadataBase: new URL(process.env.APP_URL || "https://padel-match.net"),
+  metadataBase: new URL(env("APP_URL") || "https://padel-match.net"),
   title: { default: "PADEL MATCH", template: "%s · PADEL MATCH" },
   description: "Torneos de pádel: zonas, resultados, cuadros, horarios y ranking en tiempo real.",
   applicationName: "PADEL MATCH",

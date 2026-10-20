@@ -1,5 +1,6 @@
 "use server";
 
+import { env } from "@/lib/env";
 import { redirect } from "next/navigation";
 import { sql, UserError, friendlyDbError } from "../db";
 import { login, logout, createSession, switchOrg, getCurrentUser } from "../auth";
@@ -29,7 +30,7 @@ export async function switchOrgAction(fd: FormData) {
 /** Configuración inicial: solo funciona si todavía no existe ningún usuario. */
 export async function setupAction(_prev: ActionState, fd: FormData): Promise<ActionState> {
   try {
-    const setupKey = process.env.SETUP_KEY;
+    const setupKey = env("SETUP_KEY");
     if (setupKey && str(fd, "setupKey") !== setupKey) throw new UserError("Clave de instalación incorrecta.");
     const orgName = str(fd, "orgName");
     const name = str(fd, "name");
@@ -85,7 +86,7 @@ export async function changePasswordAction(_prev: ActionState, fd: FormData): Pr
 export async function recoverAction(_prev: ActionState, fd: FormData): Promise<ActionState> {
   let userId: string | null = null;
   try {
-    const setupKey = process.env.SETUP_KEY;
+    const setupKey = env("SETUP_KEY");
     if (!setupKey) throw new UserError("La recuperación no está habilitada: falta la variable SETUP_KEY en Vercel.");
     const { clientIp, isLoginBlocked } = await import("../auth");
     const ip = await clientIp();

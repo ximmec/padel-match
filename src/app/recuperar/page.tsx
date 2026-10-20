@@ -1,3 +1,4 @@
+import { env } from "@/lib/env";
 import Link from "next/link";
 import { ActionForm, Submit } from "@/components/ActionForm";
 import { AuthShell, FieldIcon } from "@/components/AuthShell";
@@ -7,7 +8,7 @@ import { recoverAction } from "@/server/actions/auth";
 export const metadata = { title: "Recuperar acceso", robots: { index: false } };
 
 export default function RecoverPage() {
-  const enabled = !!process.env.SETUP_KEY;
+  const enabled = !!env("SETUP_KEY");
   return (
     <AuthShell>
       <h1>Recuperar <span className="accent">acceso</span></h1>

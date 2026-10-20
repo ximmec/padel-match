@@ -1,3 +1,4 @@
+import { env } from "@/lib/env";
 import { redirect } from "next/navigation";
 import { ActionForm, Submit } from "@/components/ActionForm";
 import { AuthShell, FieldIcon } from "@/components/AuthShell";
@@ -15,7 +16,7 @@ export default async function SetupPage() {
       <h1>Bienvenido a <span className="accent">PADEL MATCH</span></h1>
       <p className="muted auth-sub">Creá la cuenta del administrador principal. Este paso se hace una sola vez.</p>
       <ActionForm action={setupAction}>
-        {process.env.SETUP_KEY && (
+        {env("SETUP_KEY") && (
           <div className="field"><label htmlFor="setupKey">Clave de instalación</label>
             <div className="input-icon"><FieldIcon name="key" /><PasswordInput id="setupKey" name="setupKey" required /></div>
             <div className="hint">Es el valor de la variable SETUP_KEY configurada en Vercel.</div></div>
