@@ -3,7 +3,7 @@ import { requireUser, can } from "@/server/auth";
 import { sql } from "@/server/db";
 import { ActionForm, Submit } from "@/components/ActionForm";
 import { PlayerFields } from "@/components/PlayerFields";
-import { createPlayerAction, importPlayersAction } from "@/server/actions/admin";
+import { createPlayerAction, importPlayersAction, deletePlayerAction, deleteAllPlayersAction } from "@/server/actions/admin";
 import { PLAYER_CATEGORIES } from "@/core/playerImport";
 
 export const metadata = { title: "Jugadores" };
@@ -11,6 +11,7 @@ const PAGE = 50;
 
 export default async function PlayersPage({ searchParams }: { searchParams: Promise<{ q?: string; page?: string; new?: string; deleted?: string; import?: string; cat?: string; sexo?: string }> }) {
   const u = await requireUser();
+  const canDelete = can(u, "players.manage");
   const sp = await searchParams;
   const q = (sp.q ?? "").trim();
   const page = Math.max(1, Number(sp.page) || 1);
@@ -105,7 +106,7 @@ export default async function PlayersPage({ searchParams }: { searchParams: Prom
         </div>
         <div className="table-wrap">
           <table>
-            <thead><tr><th>Código</th><th>Jugador</th><th>Categoría</th><th className="hide-sm">Género</th><th className="hide-sm">Ciudad</th><th className="num">Torneos</th><th className="num">Puntos</th></tr></thead>
+            <thead><tr><th>Código</th><th>Jugador</th><th>Categoría</th><th className="hide-sm">Género</th><th className="hide-sm">Ciudad</th><th className="num">Torneos</th><th className="num">Puntos</th>{canDelete && <th></th>}</tr></thead>
             <tbody>
               {rows.map((p) => (
                 <tr key={p.id} className={p.deleted_at ? "out" : ""}>
@@ -116,13 +117,37 @@ export default async function PlayersPage({ searchParams }: { searchParams: Prom
                   <td className="hide-sm">{p.city ?? ""}</td>
                   <td className="num">{p.events}</td>
                   <td className="num"><b>{p.points}</b></td>
+                  {canDelete && (
+                    <td className="num">
+                      {!p.deleted_at && (
+                        <ActionForm action={deletePlayerAction} hideSuccess={false} confirmText={`¿Eliminar a ${p.first_name} ${p.last_name}? Si ya jugó torneos se da de baja y se conservan sus resultados y puntos.`}>
+                          <input type="hidden" name="id" value={p.id} /><input type="hidden" name="back" value="list" />
+                          <Submit className="btn ghost sm icon-btn" pendingText="…"><span aria-hidden>🗑</span><span className="sr">Eliminar</span></Submit>
+                        </ActionForm>
+                      )}
+                    </td>
+                  )}
                 </tr>
               ))}
-              {rows.length === 0 && <tr><td colSpan={7} className="empty">No hay jugadores{q ? " que coincidan con la búsqueda" : " todavía"}.</td></tr>}
+              {rows.length === 0 && <tr><td colSpan={canDelete ? 8 : 7} className="empty">No hay jugadores{q ? " que coincidan con la búsqueda" : " todavía"}.</td></tr>}
             </tbody>
           </table>
         </div>
       </div>
+      {canDelete && total > 0 && (
+        <details className="card reset-card">
+          <summary>Eliminar TODOS los jugadores</summary>
+          <p className="muted" style={{ marginTop: 10 }}>
+            Los que nunca jugaron se borran definitivamente. Los que ya jugaron torneos se dan de baja y conservan sus resultados y puntos.
+            Los que están inscriptos en torneos en curso no se tocan. Antes de aplicar te mostramos cuántos hay de cada uno.
+          </p>
+          <ActionForm action={deleteAllPlayersAction}>
+            <div className="field" style={{ maxWidth: 360 }}><label htmlFor="confirm_text">Para confirmar, escribí ELIMINAR</label>
+              <input id="confirm_text" name="confirm_text" autoComplete="off" placeholder="ELIMINAR" required /></div>
+            <Submit className="btn danger" pendingText="Revisando…">Eliminar todos los jugadores</Submit>
+          </ActionForm>
+        </details>
+      )}
       {pages > 1 && (
         <div className="row">
           {page > 1 && <Link className="btn ghost sm" href={qs(page - 1)}>← Anterior</Link>}

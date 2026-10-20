@@ -54,10 +54,10 @@ export default async function PlayerPage({ params }: { params: Promise<{ id: str
               {p.deleted_at ? (
                 <ActionForm action={restorePlayerAction}><input type="hidden" name="id" value={p.id} /><Submit className="btn ghost sm">Reactivar jugador</Submit></ActionForm>
               ) : (
-                <ActionForm action={deletePlayerAction} confirmText="¿Dar de baja a este jugador? Su historial y sus puntos se conservan.">
+                <ActionForm action={deletePlayerAction} confirmText="¿Eliminar a este jugador? Si ya jugó torneos se da de baja y se conservan sus resultados y puntos.">
                   <input type="hidden" name="id" value={p.id} />
-                  <Submit className="btn danger sm">Dar de baja</Submit>
-                  <div className="hint muted" style={{ fontSize: 12, marginTop: 4 }}>La baja es lógica: se conservan su historial y sus puntos.</div>
+                  <Submit className="btn danger sm">Eliminar jugador</Submit>
+                  <div className="hint muted" style={{ fontSize: 12, marginTop: 4 }}>Si nunca jugó se borra del todo; si ya jugó torneos se da de baja y se conservan su historial y sus puntos.</div>
                 </ActionForm>
               )}
             </div>

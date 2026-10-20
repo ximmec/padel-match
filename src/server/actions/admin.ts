@@ -4,6 +4,7 @@ import { z } from "zod";
 import { sql, UserError, type Tx } from "../db";
 import type { CurrentUser } from "../auth";
 import { audit } from "../audit";
+import { NeedsConfirmation } from "../errors";
 import { runAction, str, optStr, int, req, uuid, isConfirmed, type ActionState } from "../action";
 import { importPlayers } from "../importPlayers";
 import { PLAYER_CATEGORIES } from "@/core/playerImport";
@@ -72,22 +73,82 @@ export async function updatePlayerAction(_p: ActionState, fd: FormData): Promise
   }, ["/admin/players"]);
 }
 
+/** Jugadores inscriptos en una categoría que todavía no terminó (no se pueden eliminar). */
+const BUSY = (orgId: string) => sql`
+  SELECT DISTINCT ep.player_id FROM entry_players ep JOIN entries e ON e.id = ep.entry_id
+  JOIN tournament_categories tc ON tc.id = e.tc_id JOIN tournaments t ON t.id = tc.tournament_id
+  WHERE t.org_id = ${orgId} AND ep.active AND e.status = 'ACTIVE' AND tc.status <> 'FINISHED' AND t.status NOT IN ('FINISHED','CANCELLED')`;
+
+/**
+ * Elimina un jugador. Si nunca jugó (sin inscripciones ni puntos) se borra del todo;
+ * si tiene historial se da de baja y se conservan sus resultados y puntos.
+ */
 export async function deletePlayerAction(_p: ActionState, fd: FormData): Promise<ActionState> {
   return runAction("players.manage", async (user) => {
     const id = uuid(fd, "id");
-    await sql.begin(async (tx) => {
+    const msg = await sql.begin(async (tx) => {
       const [p] = await tx<{ first_name: string; last_name: string }[]>`SELECT first_name, last_name FROM players WHERE id = ${id} AND org_id = ${user.orgId} AND deleted_at IS NULL`;
       if (!p) throw new UserError("Jugador no encontrado.");
       const [act] = await tx<{ n: number }[]>`
-        SELECT count(*)::int AS n FROM entry_players ep JOIN entries e ON e.id = ep.entry_id JOIN tournament_categories tc ON tc.id = e.tc_id
-        WHERE ep.player_id = ${id} AND ep.active AND tc.status <> 'FINISHED'`;
-      if (act.n > 0) throw new UserError("El jugador está inscripto en un torneo en curso. Retirá o reemplazá la inscripción primero.");
-      // Baja lógica: se conserva su historial y sus puntos
+        SELECT count(*)::int AS n FROM entry_players ep JOIN entries e ON e.id = ep.entry_id JOIN tournament_categories tc ON tc.id = e.tc_id JOIN tournaments t ON t.id = tc.tournament_id
+        WHERE ep.player_id = ${id} AND ep.active AND e.status = 'ACTIVE' AND tc.status <> 'FINISHED' AND t.status NOT IN ('FINISHED','CANCELLED')`;
+      if (act.n > 0) throw new UserError(`${p.first_name} ${p.last_name} está inscripto en un torneo en curso. Retirá o reemplazá la inscripción primero.`);
+      const [h] = await tx<{ n: number }[]>`SELECT (SELECT count(*) FROM entry_players WHERE player_id = ${id}) + (SELECT count(*) FROM ranking_ledger WHERE player_id = ${id}) AS n`;
+      const name = `${p.first_name} ${p.last_name}`;
+      if (Number(h.n) === 0) {
+        await tx`DELETE FROM players WHERE id = ${id}`;
+        await audit(tx, user, { entity: "player", entityId: id, action: "delete", summary: `Jugador ${name} eliminado` });
+        return `${name} eliminado.`;
+      }
       await tx`UPDATE players SET deleted_at = now() WHERE id = ${id}`;
-      await audit(tx, user, { entity: "player", entityId: id, action: "delete", summary: `Baja del jugador ${p.first_name} ${p.last_name} (se conserva su historial)` });
+      await audit(tx, user, { entity: "player", entityId: id, action: "delete", summary: `Baja del jugador ${name} (se conserva su historial)` });
+      return `${name} dado de baja (tenía torneos jugados: se conservan sus resultados y puntos).`;
     });
-    return { message: "Jugador dado de baja.", redirectTo: "/admin/players" };
-  }, ["/admin/players"]);
+    return { message: msg, redirectTo: str(fd, "back") === "list" ? undefined : "/admin/players" };
+  }, ["/admin/players", "/ranking"]);
+}
+
+/** Eliminar TODOS los jugadores (los que tienen historial se dan de baja; los inscriptos en torneos en curso se saltean). */
+export async function deleteAllPlayersAction(_p: ActionState, fd: FormData): Promise<ActionState> {
+  return runAction("players.manage", async (user) => {
+    if (str(fd, "confirm_text").toUpperCase() !== "ELIMINAR") throw new UserError("Para confirmar escribí ELIMINAR en el casillero.");
+    const out = await sql.begin(async (tx) => {
+      const [c] = await tx<{ total: number; busy: number; hist: number }[]>`
+        WITH busy AS (${BUSY(user.orgId)}),
+        live AS (SELECT id FROM players WHERE org_id = ${user.orgId} AND deleted_at IS NULL),
+        hist AS (SELECT l.id FROM live l WHERE l.id NOT IN (SELECT player_id FROM busy)
+                 AND (EXISTS (SELECT 1 FROM entry_players ep WHERE ep.player_id = l.id) OR EXISTS (SELECT 1 FROM ranking_ledger r WHERE r.player_id = l.id)))
+        SELECT (SELECT count(*)::int FROM live) AS total,
+               (SELECT count(*)::int FROM live WHERE id IN (SELECT player_id FROM busy)) AS busy,
+               (SELECT count(*)::int FROM hist) AS hist`;
+      const clean = c.total - c.busy - c.hist;
+      if (c.total === 0) throw new UserError("No hay jugadores para eliminar.");
+      if (!isConfirmed(fd)) {
+        const items = [`Hay ${c.total} jugador(es) activos.`];
+        if (clean) items.push(`${clean} nunca jugaron: se borran definitivamente.`);
+        if (c.hist) items.push(`${c.hist} tienen torneos jugados: se dan de baja y se conservan sus resultados y puntos.`);
+        if (c.busy) items.push(`${c.busy} están inscriptos en torneos en curso: NO se eliminan.`);
+        items.push("Esta acción no se puede deshacer (los dados de baja se pueden reactivar uno por uno).");
+        throw new NeedsConfirmation("Eliminar todos los jugadores", items);
+      }
+      await tx`
+        WITH busy AS (${BUSY(user.orgId)})
+        UPDATE players p SET deleted_at = now()
+        WHERE p.org_id = ${user.orgId} AND p.deleted_at IS NULL AND p.id NOT IN (SELECT player_id FROM busy)
+          AND (EXISTS (SELECT 1 FROM entry_players ep WHERE ep.player_id = p.id) OR EXISTS (SELECT 1 FROM ranking_ledger r WHERE r.player_id = p.id))`;
+      await tx`
+        WITH busy AS (${BUSY(user.orgId)})
+        DELETE FROM players p
+        WHERE p.org_id = ${user.orgId} AND p.deleted_at IS NULL AND p.id NOT IN (SELECT player_id FROM busy)
+          AND NOT EXISTS (SELECT 1 FROM entry_players ep WHERE ep.player_id = p.id) AND NOT EXISTS (SELECT 1 FROM ranking_ledger r WHERE r.player_id = p.id)`;
+      await audit(tx, user, { entity: "player", action: "delete", summary: `Eliminación masiva: ${clean} borrados, ${c.hist} dados de baja, ${c.busy} sin cambios (en torneos en curso)` });
+      return { clean, hist: c.hist, busy: c.busy };
+    });
+    const parts = [`${out.clean} eliminados`];
+    if (out.hist) parts.push(`${out.hist} dados de baja (conservan su historial)`);
+    if (out.busy) parts.push(`${out.busy} no se tocaron porque están en torneos en curso`);
+    return { message: `Listo: ${parts.join(", ")}.` };
+  }, ["/admin/players", "/ranking"]);
 }
 
 export async function restorePlayerAction(_p: ActionState, fd: FormData): Promise<ActionState> {
