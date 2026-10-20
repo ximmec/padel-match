@@ -8,7 +8,7 @@ export function AuthShell({ children }: { children: React.ReactNode }) {
     <div className="auth">
       <div className="auth-bg" aria-hidden>
         {/* eslint-disable-next-line @next/next/no-img-element */}
-        <picture><source media="(max-width: 900px)" srcSet="/hero-mundo-m.webp" /><img src="/hero-mundo.webp" alt="" /></picture>
+        <picture><source media="(max-width: 1000px)" srcSet="/login-cancha-m.webp" /><img src="/login-cancha.webp" alt="" /></picture>
       </div>
       <header className="auth-top">
         <Brand />
