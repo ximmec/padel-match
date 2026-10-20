@@ -97,6 +97,20 @@ export function qualifierRefs(zones: ZoneInfo[], rule: QualificationRule): { ref
  * - El resto se ubica evitando cruces de primera ronda entre parejas de la misma zona
  *   y separando a parejas de la misma zona en mitades distintas del cuadro.
  */
+/**
+ * Eliminación directa: las parejas entran al cuadro sin zonas.
+ * Primero las sembradas (por número de siembra), después el resto en orden de sorteo.
+ */
+export function knockoutQualifiers(entries: { id: string; seed: number | null }[], randomSeed: number): { ref: SlotRef; zone: string | null }[] {
+  if (entries.length < 2) throw new BracketError("Se necesitan al menos 2 parejas inscriptas.");
+  const seeded = entries.filter((e) => e.seed != null).sort((a, b) => a.seed! - b.seed!);
+  const rest = entries.filter((e) => e.seed == null);
+  let a = randomSeed >>> 0;
+  const rand = () => { a = (a + 0x6d2b79f5) >>> 0; let t = a; t = Math.imul(t ^ (t >>> 15), t | 1); t ^= t + Math.imul(t ^ (t >>> 7), t | 61); return ((t ^ (t >>> 14)) >>> 0) / 4294967296; };
+  for (let i = rest.length - 1; i > 0; i--) { const j = Math.floor(rand() * (i + 1)); [rest[i], rest[j]] = [rest[j], rest[i]]; }
+  return [...seeded, ...rest].map((e) => ({ ref: { t: "ENTRY", entryId: e.id } as SlotRef, zone: null }));
+}
+
 export function generateBracket(qualifiers: { ref: SlotRef; zone: string | null }[]): BracketMatchDef[] {
   const q = qualifiers.length;
   const size = nextPow2(q);

@@ -176,6 +176,13 @@ async function EntriesTab({ lc, u }: { lc: LoadedCategory; u: CurrentUser }) {
 /* ---------------------------------------------------------------- */
 
 function ZonesTab({ lc, u }: { lc: LoadedCategory; u: CurrentUser }) {
+  if (lc.rules.mode === "KNOCKOUT") {
+    return (
+      <div className="card empty">
+        Esta categoría es de <b>eliminación directa</b>: no tiene zonas. Inscribí las parejas (con su número de siembra si querés) y generá el cuadro en la pestaña <Link href="?tab=cuadro">Cuadro</Link>.
+      </div>
+    );
+  }
   const manage = can(u, "tournaments.manage");
   const active = lc.entries.filter((e) => e.status === "ACTIVE");
   let suggested = "";
@@ -405,7 +412,9 @@ function BracketTab({ lc, u }: { lc: LoadedCategory; u: CurrentUser }) {
         <div className="row between">
           <div>
             <h2 style={{ marginBottom: 4 }}>Cuadro eliminatorio</h2>
-            <span className="muted">Clasifican {q.perZone === "ALL" ? "todas las parejas" : `${q.perZone} por zona`}{q.bestNext ? ` + ${q.bestNext} mejores ${(q.perZone as number) + 1}°` : ""}. Se cambia en «Reglas».</span>
+            <span className="muted">{lc.rules.mode === "KNOCKOUT"
+              ? `Eliminación directa: entran las ${lc.entries.filter((e) => e.status === "ACTIVE").length} parejas inscriptas. Los sembrados reciben los pases libres.`
+              : <>Clasifican {q.perZone === "ALL" ? "todas las parejas" : `${q.perZone} por zona`}{q.bestNext ? ` + ${q.bestNext} mejores ${(q.perZone as number) + 1}°` : ""}. Se cambia en «Reglas».</>}</span>
           </div>
           {manage && (
             <div className="row">
@@ -421,10 +430,10 @@ function BracketTab({ lc, u }: { lc: LoadedCategory; u: CurrentUser }) {
             </div>
           )}
         </div>
-        <p className="muted" style={{ fontSize: 13, marginTop: 8 }}>
+        {lc.rules.mode !== "KNOCKOUT" && <p className="muted" style={{ fontSize: 13, marginTop: 8 }}>
           El cuadro se puede generar antes de que terminen las zonas: cada lugar muestra de dónde sale (por ejemplo «1° Zona A») y se completa solo cuando la zona queda definida.
           Los pases libres van a los mejores sembrados y se evita que dos parejas de la misma zona se crucen en la primera ronda.
-        </p>
+        </p>}
       </div>
       <div className="card">
         <BracketView lc={lc} zoneNames={zoneNames} renderFoot={manage ? (rm) => (
@@ -456,6 +465,17 @@ function RulesTab({ lc, u }: { lc: LoadedCategory; u: CurrentUser }) {
     <div className="card">
       <ActionForm action={A.updateRulesAction}>
         <input type="hidden" name="tc_id" value={lc.tc.id} />
+        <fieldset disabled={disabled}>
+          <legend>Formato competitivo</legend>
+          <div className="field" style={{ maxWidth: 420 }}>
+            <select name="mode" defaultValue={r.mode}>
+              <option value="ZONES">Zonas + playoffs</option>
+              <option value="KNOCKOUT">Eliminación directa</option>
+            </select>
+            <div className="hint">En eliminación directa no hay zonas: todas las parejas entran al cuadro y el que pierde queda afuera. Para cambiarlo, la categoría no tiene que tener zonas ni cuadro.</div>
+          </div>
+        </fieldset>
+
         <fieldset disabled={disabled}>
           <legend>Formato de partido</legend>
           <div className="grid grid-2" style={{ gap: 12 }}>

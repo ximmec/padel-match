@@ -279,3 +279,26 @@ test("reiniciar categoría y torneo conserva las inscripciones", async () => {
   lc = await loadCategory(sql, tcId, orgId);
   assert.ok(lc.zones.length > 0);
 });
+
+test("eliminación directa: sin zonas, cuadro con todas las parejas, byes a los sembrados y ranking", async () => {
+  const { tcId } = await makeTournament({ ...DEFAULT_RULES, mode: "KNOCKOUT" });
+  const players = await makePlayers(18);
+  const entries = await register(tcId, players); // 9 parejas, las 4 primeras sembradas
+  await assert.rejects(tx((x) => ops.generateZones(x, user, tcId, null, 1)), /eliminación directa/);
+  await tx((x) => ops.generateBracket(x, user, tcId, 5));
+  let lc = await loadCategory(sql, tcId, orgId);
+  assert.equal(lc.zones.length, 0);
+  const r1 = lc.tc.bracket.filter((d) => d.round === 1);
+  assert.equal(r1.length, 8, "9 parejas → cuadro de 16");
+  const byes = r1.filter((d) => d.a.t === "BYE" || d.b.t === "BYE");
+  assert.equal(byes.length, 7);
+  const seed1 = entries[0];
+  assert.ok(byes.some((d) => (d.a.t === "ENTRY" && d.a.entryId === seed1) || (d.b.t === "ENTRY" && d.b.entryId === seed1)), "el sembrado 1 tiene pase libre");
+  lc = await playBracket(tcId);
+  const final = lc.view.bracket.find((b) => b.round === Math.max(...lc.view.bracket.map((x) => x.round)))!;
+  assert.ok(final.winner);
+  const [{ n }] = await sql<{ n: number }[]>`SELECT count(*)::int AS n FROM ranking_ledger WHERE tc_id = ${tcId} AND kind = 'AUTO' AND superseded_at IS NULL`;
+  assert.equal(n, 18, "todos los jugadores reciben puntos");
+  // No se puede cambiar a zonas con el cuadro armado
+  await assert.rejects(tx((x) => ops.updateRules(x, user, tcId, { ...DEFAULT_RULES, mode: "ZONES" }, true)), /eliminá las zonas y el cuadro/);
+});

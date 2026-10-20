@@ -11,7 +11,11 @@ import { DEFAULT_POINTS, type PointsTable } from "./ranking";
 export type CrossZoneMode = "AVERAGES" | "DROP_VS_LAST";
 export type WithdrawalPolicy = "WO_PENDING" | "ANNUL_ALL";
 
+/** ZONES = zonas + playoffs. KNOCKOUT = eliminación directa (sin zonas). */
+export type CompetitionMode = "ZONES" | "KNOCKOUT";
+
 export interface CategoryRules {
+  mode: CompetitionMode;
   format: MatchFormat;
   tiebreaks: TiebreakCriterion[];
   qualification: QualificationRule;
@@ -23,6 +27,7 @@ export interface CategoryRules {
 }
 
 export const DEFAULT_RULES: CategoryRules = {
+  mode: "ZONES",
   format: FORMATS.BEST_OF_3_STB,
   tiebreaks: DEFAULT_TIEBREAKS,
   qualification: { perZone: 2, bestNext: 0 },
@@ -40,6 +45,7 @@ export function normalizeRules(raw: Partial<CategoryRules> | null | undefined): 
     points: { ...DEFAULT_RULES.points, ...(raw?.points ?? {}) },
     qualification: { ...DEFAULT_RULES.qualification, ...(raw?.qualification ?? {}) },
     tiebreaks: raw?.tiebreaks?.length ? raw.tiebreaks : DEFAULT_RULES.tiebreaks,
+    mode: raw?.mode === "KNOCKOUT" ? "KNOCKOUT" : "ZONES",
   };
 }
 
@@ -165,7 +171,8 @@ export function evaluateCategory(rules: CategoryRules, st: CategoryState): Categ
 
 /** Etapas alcanzadas por todas las parejas de la categoría. */
 export function categoryStages(st: CategoryState, view: CategoryView) {
-  const entries = [...new Set(st.zones.flatMap((z) => z.entryIds))];
+  const inBracket = view.bracket.flatMap((m) => [m.a, m.b]).flatMap((r) => (r.kind === "ENTRY" ? [r.entryId] : []));
+  const entries = [...new Set([...st.zones.flatMap((z) => z.entryIds), ...inBracket])];
   if (!view.bracket.length) return { stages: new Map(entries.map((e) => [e, "ZONE" as const])), complete: false };
   return stagesReached(entries, view.bracket);
 }

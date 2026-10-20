@@ -96,6 +96,7 @@ export async function updateRulesAction(_p: ActionState, fd: FormData): Promise<
     const preferredZoneSize = int(fd, "preferredZoneSize", 3) ?? 3;
     if (preferredZoneSize < 2 || preferredZoneSize > 8) throw new UserError("Tamaño de zona inválido.");
     const rules: CategoryRules = {
+      mode: str(fd, "mode") === "KNOCKOUT" ? "KNOCKOUT" : "ZONES",
       format,
       tiebreaks: unique.length ? unique : DEFAULT_TIEBREAKS,
       qualification: { perZone, bestNext },

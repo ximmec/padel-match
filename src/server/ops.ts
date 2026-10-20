@@ -13,7 +13,7 @@ import {
   planZoneSizes, validateZoneSizes, distributeEntries, roundRobin, zoneName,
 } from "@/core/zones";
 import {
-  generateBracket as coreGenerateBracket, qualifierRefs, diffBracket, refLabel, type SlotRef, type BracketMatchDef,
+  generateBracket as coreGenerateBracket, qualifierRefs, knockoutQualifiers, diffBracket, refLabel, type SlotRef, type BracketMatchDef,
 } from "@/core/bracket";
 import { evaluateCategory, normalizeRules, withdrawalChanges, type CategoryRules, type WithdrawalPolicy } from "@/core/engine";
 import { summarize, ScoreError, scoreText, type MatchOutcome } from "@/core/scoring";
@@ -56,6 +56,9 @@ export async function addCategory(tx: Tx, user: CurrentUser, tournamentId: strin
 
 export async function updateRules(tx: Tx, user: CurrentUser, tcId: string, rules: CategoryRules, confirmed: boolean) {
   const lc = await loadCategory(tx, tcId, user.orgId, { lock: true });
+  if (rules.mode !== lc.rules.mode && (lc.zones.length || lc.tc.bracket.length)) {
+    throw new UserError("Para cambiar entre «Zonas + playoffs» y «Eliminación directa», primero eliminá las zonas y el cuadro (o usá «Reiniciar categoría → Empezar de cero»).");
+  }
   const playedCount = lc.matches.filter((m) => m.status === "PLAYED").length;
   // Validar que los resultados existentes sigan siendo válidos con el nuevo formato
   const probe = evaluateCategory(rules, lc.state);
@@ -194,6 +197,7 @@ async function createFixtures(tx: Tx, tcId: string, zoneId: string, entryIds: st
 
 export async function generateZones(tx: Tx, user: CurrentUser, tcId: string, sizes: number[] | null, randomSeed: number) {
   const lc = await loadCategory(tx, tcId, user.orgId, { lock: true });
+  if (lc.rules.mode === "KNOCKOUT") throw new UserError("Esta categoría es de eliminación directa: no tiene zonas. Generá el cuadro directamente.");
   if (lc.matches.some((m) => m.phase === "ZONE" && m.status === "PLAYED")) {
     throw new UserError("Ya hay resultados de zona. Para reorganizar usá «Mover de zona» y así no se pierden los resultados.");
   }
@@ -314,14 +318,21 @@ export async function setCrossManualOrder(tx: Tx, user: CurrentUser, tcId: strin
 /* Cuadro                                                              */
 /* ------------------------------------------------------------------ */
 
-export async function generateBracket(tx: Tx, user: CurrentUser, tcId: string) {
+export async function generateBracket(tx: Tx, user: CurrentUser, tcId: string, randomSeed?: number) {
   const lc = await loadCategory(tx, tcId, user.orgId, { lock: true });
   if (lc.matches.some((m) => m.phase === "BRACKET" && m.status === "PLAYED")) {
     throw new UserError("Ya hay resultados en el cuadro. Modificá los cruces manualmente en lugar de regenerarlo.");
   }
-  if (!lc.zones.length) throw new UserError("Primero generá las zonas.");
-  const zoneInfos = lc.state.zones.map((z) => ({ id: z.id, size: z.entryIds.length - (z.withdrawn?.length ?? 0) })).filter((z) => z.size > 0);
-  const defs = coreGenerateBracket(qualifierRefs(zoneInfos, lc.rules.qualification));
+  let defs: BracketMatchDef[];
+  if (lc.rules.mode === "KNOCKOUT") {
+    const active = lc.entries.filter((e) => e.status === "ACTIVE");
+    if (active.length < 2) throw new UserError("Se necesitan al menos 2 parejas inscriptas.");
+    defs = coreGenerateBracket(knockoutQualifiers(active.map((e) => ({ id: e.id, seed: e.seed })), randomSeed ?? Math.floor(Math.random() * 1_000_000)));
+  } else {
+    if (!lc.zones.length) throw new UserError("Primero generá las zonas.");
+    const zoneInfos = lc.state.zones.map((z) => ({ id: z.id, size: z.entryIds.length - (z.withdrawn?.length ?? 0) })).filter((z) => z.size > 0);
+    defs = coreGenerateBracket(qualifierRefs(zoneInfos, lc.rules.qualification));
+  }
   await tx`DELETE FROM matches WHERE tc_id = ${tcId} AND phase = 'BRACKET'`;
   for (const d of defs) {
     await tx`INSERT INTO matches (tc_id, phase, bracket_code, round) VALUES (${tcId}, 'BRACKET', ${d.code}, ${d.round})`;
