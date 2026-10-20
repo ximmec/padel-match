@@ -63,6 +63,15 @@ export async function replacePlayerAction(_p: ActionState, fd: FormData): Promis
 
 /* --------------------------- Reglas --------------------------- */
 
+/** Tiebreak elegido: en g-g (por defecto), en (g-1)-(g-1) o sin tiebreak. */
+function applyTiebreak(f: MatchFormat, tb: string): MatchFormat {
+  const { tiebreakAt: _drop, ...rest } = f;
+  void _drop;
+  if (tb === "NONE") return { ...rest, tiebreak: false };
+  if (tb === "AT_G1") return { ...rest, tiebreak: true, tiebreakAt: f.gamesPerSet - 1 };
+  return { ...rest, tiebreak: tb === "AT_G" || !tb ? true : f.tiebreak };
+}
+
 export async function updateRulesAction(_p: ActionState, fd: FormData): Promise<ActionState> {
   return runAction("tournaments.manage", async (user) => {
     const tcId = uuid(fd, "tc_id");
@@ -73,12 +82,13 @@ export async function updateRulesAction(_p: ActionState, fd: FormData): Promise<
       const gamesPerSet = int(fd, "gamesPerSet") ?? 6;
       const stbPoints = int(fd, "superTiebreakPoints") ?? 10;
       if (setsToWin < 1 || setsToWin > 3 || gamesPerSet < 1 || gamesPerSet > 12 || stbPoints < 5 || stbPoints > 15) throw new UserError("Formato personalizado inválido.");
-      format = { setsToWin, gamesPerSet, tiebreak: fd.get("tiebreak") === "on", superTiebreakDecider: fd.get("superTiebreakDecider") === "on", superTiebreakPoints: stbPoints };
+      format = { setsToWin, gamesPerSet, tiebreak: true, superTiebreakDecider: fd.get("superTiebreakDecider") === "on", superTiebreakPoints: stbPoints };
     } else {
       const f = (FORMATS as Record<string, MatchFormat>)[formatKey];
       if (!f) throw new UserError("Elegí un formato de partido.");
-      format = f;
+      format = { ...f };
     }
+    format = applyTiebreak(format, str(fd, "tb"));
     const tiebreaks = fd.getAll("tiebreaks").map(String).filter((t): t is TiebreakCriterion => t in TIEBREAK_LABELS);
     const unique = [...new Set(tiebreaks)];
     const perZoneRaw = str(fd, "perZone");

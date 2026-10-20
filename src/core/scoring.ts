@@ -8,8 +8,10 @@ export interface MatchFormat {
   setsToWin: number;
   /** Games para ganar un set (normalmente 6). */
   gamesPerSet: number;
-  /** Si hay tiebreak al llegar a gamesPerSet-gamesPerSet. */
+  /** Si hay tiebreak (en lugar de seguir hasta sacar dos games de ventaja). */
   tiebreak: boolean;
+  /** En qué empate se juega el tiebreak: gamesPerSet (6-6, por defecto) o gamesPerSet-1 (5-5). */
+  tiebreakAt?: number;
   /** Si el set decisivo se reemplaza por un super tiebreak. */
   superTiebreakDecider: boolean;
   /** Puntos del super tiebreak (normalmente 10). */
@@ -25,10 +27,16 @@ export const FORMATS = {
 
 export type FormatKey = keyof typeof FORMATS;
 
+export function tiebreakAt(f: MatchFormat): number {
+  return f.tiebreakAt === f.gamesPerSet - 1 ? f.gamesPerSet - 1 : f.gamesPerSet;
+}
+
 export function formatLabel(f: MatchFormat): string {
-  if (f.setsToWin === 1) return f.gamesPerSet === 6 ? "A un set" : `Un set a ${f.gamesPerSet} games`;
+  const t = tiebreakAt(f);
+  const tb = f.tiebreak && t !== f.gamesPerSet ? ` · tiebreak en ${t}-${t}` : "";
+  if (f.setsToWin === 1) return (f.gamesPerSet === 6 ? "A un set" : `Un set a ${f.gamesPerSet} games`) + tb;
   const total = f.setsToWin * 2 - 1;
-  return `Al mejor de ${total} sets${f.superTiebreakDecider ? " (super tiebreak en el último)" : ""}`;
+  return `Al mejor de ${total} sets${f.superTiebreakDecider ? " (super tiebreak en el último)" : ""}${tb}`;
 }
 
 /** Un set: [games pareja A, games pareja B]. En super tiebreak, los puntos. */
@@ -65,6 +73,11 @@ function validateRegularSet(f: MatchFormat, [a, b]: SetScore, idx: number): Side
   const label = `Set ${idx + 1} (${a}-${b})`;
   if (hi < g) throw new ScoreError(`${label}: el set no está terminado.`);
   if (hi === g && lo <= g - 2) return a > b ? "A" : "B";
+  if (f.tiebreak && tiebreakAt(f) === g - 1) {
+    // Tiebreak en 5-5 (sets a 6): el set termina 6-5 ganando el tiebreak.
+    if (hi === g && lo === g - 1) return a > b ? "A" : "B";
+    throw new ScoreError(`${label}: con tiebreak en ${g - 1}-${g - 1} el set termina ${g}-${g - 1} como máximo.`);
+  }
   if (hi === g + 1 && (lo === g - 1 || (lo === g && f.tiebreak))) return a > b ? "A" : "B";
   if (!f.tiebreak && hi > g && hi - lo === 2) return a > b ? "A" : "B";
   throw new ScoreError(`${label}: resultado de set inválido.`);

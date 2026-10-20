@@ -458,7 +458,7 @@ function BracketTab({ lc, u }: { lc: LoadedCategory; u: CurrentUser }) {
 function RulesTab({ lc, u }: { lc: LoadedCategory; u: CurrentUser }) {
   const r = lc.rules;
   const disabled = !can(u, "tournaments.manage");
-  const fmtKey = Object.entries(FORMATS).find(([, f]) => JSON.stringify(f) === JSON.stringify(r.format))?.[0] ?? "CUSTOM";
+  const fmtKey = Object.entries(FORMATS).find(([, f]) => f.setsToWin === r.format.setsToWin && f.gamesPerSet === r.format.gamesPerSet && f.superTiebreakDecider === r.format.superTiebreakDecider && f.superTiebreakPoints === r.format.superTiebreakPoints)?.[0] ?? "CUSTOM";
   const allCriteria = Object.keys(TIEBREAK_LABELS) as TiebreakCriterion[];
   const order = [...r.tiebreaks, ...allCriteria.filter((c) => !r.tiebreaks.includes(c))];
   return (
@@ -491,7 +491,13 @@ function RulesTab({ lc, u }: { lc: LoadedCategory; u: CurrentUser }) {
             <div className="field"><label>Personalizado: games por set</label><input type="number" name="gamesPerSet" min={1} max={12} defaultValue={r.format.gamesPerSet} /></div>
             <div className="field"><label>Personalizado: puntos del super tiebreak</label><input type="number" name="superTiebreakPoints" min={5} max={15} defaultValue={r.format.superTiebreakPoints} /></div>
           </div>
-          <label className="checkbox"><input type="checkbox" name="tiebreak" defaultChecked={r.format.tiebreak} /> Tiebreak en {r.format.gamesPerSet}-{r.format.gamesPerSet}</label>
+          <div className="field" style={{ maxWidth: 420 }}><label>Tiebreak</label>
+            <select name="tb" defaultValue={!r.format.tiebreak ? "NONE" : r.format.tiebreakAt === r.format.gamesPerSet - 1 ? "AT_G1" : "AT_G"}>
+              <option value="AT_G">Tiebreak en {r.format.gamesPerSet}-{r.format.gamesPerSet} (el set termina {r.format.gamesPerSet + 1}-{r.format.gamesPerSet})</option>
+              <option value="AT_G1">Tiebreak en {r.format.gamesPerSet - 1}-{r.format.gamesPerSet - 1} (el set termina {r.format.gamesPerSet}-{r.format.gamesPerSet - 1})</option>
+              <option value="NONE">Sin tiebreak (se sigue hasta 2 games de diferencia)</option>
+            </select>
+            <div className="hint">Se aplica a cualquier formato elegido arriba.</div></div>
           <label className="checkbox"><input type="checkbox" name="superTiebreakDecider" defaultChecked={r.format.superTiebreakDecider} /> Super tiebreak en lugar del set decisivo</label>
         </fieldset>
 

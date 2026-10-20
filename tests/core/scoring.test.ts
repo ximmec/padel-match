@@ -40,3 +40,13 @@ test("parseo de texto", () => {
   assert.deepEqual(parseScoreText("6-4 3-6 10-8"), [[6, 4], [3, 6], [10, 8]]);
   assert.throws(() => parseScoreText("6/4x"));
 });
+
+test("tiebreak en 5-5: el set termina 6-5; 7-5 y 7-6 no valen", () => {
+  const f = { ...FORMATS.BEST_OF_3_STB, tiebreakAt: 5 };
+  assert.equal(summarizePlayed(f, [[6, 5], [5, 6], [10, 7]]).winner, "A");
+  assert.equal(summarizePlayed(f, [[6, 4], [6, 5]]).winner, "A");
+  assert.throws(() => summarizePlayed(f, [[7, 5], [6, 4]]), ScoreError);
+  assert.throws(() => summarizePlayed(f, [[7, 6], [6, 4]]), ScoreError);
+  // con tiebreak en 6-6 (por defecto) 6-5 no termina el set
+  assert.throws(() => summarizePlayed(FORMATS.BEST_OF_3_STB, [[6, 5], [6, 4]]), ScoreError);
+});

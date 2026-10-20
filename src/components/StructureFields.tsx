@@ -43,6 +43,12 @@ export function StructureFields({ children, cupo }: { children?: React.ReactNode
           </select></div>
         <div className="field"><label htmlFor="s-format">Sets por partido</label>
           <select id="s-format" name="format" defaultValue="BEST_OF_3_STB">{FORMAT_OPTS.map(([k, l]) => <option key={k} value={k}>{l}</option>)}</select></div>
+        <div className="field"><label htmlFor="s-tb">Tiebreak</label>
+          <select id="s-tb" name="tb" defaultValue="AT_G">
+            <option value="AT_G">En 6-6 (termina 7-6)</option>
+            <option value="AT_G1">En 5-5 (termina 6-5)</option>
+            <option value="NONE">Sin tiebreak</option>
+          </select></div>
         <div className="field"><label htmlFor="s-target">Parejas objetivo (cupo)</label>
           <select id="s-target" name="max_entries" value={target} onChange={(e) => setTarget(Number(e.target.value))}>
             {Array.from({ length: 61 }, (_, i) => i + 4).map((n) => <option key={n} value={n}>{n} parejas</option>)}

@@ -178,7 +178,9 @@ function structureRules(fd: FormData): CategoryRules {
   const perZone: number | "ALL" = pz === "ALL" ? "ALL" : pz ? Number(pz) : DEFAULT_RULES.qualification.perZone;
   if (perZone !== "ALL" && (!Number.isInteger(perZone) || perZone < 1 || perZone > 8)) throw new UserError("Clasificados por zona inválido.");
   const bestNext = perZone === "ALL" ? 0 : Math.max(0, Math.min(8, int(fd, "best_next", 0) ?? 0));
-  return { ...DEFAULT_RULES, mode: str(fd, "mode") === "KNOCKOUT" ? "KNOCKOUT" : "ZONES", format: { ...format }, preferredZoneSize: size, qualification: { perZone, bestNext } };
+  const tb = str(fd, "tb");
+  const fmt = { ...format, tiebreak: tb !== "NONE", ...(tb === "AT_G1" ? { tiebreakAt: format.gamesPerSet - 1 } : {}) };
+  return { ...DEFAULT_RULES, mode: str(fd, "mode") === "KNOCKOUT" ? "KNOCKOUT" : "ZONES", format: fmt, preferredZoneSize: size, qualification: { perZone, bestNext } };
 }
 
 export async function createTournamentAction(_p: ActionState, fd: FormData): Promise<ActionState> {
