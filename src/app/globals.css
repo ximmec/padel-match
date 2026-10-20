@@ -563,7 +563,7 @@ details[open] > summary::before { content: "▾ "; }
 .hero-search { display: flex; gap: 8px; max-width: 640px; padding: 7px; background: rgba(15, 15, 15, .82); border: 1px solid var(--line-2); border-radius: 999px; backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px); }
 .hero-search input { flex: 1; border: 0 !important; background: transparent !important; box-shadow: none !important; font-size: 17px; padding: 12px 20px; }
 .hero-search .btn { padding: 14px 28px; font-size: 16px; }
-.btn.primary.pill { box-shadow: 0 0 28px rgba(255, 115, 0, .45); text-transform: none; letter-spacing: 0; font-family: var(--font-hero), var(--font-body), sans-serif; font-weight: 800; }
+.btn.primary.pill { box-shadow: 0 0 28px rgba(255, 115, 0, .45); text-transform: none; letter-spacing: 0; word-spacing: .12em; font-family: var(--font-hero), var(--font-body), sans-serif; font-weight: 800; }
 .hero-links { display: flex; flex-wrap: wrap; gap: 14px 36px; margin-top: 40px; }
 .hero-links a { display: inline-flex; align-items: center; gap: 10px; color: #c9ccd2; font-size: 18px; font-weight: 600; }
 .hero-links a .icon { color: var(--orange); }
