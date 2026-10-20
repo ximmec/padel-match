@@ -149,10 +149,11 @@ test("corrección con confirmación e historial", async ({ page }) => {
   await page.goto(`${state.categoryUrl}?tab=partidos`);
   const first = page.locator("details", { hasText: "Corregir resultado" }).first();
   await first.locator("summary").click();
-  await first.locator('input[name="s1a"]').fill("2");
-  await first.locator('input[name="s1b"]').fill("6");
-  await first.locator('input[name="s2a"]').fill("2");
-  await first.locator('input[name="s2b"]').fill("6");
+  // 5-7 / 5-7: siempre distinto de los resultados cargados antes (6-x), así la corrección queda en el historial
+  await first.locator('input[name="s1a"]').fill("5");
+  await first.locator('input[name="s1b"]').fill("7");
+  await first.locator('input[name="s2a"]').fill("5");
+  await first.locator('input[name="s2b"]').fill("7");
   await first.getByPlaceholder("Motivo de la corrección").fill("Error de carga");
   await first.getByRole("button", { name: "Corregir" }).click();
   const confirm = first.getByRole("button", { name: "Confirmar y aplicar" });
