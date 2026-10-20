@@ -295,7 +295,7 @@ test("eliminar un jugador y eliminar todos", async ({ page }) => {
   await page.getByRole("button", { name: "Eliminar" }).first().click();
   await expect(page.getByText(/eliminado|dado de baja/).first()).toBeVisible();
   await page.goto("/admin/players");
-  await page.getByText("Eliminar TODOS los jugadores").click();
+  await page.locator("summary", { hasText: "Eliminar TODOS los jugadores" }).click();
   await page.locator('input[name="confirm_text"]').fill("ELIMINAR");
   await page.getByRole("button", { name: "Eliminar todos los jugadores" }).click();
   await expect(page.getByText(/Eliminar todos los jugadores/).last()).toBeVisible();
