@@ -161,7 +161,7 @@ tr:last-child td { border-bottom: none; }
 label { display: block; font-weight: 700; font-size: 13px; margin-bottom: 5px; color: #d6d6d6; }
 .field { margin-bottom: 14px; }
 .field .hint { font-weight: 400; color: var(--muted); font-size: 12px; margin-top: 4px; }
-input[type=text], input[type=email], input[type=password], input[type=number], input[type=date], input[type=datetime-local], input[type=search], input[type=file], input:not([type]), select, textarea {
+input[type=text], input[type=email], input[type=password], input[type=number], input[type=date], input[type=datetime-local], input[type=time], input[type=search], input[type=file], input:not([type]), select, textarea {
   width: 100%; padding: 10px 12px; border: 1px solid var(--line-2); border-radius: 10px; font: inherit;
   background: #0b0b0b; color: var(--text); transition: border-color .12s ease, box-shadow .12s ease;
 }
@@ -528,7 +528,7 @@ details[open] > summary::before { content: "▾ "; }
 .fsec-head p { margin: 4px 0 0; color: var(--muted); font-size: 15px; }
 .fsec-ico { width: 46px; height: 46px; border-radius: 12px; display: grid; place-items: center; background: rgba(255, 115, 0, .14); border: 1px solid rgba(255, 115, 0, .35); color: var(--orange); flex: none; }
 .fsec label { font-size: 14px; font-weight: 600; color: #cfcfcf; }
-.fsec input[type=text], .fsec input:not([type]), .fsec input[type=date], .fsec input[type=number], .fsec select, .fsec textarea { padding: 14px 16px; border-radius: 14px; font-size: 16px; background: #0b0b0b; }
+.fsec input[type=text], .fsec input:not([type]), .fsec input[type=date], .fsec input[type=time], .fsec input[type=number], .fsec select, .fsec textarea { padding: 14px 16px; border-radius: 14px; font-size: 16px; background: #0b0b0b; }
 .fgrid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 4px 18px; }
 .fgrid .span-2 { grid-column: 1 / -1; }
 .fgrid-5 { grid-template-columns: repeat(auto-fit, minmax(min(100%, 190px), 1fr)); }
