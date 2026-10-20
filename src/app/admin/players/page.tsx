@@ -105,6 +105,7 @@ export default async function PlayersPage({ searchParams }: { searchParams: Prom
           <span className="muted">{total} jugador(es)</span>
           <Link href={showDeleted ? "?" : "?deleted=1"} className="muted" style={{ fontSize: 13 }}>{showDeleted ? "Ocultar dados de baja" : "Mostrar dados de baja"}</Link>
         </div>
+        <ActionForm action={deletePlayerAction} confirmText="¿Eliminar a este jugador? Si ya jugó torneos se da de baja y se conservan sus resultados y puntos.">
         <div className="table-wrap">
           <table>
             <thead><tr><th>Código</th><th>Jugador</th><th>Categoría</th><th className="hide-sm">Género</th><th className="hide-sm">Ciudad</th><th className="num">Torneos</th><th className="num">Puntos</th>{canDelete && <th></th>}</tr></thead>
@@ -120,12 +121,7 @@ export default async function PlayersPage({ searchParams }: { searchParams: Prom
                   <td className="num"><b>{p.points}</b></td>
                   {canDelete && (
                     <td className="num">
-                      {!p.deleted_at && (
-                        <ActionForm action={deletePlayerAction} hideSuccess={false} confirmText={`¿Eliminar a ${p.first_name} ${p.last_name}? Si ya jugó torneos se da de baja y se conservan sus resultados y puntos.`}>
-                          <input type="hidden" name="id" value={p.id} /><input type="hidden" name="back" value="list" />
-                          <Submit className="btn ghost sm icon-btn" pendingText="…"><span aria-hidden>🗑</span><span className="sr">Eliminar</span></Submit>
-                        </ActionForm>
-                      )}
+                      {!p.deleted_at && <button type="submit" name="id" value={p.id} className="btn ghost sm icon-btn" title={`Eliminar a ${p.first_name} ${p.last_name}`}><span aria-hidden>🗑</span><span className="sr">Eliminar</span></button>}
                     </td>
                   )}
                 </tr>
@@ -134,8 +130,9 @@ export default async function PlayersPage({ searchParams }: { searchParams: Prom
             </tbody>
           </table>
         </div>
+        </ActionForm>
       </div>
-      {canDelete && total > 0 && (
+      {canDelete && (
         <details className="card reset-card">
           <summary>Eliminar TODOS los jugadores</summary>
           <p className="muted" style={{ marginTop: 10 }}>
