@@ -133,6 +133,41 @@ async function resolveVenue(tx: Tx, fd: FormData, user: CurrentUser): Promise<st
   return v.id;
 }
 
+/** Campos extra de la tarjeta: horario, inscripción, cupo, logo y fondo. */
+function cardFields(fd: FormData) {
+  const time = str(fd, "start_time");
+  if (time && !/^\d{2}:\d{2}$/.test(time)) throw new UserError("Horario de inicio inválido.");
+  const feeRaw = str(fd, "entry_fee").replace(/[^\d]/g, "");
+  const fee = feeRaw ? Number(feeRaw) : null;
+  if (fee !== null && (!Number.isSafeInteger(fee) || fee > 100_000_000)) throw new UserError("Inscripción inválida.");
+  const cupo = int(fd, "max_entries");
+  if (cupo !== null && (cupo < 2 || cupo > 512)) throw new UserError("El cupo debe estar entre 2 y 512 parejas.");
+  const logo = str(fd, "logo");
+  if (logo && (!/^data:image\/(png|jpeg|webp);base64,[A-Za-z0-9+/=]+$/.test(logo) || logo.length > 400_000)) throw new UserError("El logo no es válido o es demasiado grande.");
+  const bg = ["cancha", "mapa", "ninguno"].includes(str(fd, "card_bg")) ? str(fd, "card_bg") : "cancha";
+  return { time: time || null, fee, cupo, logo: logo || null, bg };
+}
+
+/** Crea (o reutiliza) la categoría armada en el formulario: nivel o suma + género + veteranos. */
+async function builtCategory(tx: Tx, fd: FormData, user: CurrentUser): Promise<string | null> {
+  if (str(fd, "newcat_on") !== "1") return null;
+  const suma = fd.get("newcat_suma_on") === "on" ? str(fd, "newcat_suma") : "";
+  const level = str(fd, "newcat_level");
+  const gender = str(fd, "newcat_gender");
+  const vet = str(fd, "newcat_vet");
+  if (!suma && !level) throw new UserError("Elegí la categoría nueva (nivel o suma).");
+  if (!["MALE", "FEMALE", "MIXED", "OPEN"].includes(gender)) throw new UserError("Elegí el género de la categoría nueva.");
+  if (suma && !/^\d{1,2}$/.test(suma)) throw new UserError("Suma inválida.");
+  if (vet && !/^\+\d{2}$/.test(vet)) throw new UserError("Categoría de veteranos inválida.");
+  const g = ({ MALE: "Caballeros", FEMALE: "Damas", MIXED: "Mixto", OPEN: "" } as Record<string, string>)[gender];
+  const name = [suma ? `Suma ${suma}` : level, g, vet].filter(Boolean).join(" ").slice(0, 80);
+  const [existing] = await tx<{ id: string }[]>`SELECT id FROM categories WHERE org_id = ${user.orgId} AND lower(name) = lower(${name})`;
+  if (existing) return existing.id;
+  const [c] = await tx<{ id: string }[]>`INSERT INTO categories (org_id, name, gender_rule) VALUES (${user.orgId}, ${name}, ${gender}) RETURNING id`;
+  await audit(tx, user, { entity: "category", entityId: c.id, action: "create", summary: `Categoría ${name} creada` });
+  return c.id;
+}
+
 /** Reglas iniciales de las categorías a partir de «Estructura deportiva». */
 function structureRules(fd: FormData): CategoryRules {
   const fk = str(fd, "format") as FormatKey;
@@ -143,7 +178,7 @@ function structureRules(fd: FormData): CategoryRules {
   const perZone: number | "ALL" = pz === "ALL" ? "ALL" : pz ? Number(pz) : DEFAULT_RULES.qualification.perZone;
   if (perZone !== "ALL" && (!Number.isInteger(perZone) || perZone < 1 || perZone > 8)) throw new UserError("Clasificados por zona inválido.");
   const bestNext = perZone === "ALL" ? 0 : Math.max(0, Math.min(8, int(fd, "best_next", 0) ?? 0));
-  return { ...DEFAULT_RULES, format: { ...format }, preferredZoneSize: size, qualification: { perZone, bestNext } };
+  return { ...DEFAULT_RULES, mode: str(fd, "mode") === "KNOCKOUT" ? "KNOCKOUT" : "ZONES", format: { ...format }, preferredZoneSize: size, qualification: { perZone, bestNext } };
 }
 
 export async function createTournamentAction(_p: ActionState, fd: FormData): Promise<ActionState> {
@@ -156,17 +191,23 @@ export async function createTournamentAction(_p: ActionState, fd: FormData): Pro
     const circuit = await orgRef("circuits", optStr(fd, "circuit_id"), user.orgId);
     const season = await orgRef("seasons", optStr(fd, "season_id"), user.orgId);
     const categoryIds = fd.getAll("category_ids").map(String).filter(Boolean);
+    const card = cardFields(fd);
     const id = await sql.begin(async (tx) => {
       const venue = await resolveVenue(tx, fd, user);
       const slug = await uniqueSlug(tx, `${r.data.name} ${r.data.start_date.slice(0, 4)}`);
       const [t] = await tx<{ id: string }[]>`
-        INSERT INTO tournaments (org_id, name, slug, venue_id, circuit_id, season_id, start_date, end_date, status, is_public, rules_text, match_duration_min, min_rest_min)
+        INSERT INTO tournaments (org_id, name, slug, venue_id, circuit_id, season_id, start_date, end_date, status, is_public, rules_text, match_duration_min, min_rest_min,
+                                 start_time, entry_fee, max_entries, logo, card_bg)
         VALUES (${user.orgId}, ${r.data.name}, ${slug}, ${venue}, ${circuit}, ${season}, ${r.data.start_date}, ${r.data.end_date}, 'OPEN',
-                ${fd.get("is_public") === "on"}, ${optStr(fd, "rules_text")}, ${r.data.match_duration_min}, ${r.data.min_rest_min})
+                ${fd.get("is_public") === "on"}, ${optStr(fd, "rules_text")}, ${r.data.match_duration_min}, ${r.data.min_rest_min},
+                ${card.time}, ${card.fee}, ${card.cupo}, ${card.logo}, ${card.bg})
         RETURNING id`;
       await audit(tx, user, { entity: "tournament", entityId: t.id, action: "create", tournamentId: t.id, summary: `Torneo ${r.data.name} creado`, after: r.data });
       const rules = structureRules(fd);
-      for (const c of categoryIds) await addCategory(tx, user, t.id, uuid(c), rules);
+      const built = await builtCategory(tx, fd, user);
+      const all = [...new Set([...categoryIds.map((c) => uuid(c)), ...(built ? [built] : [])])];
+      if (!all.length) throw new UserError("Elegí al menos una categoría o creá una nueva.");
+      for (const c of all) await addCategory(tx, user, t.id, c, rules);
       return t.id;
     });
     return { message: "Torneo creado.", redirectTo: `/admin/tournaments/${id}` };
@@ -177,18 +218,20 @@ export async function updateTournamentAction(_p: ActionState, fd: FormData): Pro
   return runAction("tournaments.manage", async (user) => {
     const id = uuid(fd, "id");
     const r = tournamentSchema.safeParse({
-      name: str(fd, "name"), start_date: str(fd, "start_date"), end_date: str(fd, "end_date"),
+      name: str(fd, "name"), start_date: str(fd, "start_date"), end_date: str(fd, "end_date") || str(fd, "start_date"),
       match_duration_min: str(fd, "match_duration_min"), min_rest_min: str(fd, "min_rest_min"),
     });
     if (!r.success) throw new UserError(r.error.issues[0].message);
     const status = str(fd, "status");
     if (!["DRAFT", "OPEN", "IN_PROGRESS", "FINISHED", "CANCELLED"].includes(status)) throw new UserError("Estado inválido.");
+    const card = cardFields(fd);
     const circuit = await orgRef("circuits", optStr(fd, "circuit_id"), user.orgId);
     const season = await orgRef("seasons", optStr(fd, "season_id"), user.orgId);
     await sql.begin(async (tx) => {
       const venue = await resolveVenue(tx, fd, user);
       const [before] = await tx`SELECT name, start_date, end_date, status, venue_id, circuit_id, season_id, is_public, match_duration_min, min_rest_min FROM tournaments WHERE id = ${id} AND org_id = ${user.orgId} FOR UPDATE`;
       if (!before) throw new UserError("Torneo no encontrado.");
+      await tx`UPDATE tournaments SET start_time = ${card.time}, entry_fee = ${card.fee}, max_entries = ${card.cupo}, logo = ${card.logo}, card_bg = ${card.bg} WHERE id = ${id}`;
       await tx`UPDATE tournaments SET name = ${r.data.name}, start_date = ${r.data.start_date}, end_date = ${r.data.end_date}, status = ${status},
         venue_id = ${venue}, circuit_id = ${circuit}, season_id = ${season}, is_public = ${fd.get("is_public") === "on"},
         rules_text = ${optStr(fd, "rules_text")}, match_duration_min = ${r.data.match_duration_min}, min_rest_min = ${r.data.min_rest_min}, updated_at = now()

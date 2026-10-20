@@ -62,6 +62,8 @@ test("torneo, inscripciones, zonas, cuadro y cronograma", async ({ page }) => {
   await page.goto("/admin/tournaments/new");
   await page.locator('input[name="name"]').fill("Abierto de Primavera");
   await page.locator('input[name="start_date"]').fill("2026-10-10");
+  await page.locator('input[name="start_time"]').fill("19:30");
+  await page.locator('input[name="entry_fee"]').fill("25000");
   await page.locator('select[name="venue_id"]').selectOption({ label: "Club Central" });
   await page.getByLabel("Libre Masculina").check();
   await shot(page, "05-nuevo-torneo");

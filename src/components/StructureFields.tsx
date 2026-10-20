@@ -10,13 +10,19 @@ const FORMAT_OPTS: [string, string][] = [
 ];
 
 /** Estructura deportiva: formato, zonas y clasificados, con un resumen en vivo. */
-export function StructureFields({ children }: { children?: React.ReactNode }) {
-  const [target, setTarget] = useState(12);
+export function StructureFields({ children, cupo }: { children?: React.ReactNode; cupo?: number | null }) {
+  const [mode, setMode] = useState("ZONES");
+  const [target, setTarget] = useState(cupo ?? 16);
   const [size, setSize] = useState(3);
   const [perZone, setPerZone] = useState("2");
   const [bestNext, setBestNext] = useState(0);
 
   const summary = useMemo(() => {
+    if (mode === "KNOCKOUT") {
+      let bracket = 1;
+      while (bracket < target) bracket *= 2;
+      return { zones: [] as number[], q: target, bracket, byes: bracket - target, minMatches: 1 };
+    }
     try {
       const zones = planZoneSizes(target, { preferredSize: size });
       const q = perZone === "ALL" ? target : Math.min(target, zones.reduce((a, z) => a + Math.min(Number(perZone), z), 0) + bestNext);
@@ -25,18 +31,23 @@ export function StructureFields({ children }: { children?: React.ReactNode }) {
       const minMatches = Math.min(...zones) - 1;
       return { zones, q, bracket, byes: bracket - q, minMatches };
     } catch { return null; }
-  }, [target, size, perZone, bestNext]);
+  }, [mode, target, size, perZone, bestNext]);
 
   return (
     <>
       <div className="fgrid fgrid-5">
+        <div className="field"><label htmlFor="s-mode">Formato competitivo</label>
+          <select id="s-mode" name="mode" value={mode} onChange={(e) => setMode(e.target.value)}>
+            <option value="ZONES">Zonas + playoffs</option>
+            <option value="KNOCKOUT">Eliminación directa</option>
+          </select></div>
         <div className="field"><label htmlFor="s-format">Sets por partido</label>
           <select id="s-format" name="format" defaultValue="BEST_OF_3_STB">{FORMAT_OPTS.map(([k, l]) => <option key={k} value={k}>{l}</option>)}</select></div>
-        <div className="field"><label htmlFor="s-target">Parejas estimadas</label>
-          <select id="s-target" value={target} onChange={(e) => setTarget(Number(e.target.value))}>
-            {Array.from({ length: 31 }, (_, i) => i + 4).map((n) => <option key={n} value={n}>{n} parejas</option>)}
-          </select>
-          <div className="hint">Solo para el cálculo; después se usan las inscriptas.</div></div>
+        <div className="field"><label htmlFor="s-target">Parejas objetivo (cupo)</label>
+          <select id="s-target" name="max_entries" value={target} onChange={(e) => setTarget(Number(e.target.value))}>
+            {Array.from({ length: 61 }, (_, i) => i + 4).map((n) => <option key={n} value={n}>{n} parejas</option>)}
+          </select></div>
+        {mode === "ZONES" && <>
         <div className="field"><label htmlFor="s-size">Parejas por zona</label>
           <select id="s-size" name="zone_size" value={size} onChange={(e) => setSize(Number(e.target.value))}>
             {[3, 4, 5, 6].map((n) => <option key={n} value={n}>{n} parejas · {n - 1} partidos</option>)}
@@ -50,10 +61,17 @@ export function StructureFields({ children }: { children?: React.ReactNode }) {
           <select id="s-best" name="best_next" value={bestNext} onChange={(e) => setBestNext(Number(e.target.value))} disabled={perZone === "ALL"}>
             {[0, 1, 2, 3, 4, 5, 6].map((n) => <option key={n} value={n}>{n === 0 ? "Ninguno" : `${n} mejor${n > 1 ? "es" : ""} ${perZone === "ALL" ? "" : `${Number(perZone) + 1}°`}`}</option>)}
           </select></div>
+        </>}
         {children}
       </div>
       <div className="structure-summary">
-        {summary ? (
+        {summary && mode === "KNOCKOUT" ? (
+          <>
+            <span>cuadro de <b>{summary.bracket}</b>{summary.byes ? <small> ({summary.byes} pase{summary.byes > 1 ? "s" : ""} libre{summary.byes > 1 ? "s" : ""})</small> : null}</span>
+            <span><b>{Math.log2(summary.bracket)}</b> rondas</span>
+            <span>el que pierde queda afuera</span>
+          </>
+        ) : summary ? (
           <>
             <span><b>{summary.zones.length}</b> zona{summary.zones.length > 1 ? "s" : ""} <small>({summary.zones.join(", ")})</small></span>
             <span><b>{summary.q}</b> clasificados</span>

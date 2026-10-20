@@ -3,28 +3,30 @@ import { sql } from "@/server/db";
 import { StatusBadge } from "@/components/views";
 import { fmtDate } from "@/lib/format";
 import { Icon } from "@/components/Icon";
+import { cardBgUrl, fmtMoney } from "@/lib/cardBg";
 
-type Row = { id: string; name: string; slug: string; start_date: string; end_date: string; status: string; venue: string | null; org_name: string; categories: string | null; entries: number };
+type Row = { id: string; name: string; slug: string; start_date: string; end_date: string; start_time: string | null; entry_fee: number | null; max_entries: number | null; logo: string | null; card_bg: string; status: string; venue: string | null; org_name: string; categories: string | null; entries: number };
 
 function TournamentCard({ t }: { t: Row }) {
   const cats = (t.categories ?? "").split(" · ").filter(Boolean);
+  const url = cardBgUrl(t.card_bg);
   return (
-    <Link href={`/t/${t.slug}`} className="tcard">
-      <div className="card stack" style={{ display: "flex", flexDirection: "column" }}>
-        <div className="row between">
-          <StatusBadge status={t.status} />
-          <span className="muted" style={{ fontSize: 13, fontWeight: 700 }}>📅 {fmtDate(t.start_date)}{t.end_date !== t.start_date ? ` – ${fmtDate(t.end_date)}` : ""}</span>
+    <Link href={`/t/${t.slug}`} className="tcard2 tcard2-public" style={{ backgroundImage: `linear-gradient(90deg, rgba(8,8,10,.96) 0%, rgba(8,8,10,.82) 45%, rgba(8,8,10,.55) 100%)${url ? `, url(${url})` : ""}` }}>
+      <div className="tcard2-top"><StatusBadge status={t.status} /></div>
+      <div className="tcard2-body">
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        <img className="tcard2-logo" src={t.logo ?? "/mark.webp"} alt="" width={84} height={84} />
+        <div style={{ minWidth: 0 }}>
+          <div className="tcard2-cats">{cats.join(" · ") || t.org_name}</div>
+          <h3 className="tcard2-name">{t.name}</h3>
+          <div className="tcard2-meta"><Icon name="calendar" size={18} /> {fmtDate(t.start_date)}{t.end_date !== t.start_date ? ` – ${fmtDate(t.end_date)}` : ""}{t.start_time ? ` · ${t.start_time.slice(0, 5)}` : ""}</div>
+          {t.venue && <div className="tcard2-meta"><Icon name="pin" size={18} /> {t.venue}</div>}
         </div>
-        <h2 style={{ margin: 0, fontSize: 24 }}>{t.name}</h2>
-        <div className="muted" style={{ fontSize: 13 }}>
-          {t.venue && <div>📍 {t.venue}</div>}
-          <div>🏆 {t.org_name}</div>
-        </div>
-        {cats.length > 0 && <div className="row" style={{ gap: 6 }}>{cats.map((c) => <span key={c} className="badge">{c}</span>)}</div>}
-        <div className="row between" style={{ marginTop: "auto", paddingTop: 10, borderTop: "1px solid var(--line)" }}>
-          <span><b style={{ fontFamily: "var(--font-head)", fontStyle: "italic", fontSize: 22 }}>{t.entries}</b> <span className="muted">parejas</span></span>
-          <span className="btn sm primary">Ver detalle →</span>
-        </div>
+      </div>
+      <div className="tcard2-foot">
+        <div className="tstat"><Icon name="users" size={20} /><span><b>{t.entries}{t.max_entries ? `/${t.max_entries}` : ""}</b><small>Parejas</small></span></div>
+        {t.entry_fee != null && <div className="tstat"><Icon name="tag" size={20} /><span><b>{fmtMoney(t.entry_fee)}</b><small>Inscripción</small></span></div>}
+        <span className="btn primary pill" style={{ marginLeft: "auto" }}>Ver detalle</span>
       </div>
     </Link>
   );
@@ -32,7 +34,7 @@ function TournamentCard({ t }: { t: Row }) {
 
 export default async function Home() {
   const rows = await sql<Row[]>`
-    SELECT t.id, t.name, t.slug, t.start_date, t.end_date, t.status, v.name AS venue, o.name AS org_name,
+    SELECT t.id, t.name, t.slug, t.start_date, t.end_date, t.start_time::text AS start_time, t.entry_fee, t.max_entries, t.logo, t.card_bg, t.status, v.name AS venue, o.name AS org_name,
       (SELECT string_agg(c.name, ' · ' ORDER BY c.name) FROM tournament_categories tc JOIN categories c ON c.id = tc.category_id WHERE tc.tournament_id = t.id) AS categories,
       (SELECT count(*)::int FROM entries e JOIN tournament_categories tc ON tc.id = e.tc_id WHERE tc.tournament_id = t.id AND e.status = 'ACTIVE') AS entries
     FROM tournaments t JOIN organizations o ON o.id = t.org_id LEFT JOIN venues v ON v.id = t.venue_id
@@ -86,19 +88,19 @@ export default async function Home() {
         {live.length > 0 && (
           <>
             <h2 className="section-title"><span className="badge live">En vivo</span> Jugándose ahora</h2>
-            <div className="grid grid-3">{live.map((t) => <TournamentCard key={t.id} t={t} />)}</div>
+            <div className="tgrid">{live.map((t) => <TournamentCard key={t.id} t={t} />)}</div>
           </>
         )}
         {upcoming.length > 0 && (
           <>
             <h2 className="section-title">Próximos torneos</h2>
-            <div className="grid grid-3">{upcoming.map((t) => <TournamentCard key={t.id} t={t} />)}</div>
+            <div className="tgrid">{upcoming.map((t) => <TournamentCard key={t.id} t={t} />)}</div>
           </>
         )}
         {past.length > 0 && (
           <>
             <h2 className="section-title">Finalizados</h2>
-            <div className="grid grid-3">{past.map((t) => <TournamentCard key={t.id} t={t} />)}</div>
+            <div className="tgrid">{past.map((t) => <TournamentCard key={t.id} t={t} />)}</div>
           </>
         )}
         {rows.length === 0 && <div className="card empty">Todavía no hay torneos publicados. ¡Volvé pronto!</div>}

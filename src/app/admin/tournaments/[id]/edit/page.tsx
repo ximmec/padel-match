@@ -4,7 +4,7 @@ import { requireUser, can } from "@/server/auth";
 import { sql } from "@/server/db";
 import { isUuid } from "@/server/action";
 import { ActionForm, Submit } from "@/components/ActionForm";
-import { BasicInfoSection, VenueSection, TimingFields, PlayersInfoSection } from "@/components/TournamentFields";
+import { BasicInfoSection, VenueSection, TimingFields, DescriptionSection, CardSection } from "@/components/TournamentFields";
 import { FormSection } from "@/components/FormSection";
 import { Forbidden } from "@/components/views";
 import { updateTournamentAction } from "@/server/actions/admin";
@@ -18,7 +18,7 @@ export default async function EditTournament({ params }: { params: Promise<{ id:
   if (!isUuid(id)) notFound();
   const u = await requireUser();
   if (!can(u, "tournaments.manage")) return <Forbidden />;
-  const [t] = await sql<{ id: string; name: string; start_date: string; end_date: string; status: string; venue_id: string | null; circuit_id: string | null; season_id: string | null; is_public: boolean; rules_text: string | null; match_duration_min: number; min_rest_min: number }[]>`
+  const [t] = await sql<{ id: string; name: string; start_date: string; end_date: string; status: string; venue_id: string | null; circuit_id: string | null; season_id: string | null; is_public: boolean; rules_text: string | null; match_duration_min: number; min_rest_min: number; start_time: string | null; entry_fee: number | null; max_entries: number | null; logo: string | null; card_bg: string }[]>`
     SELECT * FROM tournaments WHERE id = ${id} AND org_id = ${u.orgId}`;
   if (!t) notFound();
   const [venues, circuits, seasons, cats] = await Promise.all([
@@ -37,8 +37,11 @@ export default async function EditTournament({ params }: { params: Promise<{ id:
         <input type="hidden" name="id" value={id} />
         <BasicInfoSection t={t} circuits={circuits} seasons={seasons} withStatus />
         <VenueSection t={t} venues={venues} />
-        <FormSection icon="grid" title="Estructura deportiva" desc="Tiempos para el cronograma. El formato, las zonas y los clasificados se ajustan en cada categoría.">
-          <div className="fgrid"><TimingFields t={t} /></div>
+        <FormSection icon="grid" title="Estructura deportiva" desc="Cupo y tiempos para el cronograma. El formato competitivo, los sets y los clasificados se ajustan en cada categoría.">
+          <div className="fgrid fgrid-3">
+            <div className="field"><label htmlFor="t-cupo">Parejas objetivo (cupo)</label><input id="t-cupo" type="number" name="max_entries" min={2} max={512} defaultValue={t.max_entries ?? ""} placeholder="Sin límite" /></div>
+            <TimingFields t={t} />
+          </div>
           <div className="cat-rules">
             {cats.map((c) => {
               const r = normalizeRules(c.rules as never);
@@ -46,14 +49,15 @@ export default async function EditTournament({ params }: { params: Promise<{ id:
               return (
                 <Link key={c.id} href={`/admin/tournaments/${id}/c/${c.id}?tab=reglas`}>
                   <b>{c.name}</b>
-                  <span className="muted">{formatLabel(r.format)} · zonas de {r.preferredZoneSize} · pasan {q.perZone === "ALL" ? "todas" : q.perZone}{q.bestNext ? ` + ${q.bestNext} mejores` : ""} · <span style={{ color: "var(--orange-hi)" }}>Cambiar reglas →</span></span>
+                  <span className="muted">{r.mode === "KNOCKOUT" ? "Eliminación directa" : `Zonas de ${r.preferredZoneSize} · pasan ${q.perZone === "ALL" ? "todas" : q.perZone}${q.bestNext ? ` + ${q.bestNext} mejores` : ""}`} · {formatLabel(r.format)} · <span style={{ color: "var(--orange-hi)" }}>Cambiar reglas →</span></span>
                 </Link>
               );
             })}
             {cats.length === 0 && <p className="muted">Este torneo todavía no tiene categorías.</p>}
           </div>
         </FormSection>
-        <PlayersInfoSection t={t} />
+        <DescriptionSection t={t} />
+        <CardSection t={t} />
         <div className="form-actions">
           <Link className="btn ghost pill lg" href={`/admin/tournaments/${id}`}>Cancelar</Link>
           <Submit className="btn primary pill lg">Guardar cambios</Submit>
