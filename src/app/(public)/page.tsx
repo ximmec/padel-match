@@ -59,7 +59,7 @@ export default async function Home() {
       <section className="hero-split">
         <div className="hero-split-bg" aria-hidden>
           {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img src="/hero-right.webp" alt="" width={1247} height={732} fetchPriority="high" />
+          <img src="/hero-mapa.webp" alt="" width={903} height={732} fetchPriority="high" />
         </div>
         <div className="hero-split-inner">
           <h1 className="hero-title">Tu torneo de pádel, <span>en tiempo real</span></h1>
