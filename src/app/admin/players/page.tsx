@@ -9,7 +9,7 @@ import { PLAYER_CATEGORIES } from "@/core/playerImport";
 export const metadata = { title: "Jugadores" };
 const PAGE = 50;
 
-export default async function PlayersPage({ searchParams }: { searchParams: Promise<{ q?: string; page?: string; new?: string; deleted?: string; import?: string; cat?: string; sexo?: string }> }) {
+export default async function PlayersPage({ searchParams }: { searchParams: Promise<{ q?: string; page?: string; new?: string; deleted?: string; import?: string; cat?: string; sexo?: string; aviso?: string }> }) {
   const u = await requireUser();
   const canDelete = can(u, "players.manage");
   const sp = await searchParams;
@@ -99,6 +99,7 @@ export default async function PlayersPage({ searchParams }: { searchParams: Prom
         </details>
       )}
 
+      {sp.aviso && <div className="alert ok" role="status">{String(sp.aviso).slice(0, 200)}</div>}
       <div className="card flush">
         <div className="card-head">
           <span className="muted">{total} jugador(es)</span>

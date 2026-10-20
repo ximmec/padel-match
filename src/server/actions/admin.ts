@@ -104,7 +104,7 @@ export async function deletePlayerAction(_p: ActionState, fd: FormData): Promise
       await audit(tx, user, { entity: "player", entityId: id, action: "delete", summary: `Baja del jugador ${name} (se conserva su historial)` });
       return `${name} dado de baja (tenía torneos jugados: se conservan sus resultados y puntos).`;
     });
-    return { message: msg, redirectTo: str(fd, "back") === "list" ? undefined : "/admin/players" };
+    return { message: msg, redirectTo: `/admin/players?aviso=${encodeURIComponent(msg)}` };
   }, ["/admin/players", "/ranking"]);
 }
 
@@ -147,7 +147,8 @@ export async function deleteAllPlayersAction(_p: ActionState, fd: FormData): Pro
     const parts = [`${out.clean} eliminados`];
     if (out.hist) parts.push(`${out.hist} dados de baja (conservan su historial)`);
     if (out.busy) parts.push(`${out.busy} no se tocaron porque están en torneos en curso`);
-    return { message: `Listo: ${parts.join(", ")}.` };
+    const m = `Listo: ${parts.join(", ")}.`;
+    return { message: m, redirectTo: `/admin/players?aviso=${encodeURIComponent(m)}` };
   }, ["/admin/players", "/ranking"]);
 }
 
