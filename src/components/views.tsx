@@ -1,6 +1,6 @@
 import type { ReactNode } from "react";
 import type { LoadedCategory, MatchRow, EntryRow } from "@/server/category";
-import { entryLabel, resolvedLabel } from "@/server/category";
+import { entryLabel, resolvedLabel, zoneSideLabel } from "@/server/category";
 import { roundName, type ResolvedMatch } from "@/core/bracket";
 import type { MatchOutcome } from "@/core/scoring";
 import { TIEBREAK_LABELS } from "@/core/standings";
@@ -49,8 +49,8 @@ export function MatchLine({ lc, m, extra, showCategory }: { lc: LoadedCategory; 
   let a = "", b = "";
   let stage = "";
   if (m.phase === "ZONE") {
-    a = entryLabel(lc.entryMap.get(m.entry_a!));
-    b = entryLabel(lc.entryMap.get(m.entry_b!));
+    a = zoneSideLabel(lc, m, "a");
+    b = zoneSideLabel(lc, m, "b");
     stage = `Zona ${lc.zones.find((z) => z.id === m.zone_id)?.name ?? "?"}`;
   } else {
     const rm = lc.view.bracket.find((x) => x.code === m.bracket_code);

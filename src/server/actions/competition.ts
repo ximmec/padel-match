@@ -23,8 +23,27 @@ export async function registerEntryAction(_p: ActionState, fd: FormData): Promis
     const p2 = uuid(fd, "player2");
     const seed = int(fd, "seed");
     if (seed !== null && seed < 1) throw new UserError("La cabeza de serie debe ser 1 o más.");
-    await sql.begin((tx) => ops.registerEntry(tx, user, tcId, p1, p2, seed));
+    const r = restrictionFields(fd);
+    await sql.begin(async (tx) => {
+      const id = await ops.registerEntry(tx, user, tcId, p1, p2, seed);
+      if (r.from || r.to || r.note) await ops.setEntryRestriction(tx, user, id, r.from, r.to, r.note);
+    });
     return { message: "Pareja inscripta." };
+  }, REVAL);
+}
+
+function restrictionFields(fd: FormData) {
+  const t = (k: string) => { const v = str(fd, k); if (v && !/^\d{2}:\d{2}$/.test(v)) throw new UserError("Horario inválido."); return v || null; };
+  const from = t("not_before"), to = t("not_after");
+  if (from && to && from >= to) throw new UserError("El horario «desde» tiene que ser anterior al «hasta».");
+  return { from, to, note: optStr(fd, "restriction_note")?.slice(0, 120) ?? null };
+}
+
+export async function setRestrictionAction(_p: ActionState, fd: FormData): Promise<ActionState> {
+  return runAction("players.manage", async (user) => {
+    const r = restrictionFields(fd);
+    await sql.begin((tx) => ops.setEntryRestriction(tx, user, uuid(fd, "entry_id"), r.from, r.to, r.note));
+    return { message: r.from || r.to || r.note ? "Restricción guardada." : "Restricción quitada." };
   }, REVAL);
 }
 
@@ -109,7 +128,8 @@ export async function updateRulesAction(_p: ActionState, fd: FormData): Promise<
       mode: str(fd, "mode") === "KNOCKOUT" ? "KNOCKOUT" : "ZONES",
       format,
       tiebreaks: unique.length ? unique : DEFAULT_TIEBREAKS,
-      qualification: { perZone, bestNext },
+      qualification: { perZone, bestNext, perZoneOf4: fd.get("pass3of4") === "on" ? 3 : null },
+      fourZone: fd.get("fourGvg") === "on" ? "GVG" : "RR",
       crossZoneMode: crossZoneMode === "DROP_VS_LAST" ? "DROP_VS_LAST" : "AVERAGES",
       points,
       withdrawalDefault: withdrawalDefault === "ANNUL_ALL" ? "ANNUL_ALL" : "WO_PENDING",

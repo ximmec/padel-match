@@ -22,6 +22,8 @@ export interface SchedMatch {
   fixed?: { courtId: string; start: number };
   /** No programar antes de este momento (p. ej. "ahora" al recalcular). */
   notBefore?: number;
+  /** Franja diaria permitida por las parejas (minutos desde las 00:00, hora local). */
+  daily?: { from: number | null; to: number | null };
 }
 
 export interface Assignment { matchId: string; courtId: string; start: number; end: number }
@@ -29,6 +31,21 @@ export interface Assignment { matchId: string; courtId: string; start: number; e
 export interface ScheduleConfig {
   durationMin: number;
   minRestMin: number;
+  /** Diferencia de la hora local respecto de UTC, en minutos (Argentina = -180). */
+  tzOffsetMin?: number;
+}
+
+const DAY = 24 * 60 * 60_000;
+
+/** ¿El partido [start, end) cae dentro de la franja diaria permitida? */
+export function withinDaily(daily: SchedMatch["daily"], start: number, end: number, tzOffsetMin = -180): boolean {
+  if (!daily || (daily.from == null && daily.to == null)) return true;
+  const off = tzOffsetMin * 60_000;
+  const dayStart = Math.floor((start + off) / DAY) * DAY - off;
+  const s = (start - dayStart) / 60_000, e = (end - dayStart) / 60_000;
+  if (daily.from != null && s < daily.from) return false;
+  if (daily.to != null && e > daily.to) return false;
+  return true;
 }
 
 export interface ScheduleResult { assignments: Assignment[]; unscheduled: string[] }
@@ -84,7 +101,7 @@ export function generateSchedule(courts: CourtInput[], matches: SchedMatch[], cf
 
       let best: { court: string; start: number } | null = null;
       for (const c of courts) {
-        const t = earliestFit(c, courtBusy.get(c.id)!, m.players, playerBusy, minStart, dur, rest);
+        const t = earliestFit(c, courtBusy.get(c.id)!, m.players, playerBusy, minStart, dur, rest, m.daily, cfg.tzOffsetMin ?? -180);
         if (t !== null && (best === null || t < best.start)) best = { court: c.id, start: t };
       }
       if (best) { book(m, best.court, best.start, best.start + dur); done.add(m.id); }
@@ -104,6 +121,8 @@ function earliestFit(
   minStart: number,
   dur: number,
   rest: number,
+  daily?: SchedMatch["daily"],
+  tz = -180,
 ): number | null {
   const pBusy = players.flatMap((p) => playerBusy.get(p) ?? []);
   const windows = court.windows.slice().sort((a, b) => a.start - b.start);
@@ -111,18 +130,23 @@ function earliestFit(
     const candidates = new Set<number>([Math.max(w.start, minStart)]);
     for (const b of busy) candidates.add(b.end);
     for (const b of pBusy) candidates.add(b.end + rest);
+    if (daily?.from != null) {
+      const off = tz * 60_000;
+      for (let d = Math.floor((w.start + off) / DAY) * DAY - off; d < w.end; d += DAY) candidates.add(d + daily.from * 60_000);
+    }
     const sorted = [...candidates].filter((t) => t >= w.start && t >= minStart && t + dur <= w.end).sort((a, b) => a - b);
     for (const t of sorted) {
       const e = t + dur;
       if (busy.some((b) => overlaps(t, e, b.start, b.end))) continue;
       if (pBusy.some((b) => overlaps(t, e, b.start - rest, b.end + rest))) continue;
+      if (!withinDaily(daily, t, e, tz)) continue;
       return t;
     }
   }
   return null;
 }
 
-export type ConflictKind = "COURT_OVERLAP" | "PLAYER_OVERLAP" | "REST" | "OUTSIDE_AVAILABILITY" | "DEPENDENCY";
+export type ConflictKind = "COURT_OVERLAP" | "PLAYER_OVERLAP" | "REST" | "OUTSIDE_AVAILABILITY" | "DEPENDENCY" | "RESTRICTION";
 
 export interface Conflict {
   kind: ConflictKind;
@@ -170,6 +194,9 @@ export function validateSchedule(
   for (const m of matches) {
     const a = asg.get(m.id);
     if (!a) continue;
+    if (!withinDaily(m.daily, a.start, a.end, cfg.tzOffsetMin ?? -180)) {
+      out.push({ kind: "RESTRICTION", matchIds: [m.id], message: `${name(m.id)} está fuera del horario que pidió una de las parejas.` });
+    }
     for (const d of m.dependsOn) {
       const da = asg.get(d);
       if (da && a.start < da.end) {

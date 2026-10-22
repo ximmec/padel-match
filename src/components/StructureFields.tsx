@@ -1,6 +1,8 @@
 "use client";
 import { useMemo, useState } from "react";
 import { planZoneSizes } from "@/core/zones";
+import { qualifiersInZone } from "@/core/bracket";
+import { Toggle } from "@/components/Toggle";
 
 const FORMAT_OPTS: [string, string][] = [
   ["ONE_SET", "A un set"],
@@ -16,6 +18,8 @@ export function StructureFields({ children, cupo }: { children?: React.ReactNode
   const [size, setSize] = useState(3);
   const [perZone, setPerZone] = useState("2");
   const [bestNext, setBestNext] = useState(0);
+  const [gvg, setGvg] = useState(false);
+  const [pass3, setPass3] = useState(false);
 
   const summary = useMemo(() => {
     if (mode === "KNOCKOUT") {
@@ -25,13 +29,14 @@ export function StructureFields({ children, cupo }: { children?: React.ReactNode
     }
     try {
       const zones = planZoneSizes(target, { preferredSize: size });
-      const q = perZone === "ALL" ? target : Math.min(target, zones.reduce((a, z) => a + Math.min(Number(perZone), z), 0) + bestNext);
+      const rule = { perZone: perZone === "ALL" ? ("ALL" as const) : Number(perZone), bestNext, perZoneOf4: pass3 ? 3 : null };
+      const q = Math.min(target, zones.reduce((a, z) => a + qualifiersInZone(z, rule), 0) + (perZone === "ALL" ? 0 : bestNext));
       let bracket = 1;
       while (bracket < q) bracket *= 2;
-      const minMatches = Math.min(...zones) - 1;
+      const minMatches = Math.min(...zones.map((z) => (z === 4 && gvg ? 2 : z - 1)));
       return { zones, q, bracket, byes: bracket - q, minMatches };
     } catch { return null; }
-  }, [mode, target, size, perZone, bestNext]);
+  }, [mode, target, size, perZone, bestNext, gvg, pass3]);
 
   return (
     <>
@@ -69,6 +74,14 @@ export function StructureFields({ children, cupo }: { children?: React.ReactNode
           </select></div>
         </>}
         {children}
+      </div>
+      <div className="toggles">
+        {mode === "ZONES" && <>
+          <Toggle name="four_gvg" checked={gvg} onChange={setGvg} title="Si hay zonas de 4, GvG/PvP" desc="1° vs 4° y 2° vs 3°; después ganadores contra ganadores y perdedores contra perdedores, en lugar de todos contra todos." />
+          <Toggle name="four_pass3" checked={pass3} onChange={setPass3} title="En las zonas de 4 pasan 3" desc={`de la zona de 4 clasifican 3; las demás siguen pasando ${perZone === "ALL" ? "todas" : perZone}.`} />
+        </>}
+        <Toggle name="no_schedule" title="Sin horarios" desc="el organizador asigna los horarios desde la mesa (no se genera cronograma automático)." />
+        <Toggle name="ignore_restrictions" title="No tener en cuenta restricciones" desc="ignora los horarios que cargan las parejas." />
       </div>
       <div className="structure-summary">
         {summary && mode === "KNOCKOUT" ? (

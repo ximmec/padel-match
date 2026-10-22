@@ -34,6 +34,9 @@ export interface EntryRow {
   seed: number | null;
   status: "ACTIVE" | "WITHDRAWN";
   withdrawal_policy: string | null;
+  not_before: string | null;
+  not_after: string | null;
+  restriction_note: string | null;
   players: { id: string; code: string; first_name: string; last_name: string; slot: number }[];
   former: { id: string; first_name: string; last_name: string; slot: number; replaced_at: Date }[];
 }
@@ -44,6 +47,7 @@ export interface MatchRow {
   zone_id: string | null;
   bracket_code: string | null;
   round: number;
+  slot: "GVG" | "PVP" | null;
   entry_a: string | null;
   entry_b: string | null;
   status: "PENDING" | "IN_PLAY" | "PLAYED" | "ANNULLED";
@@ -56,7 +60,7 @@ export interface MatchRow {
   updated_at: Date;
 }
 
-export interface ZoneRow { id: string; name: string; sort: number; manual_order: string[]; entry_ids: string[] }
+export interface ZoneRow { id: string; name: string; sort: number; manual_order: string[]; entry_ids: string[]; format: "RR" | "GVG" }
 
 export interface LoadedCategory {
   tc: TcRow;
@@ -87,7 +91,7 @@ export async function loadCategory(db: Db, tcId: string, orgId: string | null, o
   const rules = normalizeRules(tc.rules);
 
   const entries = await db<EntryRow[]>`
-    SELECT e.id, e.seed, e.status, e.withdrawal_policy,
+    SELECT e.id, e.seed, e.status, e.withdrawal_policy, e.not_before::text AS not_before, e.not_after::text AS not_after, e.restriction_note,
       COALESCE((SELECT json_agg(json_build_object('id', p.id, 'code', p.code, 'first_name', p.first_name, 'last_name', p.last_name, 'slot', ep.slot) ORDER BY ep.slot)
                 FROM entry_players ep JOIN players p ON p.id = ep.player_id
                 WHERE ep.entry_id = e.id AND ep.replaced_at IS NULL), '[]') AS players,
@@ -98,12 +102,12 @@ export async function loadCategory(db: Db, tcId: string, orgId: string | null, o
     ORDER BY e.seed NULLS LAST, e.created_at`;
 
   const zones = await db<ZoneRow[]>`
-    SELECT z.id, z.name, z.sort, z.manual_order,
+    SELECT z.id, z.name, z.sort, z.manual_order, z.format,
       COALESCE((SELECT array_agg(ze.entry_id ORDER BY ze.sort, ze.entry_id) FROM zone_entries ze WHERE ze.zone_id = z.id), '{}') AS entry_ids
     FROM zones z WHERE z.tc_id = ${tcId} ORDER BY z.sort, z.name`;
 
   const matches = await db<MatchRow[]>`
-    SELECT m.id, m.phase, m.zone_id, m.bracket_code, m.round, m.entry_a, m.entry_b, m.status, m.outcome,
+    SELECT m.id, m.phase, m.zone_id, m.bracket_code, m.round, m.slot, m.entry_a, m.entry_b, m.status, m.outcome,
            m.court_id, c.name AS court_name, m.scheduled_at, m.schedule_locked, m.version, m.updated_at
     FROM matches m LEFT JOIN courts c ON c.id = m.court_id
     WHERE m.tc_id = ${tcId}
@@ -121,6 +125,8 @@ export function buildState(tc: TcRow, zones: ZoneRow[], matches: MatchRow[], ent
     .map((m) => ({
       id: m.id,
       zoneId: m.zone_id!,
+      round: m.round,
+      slot: m.slot,
       a: m.entry_a!,
       b: m.entry_b!,
       status: (m.status === "PLAYED" ? "PLAYED" : m.status === "ANNULLED" ? "ANNULLED" : "PENDING") as MatchStatus,
@@ -139,12 +145,33 @@ export function buildState(tc: TcRow, zones: ZoneRow[], matches: MatchRow[], ent
       entryIds: z.entry_ids.filter((id) => withdrawn.get(id) !== "ANNUL_ALL"),
       manualOrder: z.manual_order ?? [],
       withdrawn: z.entry_ids.filter((id) => withdrawn.get(id) === "WO_PENDING"),
+      format: z.format ?? "RR",
+      unresolved: matches.filter((m) => m.zone_id === z.id && m.phase === "ZONE" && m.status !== "ANNULLED" && (!m.entry_a || !m.entry_b)).length,
     })),
     zoneMatches,
     bracket: tc.bracket ?? [],
     bracketResults,
     crossManualOrder: cross,
   };
+}
+
+/** Etiqueta de un lado de un partido de 2ª ronda GvG que todavía no tiene parejas. */
+export function slotLabel(m: Pick<MatchRow, "slot">, side: "a" | "b"): string {
+  if (m.slot === "GVG") return side === "a" ? "Ganador 1° vs 4°" : "Ganador 2° vs 3°";
+  if (m.slot === "PVP") return side === "a" ? "Perdedor 1° vs 4°" : "Perdedor 2° vs 3°";
+  return "A definir";
+}
+
+/** Nombre de un lado de un partido de zona (o «Ganador 1° vs 4°» si todavía no se sabe). */
+export function zoneSideLabel(lc: { entryMap: Map<string, EntryRow> }, m: Pick<MatchRow, "slot" | "entry_a" | "entry_b">, side: "a" | "b"): string {
+  const id = side === "a" ? m.entry_a : m.entry_b;
+  return id ? entryLabel(lc.entryMap.get(id)) : slotLabel(m, side);
+}
+
+/** «desde 20:00 · hasta 23:00» para mostrar la restricción horaria de una pareja. */
+export function restrictionLabel(e: Pick<EntryRow, "not_before" | "not_after" | "restriction_note">): string {
+  const parts = [e.not_before ? `desde ${e.not_before.slice(0, 5)}` : "", e.not_after ? `hasta ${e.not_after.slice(0, 5)}` : "", e.restriction_note ?? ""].filter(Boolean);
+  return parts.join(" · ");
 }
 
 export function entryLabel(e: EntryRow | undefined | null): string {

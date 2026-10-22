@@ -93,3 +93,17 @@ test("agenda de un torneo de 14 parejas en 3 canchas sin conflictos", () => {
   assert.equal(r.unscheduled.length, 0);
   assert.deepEqual(validateSchedule(c3, matches, r.assignments, cfg), []);
 });
+
+test("restricción horaria de una pareja: no se programa antes de las 12:00", () => {
+  const matches: SchedMatch[] = [
+    { id: "r1", players: ["a", "b", "c", "d"], dependsOn: [], priority: 1, daily: { from: 12 * 60, to: null } },
+    { id: "r2", players: ["e", "f", "g", "h"], dependsOn: [], priority: 2 },
+  ];
+  const r = generateSchedule(courts, matches, cfg);
+  const r1 = r.assignments.find((a) => a.matchId === "r1")!;
+  assert.equal(r1.start, T0 + 3 * H, "9:00 + 3 h = 12:00 en Buenos Aires");
+  assert.equal(r.assignments.find((a) => a.matchId === "r2")!.start, T0);
+  // Un cambio manual fuera del horario se marca como conflicto
+  const bad = [{ matchId: "r1", courtId: "c1", start: T0, end: T0 + H }];
+  assert.ok(validateSchedule(courts, matches, bad, cfg).some((c) => c.kind === "RESTRICTION"));
+});

@@ -98,6 +98,7 @@ export default async function PublicTournament({ params }: { params: Promise<{ s
             {recent.length === 0 && <div className="empty">Todavía no hay resultados.</div>}
           </div>
         </div>
+        {t.no_schedule && <div className="alert info">Los horarios de este torneo se asignan en el momento desde la mesa de control.</div>}
         {t.rules_text && <div className="card"><h2>Información</h2><p style={{ whiteSpace: "pre-wrap" }}>{t.rules_text}</p></div>}
       </main>
     </>

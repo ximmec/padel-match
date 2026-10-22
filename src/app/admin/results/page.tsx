@@ -27,7 +27,7 @@ export default async function ResultsPage({ searchParams }: { searchParams: Prom
   const items = s.items
     .filter((i) => (cat ? i.tcId === cat : true))
     .filter((i) => {
-      const ready = i.sideA !== "A definir" && i.sideB !== "A definir";
+      const ready = i.ready;
       if (filter === "pending") return ready && (i.status === "PENDING" || i.status === "IN_PLAY");
       if (filter === "live") return i.status === "IN_PLAY";
       if (filter === "done") return i.status === "PLAYED";

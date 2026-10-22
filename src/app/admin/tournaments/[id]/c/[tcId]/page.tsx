@@ -3,7 +3,7 @@ import { notFound } from "next/navigation";
 import { requireUser, can, type CurrentUser } from "@/server/auth";
 import { sql } from "@/server/db";
 import { isUuid } from "@/server/action";
-import { loadCategory, entryLabel, entryFullLabel, type LoadedCategory } from "@/server/category";
+import { loadCategory, entryLabel, entryFullLabel, restrictionLabel, type LoadedCategory, zoneSideLabel } from "@/server/category";
 import { ActionForm, Submit } from "@/components/ActionForm";
 import { ResultForm } from "@/components/ResultForm";
 import { StatusBadge, StandingsTable, BracketView, MatchLine } from "@/components/views";
@@ -96,6 +96,7 @@ async function EntriesTab({ lc, u }: { lc: LoadedCategory; u: CurrentUser }) {
                 <td>
                   <b>{entryFullLabel(e)}</b>
                   {e.former.length > 0 && <div className="muted" style={{ fontSize: 12 }}>Reemplazó a: {e.former.map((f) => `${f.first_name} ${f.last_name}`).join(", ")}</div>}
+                  {restrictionLabel(e) && <div><span className="badge info">🕒 {restrictionLabel(e)}</span></div>}
                   {e.status === "WITHDRAWN" && <div><span className="badge err">Retirada ({e.withdrawal_policy === "ANNUL_ALL" ? "anulada" : "W.O. en pendientes"})</span></div>}
                 </td>
                 <td className="num">
@@ -122,6 +123,19 @@ async function EntriesTab({ lc, u }: { lc: LoadedCategory; u: CurrentUser }) {
                             <Submit className="btn sm">Reemplazar</Submit>
                           </div>
                           <div className="muted" style={{ fontSize: 12 }}>La pareja conserva sus resultados.</div>
+                        </ActionForm>
+                        <ActionForm action={A.setRestrictionAction}>
+                          <input type="hidden" name="entry_id" value={e.id} />
+                          <label>Restricción horaria</label>
+                          <div className="row">
+                            <span className="muted" style={{ fontSize: 13 }}>Desde</span><input type="time" name="not_before" className="sm" defaultValue={e.not_before?.slice(0, 5) ?? ""} />
+                            <span className="muted" style={{ fontSize: 13 }}>hasta</span><input type="time" name="not_after" className="sm" defaultValue={e.not_after?.slice(0, 5) ?? ""} />
+                          </div>
+                          <div className="row" style={{ marginTop: 6 }}>
+                            <input name="restriction_note" className="sm" style={{ flex: 1 }} placeholder="Nota (ej. llega del trabajo)" defaultValue={e.restriction_note ?? ""} maxLength={120} />
+                            <Submit className="btn sm">Guardar</Submit>
+                          </div>
+                          <div className="muted" style={{ fontSize: 12 }}>El cronograma solo programa a esta pareja dentro de ese horario. Dejalo vacío para quitarla.</div>
                         </ActionForm>
                         {can(u, "tournaments.manage") && (
                           <ActionForm action={A.withdrawEntryAction}>
@@ -159,6 +173,10 @@ async function EntriesTab({ lc, u }: { lc: LoadedCategory; u: CurrentUser }) {
             <input type="hidden" name="tc_id" value={lc.tc.id} />
             <div className="field"><label>Jugador 1</label><select name="player1" required defaultValue=""><option value="" disabled>Elegir…</option>{free.map(opt)}</select></div>
             <div className="field"><label>Jugador 2</label><select name="player2" required defaultValue=""><option value="" disabled>Elegir…</option>{free.map(opt)}</select></div>
+            <div className="field"><label>Restricción horaria (opcional)</label>
+              <div className="row"><span className="muted">Puede desde</span><input type="time" name="not_before" className="sm" /><span className="muted">hasta</span><input type="time" name="not_after" className="sm" /></div>
+              <input name="restriction_note" placeholder="Nota (ej. no puede antes de las 20 los sábados)" maxLength={120} style={{ marginTop: 6 }} />
+              <div className="hint">El cronograma la respeta, salvo que el torneo tenga activado «No tener en cuenta restricciones».</div></div>
             <div className="field"><label>Cabeza de serie (opcional)</label><input type="number" name="seed" min={1} />
               <div className="hint">1 = mejor sembrado. Las cabezas de serie quedan en zonas distintas.</div></div>
             <Submit className="btn primary">Inscribir</Submit>
@@ -283,9 +301,9 @@ function MatchesTab({ lc, u }: { lc: LoadedCategory; u: CurrentUser }) {
           {g.matches.map((m) => {
             const rm = m.phase === "BRACKET" ? lc.view.bracket.find((b) => b.code === m.bracket_code) : null;
             if (rm && (rm.byeAdvance || (rm.a.kind === "BYE" && rm.b.kind === "BYE"))) return null;
-            const ready = m.phase === "ZONE" || (rm && rm.a.kind === "ENTRY" && rm.b.kind === "ENTRY");
-            const sideA = m.phase === "ZONE" ? entryLabel(lc.entryMap.get(m.entry_a!)) : rm?.a.kind === "ENTRY" ? entryLabel(lc.entryMap.get(rm.a.entryId)) : "A definir";
-            const sideB = m.phase === "ZONE" ? entryLabel(lc.entryMap.get(m.entry_b!)) : rm?.b.kind === "ENTRY" ? entryLabel(lc.entryMap.get(rm.b.entryId)) : "A definir";
+            const ready = m.phase === "ZONE" ? !!(m.entry_a && m.entry_b) : (rm && rm.a.kind === "ENTRY" && rm.b.kind === "ENTRY");
+            const sideA = m.phase === "ZONE" ? zoneSideLabel(lc, m, "a") : rm?.a.kind === "ENTRY" ? entryLabel(lc.entryMap.get(rm.a.entryId)) : "A definir";
+            const sideB = m.phase === "ZONE" ? zoneSideLabel(lc, m, "b") : rm?.b.kind === "ENTRY" ? entryLabel(lc.entryMap.get(rm.b.entryId)) : "A definir";
             return (
               <div key={m.id} id={`m-${m.id}`} style={{ borderBottom: "1px solid var(--line)" }}>
                 <MatchLine lc={lc} m={m} extra={<>
@@ -523,6 +541,8 @@ function RulesTab({ lc, u }: { lc: LoadedCategory; u: CurrentUser }) {
               <select name="perZone" defaultValue={String(r.qualification.perZone)}>
                 <option value="ALL">Todas</option>{[1, 2, 3, 4].map((n) => <option key={n} value={n}>{n}</option>)}
               </select></div>
+            <label className="checkbox" style={{ alignSelf: "center" }}><input type="checkbox" name="fourGvg" defaultChecked={r.fourZone === "GVG"} /> Zonas de 4: GvG/PvP (1° vs 4° y 2° vs 3°; después ganadores contra ganadores y perdedores contra perdedores)</label>
+            <label className="checkbox" style={{ alignSelf: "center" }}><input type="checkbox" name="pass3of4" defaultChecked={!!r.qualification.perZoneOf4} /> En las zonas de 4 pasan 3 (las demás siguen con lo de arriba)</label>
             <div className="field"><label>Más los mejores del puesto siguiente</label><input type="number" name="bestNext" min={0} max={16} defaultValue={r.qualification.bestNext} />
               <div className="hint">Ej. 2 = clasifican además los 2 mejores terceros.</div></div>
             <div className="field"><label>Comparación entre zonas de distinto tamaño</label>

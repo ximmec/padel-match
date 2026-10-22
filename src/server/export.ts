@@ -1,6 +1,6 @@
 import ExcelJS from "exceljs";
 import type { Db } from "./db";
-import { loadCategory, entryLabel, entryFullLabel, type LoadedCategory } from "./category";
+import { loadCategory, entryLabel, entryFullLabel, type LoadedCategory, zoneSideLabel } from "./category";
 import { loadTournamentSchedule } from "./schedule";
 import { getRanking } from "./ranking";
 import { queryAudit, type AuditFilter } from "./auditQuery";
@@ -55,7 +55,7 @@ function categorySheets(wb: ExcelJS.Workbook, lcs: LoadedCategory[]) {
   sheet(wb, "Resultados", ["Categoría", "Fase", "Pareja A", "Pareja B", "Resultado", "Estado", "Fecha y hora", "Cancha"],
     lcs.flatMap((lc) => lc.matches.map((m) => {
       let a = "", b = "", fase = "";
-      if (m.phase === "ZONE") { a = entryLabel(lc.entryMap.get(m.entry_a!)); b = entryLabel(lc.entryMap.get(m.entry_b!)); fase = `Zona ${lc.zones.find((z) => z.id === m.zone_id)?.name ?? ""}`; }
+      if (m.phase === "ZONE") { a = zoneSideLabel(lc, m, "a"); b = zoneSideLabel(lc, m, "b"); fase = `Zona ${lc.zones.find((z) => z.id === m.zone_id)?.name ?? ""}`; }
       else {
         const rm = lc.view.bracket.find((x) => x.code === m.bracket_code);
         a = rm?.a.kind === "ENTRY" ? entryLabel(lc.entryMap.get(rm.a.entryId)) : rm?.a.kind === "BYE" ? "Pase libre" : "A definir";

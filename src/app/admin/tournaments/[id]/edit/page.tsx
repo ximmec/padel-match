@@ -6,6 +6,7 @@ import { isUuid } from "@/server/action";
 import { ActionForm, Submit } from "@/components/ActionForm";
 import { BasicInfoSection, VenueSection, TimingFields, DescriptionSection, CardSection } from "@/components/TournamentFields";
 import { FormSection } from "@/components/FormSection";
+import { Toggle } from "@/components/Toggle";
 import { Forbidden } from "@/components/views";
 import { updateTournamentAction } from "@/server/actions/admin";
 import { normalizeRules } from "@/core/engine";
@@ -18,7 +19,7 @@ export default async function EditTournament({ params }: { params: Promise<{ id:
   if (!isUuid(id)) notFound();
   const u = await requireUser();
   if (!can(u, "tournaments.manage")) return <Forbidden />;
-  const [t] = await sql<{ id: string; name: string; start_date: string; end_date: string; status: string; venue_id: string | null; circuit_id: string | null; season_id: string | null; is_public: boolean; rules_text: string | null; match_duration_min: number; min_rest_min: number; start_time: string | null; entry_fee: number | null; max_entries: number | null; logo: string | null; card_bg: string }[]>`
+  const [t] = await sql<{ id: string; name: string; start_date: string; end_date: string; status: string; venue_id: string | null; circuit_id: string | null; season_id: string | null; is_public: boolean; rules_text: string | null; match_duration_min: number; min_rest_min: number; start_time: string | null; entry_fee: number | null; max_entries: number | null; logo: string | null; card_bg: string; no_schedule: boolean; ignore_restrictions: boolean }[]>`
     SELECT * FROM tournaments WHERE id = ${id} AND org_id = ${u.orgId}`;
   if (!t) notFound();
   const [venues, circuits, seasons, cats] = await Promise.all([
@@ -37,10 +38,14 @@ export default async function EditTournament({ params }: { params: Promise<{ id:
         <input type="hidden" name="id" value={id} />
         <BasicInfoSection t={t} circuits={circuits} seasons={seasons} withStatus />
         <VenueSection t={t} venues={venues} />
-        <FormSection icon="grid" title="Estructura deportiva" desc="Cupo y tiempos para el cronograma. El formato competitivo, los sets y los clasificados se ajustan en cada categoría.">
+        <FormSection icon="grid" title="Estructura deportiva" desc="Cupo, tiempos y horarios. El formato competitivo, los sets, las zonas de 4 (GvG/PvP) y los clasificados se ajustan en cada categoría.">
           <div className="fgrid fgrid-3">
             <div className="field"><label htmlFor="t-cupo">Parejas objetivo (cupo)</label><input id="t-cupo" type="number" name="max_entries" min={2} max={512} defaultValue={t.max_entries ?? ""} placeholder="Sin límite" /></div>
             <TimingFields t={t} />
+          </div>
+          <div className="toggles" style={{ marginBottom: 16 }}>
+            <Toggle name="no_schedule" defaultChecked={t.no_schedule} title="Sin horarios" desc="el organizador asigna los horarios desde la mesa" />
+            <Toggle name="ignore_restrictions" defaultChecked={t.ignore_restrictions} title="No tener en cuenta restricciones" desc="ignora los horarios que cargan las parejas" />
           </div>
           <div className="cat-rules">
             {cats.map((c) => {

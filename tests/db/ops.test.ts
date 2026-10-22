@@ -322,3 +322,65 @@ test("eliminar torneo: pide confirmación, borra todo y quita los puntos", async
   const [{ n: aud }] = await sql<{ n: number }[]>`SELECT count(*)::int AS n FROM audit_log WHERE tournament_id = ${tournamentId} AND action = 'delete'`;
   assert.equal(aud, 1);
 });
+
+test("zonas de 4 GvG/PvP: 2ª ronda automática, posiciones y pasan 3", async () => {
+  const { tcId } = await makeTournament({ ...DEFAULT_RULES, preferredZoneSize: 4, fourZone: "GVG", qualification: { perZone: 2, bestNext: 0, perZoneOf4: 3 } });
+  const players = await makePlayers(16);
+  const entries = await register(tcId, players); // 8 parejas → 2 zonas de 4
+  await tx((x) => ops.generateZones(x, user, tcId, null, 11));
+  let lc = await loadCategory(sql, tcId, orgId);
+  assert.deepEqual(lc.zones.map((z) => z.format), ["GVG", "GVG"]);
+  const z = lc.zones[0];
+  const zm = () => lc.matches.filter((m) => m.zone_id === z.id);
+  assert.equal(zm().length, 4);
+  assert.equal(zm().filter((m) => m.slot && !m.entry_a).length, 2, "2ª ronda a definir");
+  await assert.rejects(result(zm().find((m) => m.slot === "GVG")!.id, [[6, 1], [6, 1]]), /1ª ronda/);
+  // 1ª ronda: gana siempre el lado A
+  for (const m of zm().filter((m) => m.round === 1)) await result(m.id, [[6, 2], [6, 2]]);
+  lc = await loadCategory(sql, tcId, orgId);
+  const g = zm().find((m) => m.slot === "GVG")!;
+  const p = zm().find((m) => m.slot === "PVP")!;
+  const r1 = zm().filter((m) => m.round === 1);
+  assert.deepEqual(new Set([g.entry_a, g.entry_b]), new Set(r1.map((m) => m.entry_a)), "ganadores juegan entre sí");
+  assert.deepEqual(new Set([p.entry_a, p.entry_b]), new Set(r1.map((m) => m.entry_b)), "perdedores juegan entre sí");
+  await result(g.id, [[2, 6], [2, 6]]); // gana B
+  await result(p.id, [[6, 3], [6, 3]]); // gana A
+  lc = await loadCategory(sql, tcId, orgId);
+  const st = lc.view.standings.get(z.id)!;
+  assert.ok(st.final);
+  assert.deepEqual(st.rows.map((r) => r.entryId), [g.entry_b, g.entry_a, p.entry_a, p.entry_b]);
+  // Pasan 3 por zona de 4 → cuadro con 6 clasificados (de 8 lugares)
+  await tx((x) => ops.generateBracket(x, user, tcId));
+  lc = await loadCategory(sql, tcId, orgId);
+  const refs = lc.tc.bracket.flatMap((d) => [d.a, d.b]).filter((r) => r.t === "ZONE");
+  assert.equal(refs.length, 6);
+  // Corregir la 1ª ronda cambia quién juega la 2ª → su resultado queda invalidado
+  const first = r1[0];
+  const [{ version }] = await sql<{ version: number }[]>`SELECT version FROM matches WHERE id = ${first.id}`;
+  await tx((x) => ops.recordResult(x, user, first.id, { kind: "PLAYED", sets: [[2, 6], [2, 6]] }, version, "Error de carga", true));
+  lc = await loadCategory(sql, tcId, orgId);
+  const g2 = zm().find((m) => m.slot === "GVG")!;
+  assert.equal(g2.status, "PENDING", "el partido de ganadores vuelve a pendiente");
+  assert.ok([g2.entry_a, g2.entry_b].includes(first.entry_b), "ahora juega el nuevo ganador");
+  void entries;
+});
+
+test("restricción horaria de una pareja respetada por el cronograma", async () => {
+  const { tournamentId, tcId } = await makeTournament();
+  const players = await makePlayers(12);
+  const entries = await register(tcId, players); // 6 parejas → 2 zonas de 3
+  await tx((x) => ops.setEntryRestriction(x, user, entries[0], "20:00", null, "trabaja"));
+  await tx((x) => ops.generateZones(x, user, tcId, null, 3));
+  const courtIds = await sql<{ id: string }[]>`SELECT id FROM courts WHERE venue_id = ${venueId} ORDER BY sort`;
+  for (const c of courtIds) {
+    await sql`INSERT INTO court_availability (tournament_id, court_id, starts_at, ends_at) VALUES (${tournamentId}, ${c.id}, '2026-10-10T09:00:00-03:00', '2026-10-10T23:59:00-03:00')`;
+  }
+  await tx((x) => generateTournamentSchedule(x, user, tournamentId, "ALL"));
+  const rows = await sql<{ scheduled_at: Date }[]>`SELECT scheduled_at FROM matches WHERE tc_id = ${tcId} AND (entry_a = ${entries[0]} OR entry_b = ${entries[0]})`;
+  assert.ok(rows.length > 0 && rows.every((r) => r.scheduled_at && r.scheduled_at.getTime() >= new Date("2026-10-10T20:00:00-03:00").getTime()), "todos sus partidos desde las 20:00");
+  // Con «No tener en cuenta restricciones» puede ir antes
+  await sql`UPDATE tournaments SET ignore_restrictions = true WHERE id = ${tournamentId}`;
+  await tx((x) => generateTournamentSchedule(x, user, tournamentId, "ALL"));
+  const rows2 = await sql<{ scheduled_at: Date }[]>`SELECT scheduled_at FROM matches WHERE tc_id = ${tcId} AND (entry_a = ${entries[0]} OR entry_b = ${entries[0]})`;
+  assert.ok(rows2.some((r) => r.scheduled_at.getTime() < new Date("2026-10-10T20:00:00-03:00").getTime()));
+});

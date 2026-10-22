@@ -218,3 +218,12 @@ test("un jugador no puede sumar dos veces en la misma categoría-torneo", () => 
   ], DEFAULT_POINTS);
   assert.equal(a.filter((w) => w.playerId === "x").length, 1);
 });
+
+test("zonas de 4 que pasan 3: 14 parejas (4,4,3,3) → 3+3+2+2 = 10 clasificados", () => {
+  const zones = [{ id: "A", size: 4 }, { id: "B", size: 4 }, { id: "C", size: 3 }, { id: "D", size: 3 }];
+  const q = qualifierRefs(zones, { perZone: 2, bestNext: 0, perZoneOf4: 3 });
+  assert.equal(q.length, 10);
+  assert.equal(q.filter((x) => x.ref.t === "ZONE" && x.ref.pos === 3).length, 2, "solo las zonas de 4 aportan un 3°");
+  const defs = generateBracket(q);
+  assert.equal(defs.filter((d) => d.round === 1).length, 8);
+});

@@ -5,7 +5,7 @@
  */
 import { summarize, type MatchFormat, type MatchOutcome, type ScoreSummary, FORMATS } from "./scoring";
 import { computeStandings, rankAcrossZones, dropMatchesVsLast, DEFAULT_TIEBREAKS, type TiebreakCriterion, type ZoneStandings, type ZoneMatchInput } from "./standings";
-import { resolveBracket, type BracketMatchDef, type ResolvedMatch, type CrossResult, type QualificationRule, stagesReached } from "./bracket";
+import { resolveBracket, qualifiersInZone, type BracketMatchDef, type ResolvedMatch, type CrossResult, type QualificationRule, stagesReached } from "./bracket";
 import { DEFAULT_POINTS, type PointsTable } from "./ranking";
 
 export type CrossZoneMode = "AVERAGES" | "DROP_VS_LAST";
@@ -16,6 +16,8 @@ export type CompetitionMode = "ZONES" | "KNOCKOUT";
 
 export interface CategoryRules {
   mode: CompetitionMode;
+  /** Zonas de 4: todos contra todos (RR) o GvG/PvP (1ª ronda 1v4 y 2v3; después ganadores y perdedores). */
+  fourZone: "RR" | "GVG";
   format: MatchFormat;
   tiebreaks: TiebreakCriterion[];
   qualification: QualificationRule;
@@ -28,6 +30,7 @@ export interface CategoryRules {
 
 export const DEFAULT_RULES: CategoryRules = {
   mode: "ZONES",
+  fourZone: "RR",
   format: FORMATS.BEST_OF_3_STB,
   tiebreaks: DEFAULT_TIEBREAKS,
   qualification: { perZone: 2, bestNext: 0 },
@@ -46,6 +49,7 @@ export function normalizeRules(raw: Partial<CategoryRules> | null | undefined): 
     qualification: { ...DEFAULT_RULES.qualification, ...(raw?.qualification ?? {}) },
     tiebreaks: raw?.tiebreaks?.length ? raw.tiebreaks : DEFAULT_RULES.tiebreaks,
     mode: raw?.mode === "KNOCKOUT" ? "KNOCKOUT" : "ZONES",
+    fourZone: raw?.fourZone === "GVG" ? "GVG" : "RR",
   };
 }
 
@@ -56,6 +60,10 @@ export interface ZoneData {
   manualOrder: string[];
   /** Parejas retiradas que siguen figurando en la zona (sus partidos jugados cuentan). */
   withdrawn?: string[];
+  /** RR = todos contra todos; GVG = 1ª ronda 1v4/2v3 y 2ª ronda ganadores vs ganadores, perdedores vs perdedores. */
+  format?: "RR" | "GVG";
+  /** Partidos de la zona cuyas parejas todavía no se conocen (2ª ronda GvG). */
+  unresolved?: number;
 }
 
 export type MatchStatus = "PENDING" | "PLAYED" | "ANNULLED";
@@ -63,6 +71,8 @@ export type MatchStatus = "PENDING" | "PLAYED" | "ANNULLED";
 export interface ZoneMatchData {
   id: string;
   zoneId: string;
+  round?: number;
+  slot?: "GVG" | "PVP" | null;
   a: string;
   b: string;
   status: MatchStatus;
@@ -102,6 +112,36 @@ export function zoneMatchInputs(rules: CategoryRules, matches: ZoneMatchData[], 
     });
 }
 
+/**
+ * Posiciones de una zona GvG/PvP: 1° ganador de ganadores, 2° perdedor de ganadores,
+ * 3° ganador de perdedores, 4° perdedor de perdedores. Las estadísticas (sets, games) se mantienen.
+ */
+export function gvgStandings(base: ZoneStandings, z: ZoneData, inputs: ZoneMatchInput[], all: ZoneMatchData[]): ZoneStandings {
+  const meta = new Map(all.map((m) => [m.id, m]));
+  const winnerOf = (m: ZoneMatchInput) => (m.summary ? (m.summary.winner === "A" ? m.a : m.b) : null);
+  const loserOf = (m: ZoneMatchInput) => (m.summary ? (m.summary.winner === "A" ? m.b : m.a) : null);
+  const r1 = inputs.filter((m) => (meta.get(m.id)?.round ?? 1) === 1);
+  const g = inputs.find((m) => meta.get(m.id)?.slot === "GVG");
+  const p = inputs.find((m) => meta.get(m.id)?.slot === "PVP");
+  const byId = new Map(base.rows.map((r) => [r.entryId, r]));
+  const unresolved = z.unresolved ?? 0;
+  let order: string[] | null = null;
+  let final = false;
+  if (g?.summary && p?.summary) {
+    order = [winnerOf(g)!, loserOf(g)!, winnerOf(p)!, loserOf(p)!];
+    final = unresolved === 0;
+  } else if (r1.length >= 2 && r1.every((m) => m.summary)) {
+    const winners = new Set(r1.map(winnerOf));
+    order = [...base.rows.filter((r) => winners.has(r.entryId)), ...base.rows.filter((r) => !winners.has(r.entryId))].map((r) => r.entryId);
+  }
+  if (!order || order.some((id) => !byId.has(id))) {
+    return { ...base, complete: base.complete && unresolved === 0, pendingMatches: base.pendingMatches + unresolved, final: base.final && unresolved === 0 };
+  }
+  const rows = [...order.map((id) => byId.get(id)!), ...base.rows.filter((r) => !order!.includes(r.entryId))]
+    .map((r, i) => ({ ...r, position: i + 1, unresolvedTie: false, decidedBy: null }));
+  return { rows, complete: final, pendingMatches: base.pendingMatches + unresolved, final };
+}
+
 export function evaluateCategory(rules: CategoryRules, st: CategoryState): CategoryView {
   const summaries = new Map<string, ScoreSummary>();
   const errors: CategoryView["errors"] = [];
@@ -121,7 +161,7 @@ export function evaluateCategory(rules: CategoryRules, st: CategoryState): Categ
       s.rows = [...keep, ...out];
       s.final = s.complete && !keep.some((r) => r.unresolvedTie);
     }
-    standings.set(z.id, s);
+    standings.set(z.id, z.format === "GVG" ? gvgStandings(s, z, inputs, st.zoneMatches) : s);
   }
 
   // Comparación entre zonas para las posiciones que lo requieren
@@ -131,7 +171,7 @@ export function evaluateCategory(rules: CategoryRules, st: CategoryState): Categ
   if (rules.qualification.bestNext > 0 && per !== "ALL") {
     const pos = per + 1;
     const minSize = Math.min(...st.zones.map((z) => z.entryIds.length));
-    const rows = st.zones.flatMap((z) => {
+    const rows = st.zones.filter((z) => qualifiersInZone(z.entryIds.length, rules.qualification) < pos).flatMap((z) => {
       const s = standings.get(z.id)!;
       const row = s.rows.find((r) => r.position === pos && !r.unresolvedTie) ?? s.rows[pos - 1];
       if (!row) return [];

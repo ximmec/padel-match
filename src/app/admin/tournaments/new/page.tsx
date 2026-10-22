@@ -37,6 +37,8 @@ export default async function NewTournament() {
         <VenueSection venues={venues} />
         <FormSection icon="grid" title="Estructura deportiva" desc="Definí cómo se va a jugar el torneo para preparar zonas y playoffs. Se aplica a todas las categorías elegidas.">
           <StructureFields>
+            <div className="field"><label htmlFor="s-courts">Cantidad de canchas</label><input id="s-courts" type="number" name="courts_count" min={1} max={40} placeholder="Todas las de la sede" />
+              <div className="hint">Se habilitan para el cronograma desde el horario de inicio.</div></div>
             <TimingFields />
           </StructureFields>
         </FormSection>

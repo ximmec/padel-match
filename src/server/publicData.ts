@@ -1,13 +1,14 @@
 import { sql } from "./db";
 
 export interface PublicTournament {
+  no_schedule?: boolean;
   id: string; name: string; slug: string; start_date: string; end_date: string; status: string; venue: string | null; address: string | null;
   org_name: string; org_slug: string; org_id: string; rules_text: string | null;
 }
 
 export async function publicTournamentBySlug(slug: string): Promise<PublicTournament | null> {
   const [t] = await sql<PublicTournament[]>`
-    SELECT t.id, t.name, t.slug, t.start_date, t.end_date, t.status, v.name AS venue, v.address, o.name AS org_name, o.slug AS org_slug, o.id AS org_id, t.rules_text
+    SELECT t.id, t.name, t.slug, t.start_date, t.end_date, t.status, v.name AS venue, v.address, o.name AS org_name, o.slug AS org_slug, o.id AS org_id, t.rules_text, t.no_schedule
     FROM tournaments t JOIN organizations o ON o.id = t.org_id LEFT JOIN venues v ON v.id = t.venue_id
     WHERE t.slug = ${slug} AND t.is_public AND t.status <> 'DRAFT'`;
   return t ?? null;

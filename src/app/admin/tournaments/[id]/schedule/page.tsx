@@ -32,7 +32,7 @@ export default async function SchedulePage({ params }: { params: Promise<{ id: s
           <h1>Cronograma</h1>
           <span className="muted">{s.courts.length} cancha(s) · partidos de {s.tournament.match_duration_min} min · descanso mínimo {s.tournament.min_rest_min} min</span>
         </div>
-        {edit && (
+        {edit && !s.tournament.no_schedule && (
           <div className="row">
             <ActionForm action={generateScheduleAction} confirmText="Se reprogramarán todos los partidos no jugados y no fijados. ¿Continuar?">
               <input type="hidden" name="tournament_id" value={id} /><input type="hidden" name="mode" value="ALL" />
@@ -45,6 +45,8 @@ export default async function SchedulePage({ params }: { params: Promise<{ id: s
           </div>
         )}
       </div>
+      {s.tournament.no_schedule && <div className="alert info">Este torneo está configurado <b>«Sin horarios»</b>: los partidos se asignan en el momento desde la mesa. Igual podés poner cancha y hora a mano arrastrando cada partido. Para generar el cronograma automático, desactivá esa opción en <Link href={`/admin/tournaments/${id}/edit`}>Editar torneo</Link>.</div>}
+      {s.tournament.ignore_restrictions && !s.tournament.no_schedule && <div className="alert warn">Las restricciones horarias de las parejas <b>no se tienen en cuenta</b> en este torneo.</div>}
       {s.courts.length === 0 && <div className="alert warn">El torneo no tiene canchas disponibles. Asigná una sede y cargá horarios en <Link href={`/admin/tournaments/${id}`}>los datos del torneo</Link>.</div>}
       {conflicts.length > 0 && (
         <div className="alert err">

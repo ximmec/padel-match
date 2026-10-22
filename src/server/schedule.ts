@@ -6,12 +6,12 @@ import { UserError } from "./db";
 import type { CurrentUser } from "./auth";
 import { audit } from "./audit";
 import { NeedsConfirmation } from "./errors";
-import { loadCategory, entryLabel, type LoadedCategory, type MatchRow } from "./category";
+import { loadCategory, entryLabel, type LoadedCategory, type MatchRow, zoneSideLabel } from "./category";
 import { generateSchedule, rescheduleFrom, validateSchedule, type CourtInput, type SchedMatch, type Assignment } from "@/core/scheduling";
 import { roundName } from "@/core/bracket";
 
 export interface TournamentSchedule {
-  tournament: { id: string; name: string; match_duration_min: number; min_rest_min: number; venue_id: string | null };
+  tournament: { id: string; name: string; match_duration_min: number; min_rest_min: number; venue_id: string | null; no_schedule: boolean; ignore_restrictions: boolean };
   courts: CourtInput[];
   categories: LoadedCategory[];
   items: ScheduleItem[];
@@ -33,11 +33,15 @@ export interface ScheduleItem {
   dependsOn: string[];
   priority: number;
   version: number;
+  /** Franja diaria pedida por las parejas (minutos). */
+  daily?: { from: number | null; to: number | null };
+  /** Ya se conocen las dos parejas (se puede cargar el resultado). */
+  ready: boolean;
 }
 
 export async function loadTournamentSchedule(db: Db, tournamentId: string, orgId: string | null): Promise<TournamentSchedule> {
   const [t] = await db<TournamentSchedule["tournament"][]>`
-    SELECT id, name, match_duration_min, min_rest_min, venue_id FROM tournaments WHERE id = ${tournamentId} ${orgId ? db`AND org_id = ${orgId}` : db``}`;
+    SELECT id, name, match_duration_min, min_rest_min, venue_id, no_schedule, ignore_restrictions FROM tournaments WHERE id = ${tournamentId} ${orgId ? db`AND org_id = ${orgId}` : db``}`;
   if (!t) throw new UserError("Torneo no encontrado.");
   const courtRows = await db<{ id: string; name: string; starts_at: Date | null; ends_at: Date | null }[]>`
     SELECT c.id, c.name, a.starts_at, a.ends_at
@@ -61,6 +65,17 @@ export async function loadTournamentSchedule(db: Db, tournamentId: string, orgId
     const maxRound = Math.max(0, ...lc.matches.filter((m) => m.phase === "ZONE").map((m) => m.round));
     const perRound = new Map<number, number>();
     for (const b of lc.view.bracket) perRound.set(b.round, (perRound.get(b.round) ?? 0) + 1);
+    const mins = (t: string | null) => (t ? Number(t.slice(0, 2)) * 60 + Number(t.slice(3, 5)) : null);
+    const dailyOf = (ids: (string | null)[]) => {
+      let from: number | null = null, to: number | null = null;
+      for (const id of ids) {
+        const e = id ? lc.entryMap.get(id) : undefined;
+        const f = mins(e?.not_before ?? null), t = mins(e?.not_after ?? null);
+        if (f != null) from = from == null ? f : Math.max(from, f);
+        if (t != null) to = to == null ? t : Math.min(to, t);
+      }
+      return from == null && to == null ? undefined : { from, to };
+    };
     const playersOf = (entryId: string | null) => (entryId ? lc.entryMap.get(entryId)?.players.map((p) => p.id) ?? [] : []);
     for (const m of lc.matches) {
       if (m.status === "ANNULLED") continue;
@@ -70,9 +85,10 @@ export async function loadTournamentSchedule(db: Db, tournamentId: string, orgId
           matchId: m.id, tcId: lc.tc.id, categoryName: lc.tc.category_name,
           label: `${lc.tc.category_name} · Zona ${z?.name ?? "?"}`, stage: `Zona ${z?.name ?? "?"}`,
           players: [...playersOf(m.entry_a), ...playersOf(m.entry_b)],
-          sideA: entryLabel(lc.entryMap.get(m.entry_a!)), sideB: entryLabel(lc.entryMap.get(m.entry_b!)),
+          sideA: zoneSideLabel(lc, m, "a"), sideB: zoneSideLabel(lc, m, "b"),
           status: m.status, courtId: m.court_id, start: m.scheduled_at, locked: m.schedule_locked,
-          dependsOn: [], priority: m.round * 100 + ci, version: m.version,
+          dependsOn: m.slot ? lc.matches.filter((x) => x.zone_id === m.zone_id && x.round === 1 && x.status !== "ANNULLED").map((x) => x.id) : [],
+          priority: m.round * 100 + ci, version: m.version, ready: !!(m.entry_a && m.entry_b), daily: dailyOf([m.entry_a, m.entry_b]),
         });
       } else {
         const def = lc.tc.bracket.find((d) => d.code === m.bracket_code);
@@ -98,7 +114,7 @@ export async function loadTournamentSchedule(db: Db, tournamentId: string, orgId
           players: [...playersOf(a), ...playersOf(b)],
           sideA: a ? entryLabel(lc.entryMap.get(a)) : "A definir", sideB: b ? entryLabel(lc.entryMap.get(b)) : "A definir",
           status: m.status, courtId: m.court_id, start: m.scheduled_at, locked: m.schedule_locked,
-          dependsOn: [...realDeps, ...zoneIds], priority: (maxRound + def.round) * 100 + ci, version: m.version,
+          dependsOn: [...realDeps, ...zoneIds], priority: (maxRound + def.round) * 100 + ci, version: m.version, ready: !!(a && b), daily: dailyOf([a, b]),
         });
       }
     }
@@ -106,8 +122,9 @@ export async function loadTournamentSchedule(db: Db, tournamentId: string, orgId
   return { tournament: t, courts: [...courtMap.values()], categories, items };
 }
 
-function toSched(items: ScheduleItem[], durationMin: number): SchedMatch[] {
+function toSched(items: ScheduleItem[], durationMin: number, ignoreRestrictions = false): SchedMatch[] {
   return items.map((i) => ({
+    daily: ignoreRestrictions ? undefined : i.daily,
     id: i.matchId,
     label: `${i.label}: ${i.sideA} vs ${i.sideB}`,
     players: i.players,
@@ -123,7 +140,8 @@ export async function generateTournamentSchedule(tx: Tx, user: CurrentUser, tour
   if (!s.courts.length) throw new UserError("La sede del torneo no tiene canchas cargadas.");
   if (!s.courts.some((c) => c.windows.length)) throw new UserError("Cargá la disponibilidad horaria de las canchas para este torneo.");
   const cfg = { durationMin: s.tournament.match_duration_min, minRestMin: s.tournament.min_rest_min };
-  const sched = toSched(s.items.filter((i) => i.status !== "PLAYED" || (i.courtId && i.start)), cfg.durationMin);
+  if (s.tournament.no_schedule) throw new UserError("Este torneo está configurado «Sin horarios»: los partidos se asignan desde la mesa. Cambialo en «Editar torneo» si querés generar el cronograma.");
+  const sched = toSched(s.items.filter((i) => i.status !== "PLAYED" || (i.courtId && i.start)), cfg.durationMin, s.tournament.ignore_restrictions);
   const res = mode === "FROM_NOW" ? rescheduleFrom(s.courts, sched, cfg, Date.now()) : generateSchedule(s.courts, sched, cfg);
   const asg = new Map(res.assignments.map((a) => [a.matchId, a]));
   let moved = 0;
@@ -155,7 +173,7 @@ export async function moveMatchSchedule(tx: Tx, user: CurrentUser, matchId: stri
   if (!item) throw new UserError("Partido no encontrado en el cronograma.");
   if (courtId && !s.courts.some((c) => c.id === courtId)) throw new UserError("Cancha inválida.");
   const cfg = { durationMin: s.tournament.match_duration_min, minRestMin: s.tournament.min_rest_min };
-  const sched = toSched(s.items, cfg.durationMin);
+  const sched = toSched(s.items, cfg.durationMin, s.tournament.ignore_restrictions);
   const assignments: Assignment[] = [];
   for (const i of s.items) {
     const c = i.matchId === matchId ? courtId : i.courtId;
@@ -178,5 +196,5 @@ export async function moveMatchSchedule(tx: Tx, user: CurrentUser, matchId: stri
 export function scheduleConflicts(s: TournamentSchedule) {
   const cfg = { durationMin: s.tournament.match_duration_min, minRestMin: s.tournament.min_rest_min };
   const assignments = s.items.filter((i) => i.courtId && i.start).map((i) => ({ matchId: i.matchId, courtId: i.courtId!, start: i.start!.getTime(), end: i.start!.getTime() + cfg.durationMin * 60_000 }));
-  return validateSchedule(s.courts, toSched(s.items, cfg.durationMin), assignments, cfg);
+  return validateSchedule(s.courts, toSched(s.items, cfg.durationMin, s.tournament.ignore_restrictions), assignments, cfg);
 }

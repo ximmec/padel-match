@@ -7,7 +7,7 @@ import { UserError } from "./db";
 import type { CurrentUser } from "./auth";
 import { audit } from "./audit";
 import { NeedsConfirmation } from "./errors";
-import { loadCategory, entryLabel, type LoadedCategory, type MatchRow } from "./category";
+import { loadCategory, entryLabel, type LoadedCategory, type MatchRow, zoneSideLabel } from "./category";
 import { recalcRanking } from "./ranking";
 import {
   planZoneSizes, validateZoneSizes, distributeEntries, roundRobin, zoneName,
@@ -106,6 +106,12 @@ export async function registerEntry(tx: Tx, user: CurrentUser, tcId: string, p1:
   return e.id;
 }
 
+export async function setEntryRestriction(tx: Tx, user: CurrentUser, entryId: string, from: string | null, to: string | null, note: string | null) {
+  const { lc, entry } = await entryContext(tx, user, entryId);
+  await tx`UPDATE entries SET not_before = ${from}, not_after = ${to}, restriction_note = ${note} WHERE id = ${entryId}`;
+  await audit(tx, user, { entity: "entry", entityId: entryId, action: "update", tournamentId: lc.tc.tournament_id, summary: `Restricción horaria de ${entryLabel(entry)}: ${[from && `desde ${from}`, to && `hasta ${to}`, note].filter(Boolean).join(" · ") || "sin restricción"}` });
+}
+
 export async function setSeed(tx: Tx, user: CurrentUser, entryId: string, seed: number | null) {
   const [e] = await tx<{ tc_id: string; seed: number | null; tournament_id: string }[]>`
     SELECT e.tc_id, e.seed, tc.tournament_id FROM entries e JOIN tournament_categories tc ON tc.id = e.tc_id JOIN tournaments t ON t.id = tc.tournament_id
@@ -186,6 +192,41 @@ export async function replacePlayer(tx: Tx, user: CurrentUser, entryId: string, 
 /* Zonas                                                               */
 /* ------------------------------------------------------------------ */
 
+/** Zona GvG/PvP: 1ª ronda 1° vs 4° y 2° vs 3°; la 2ª ronda (ganadores y perdedores) se completa sola. */
+async function createGvgFixtures(tx: Tx, tcId: string, zoneId: string, entryIds: string[]) {
+  const [e1, e2, e3, e4] = entryIds;
+  await tx`INSERT INTO matches (tc_id, phase, zone_id, round, entry_a, entry_b) VALUES (${tcId}, 'ZONE', ${zoneId}, 1, ${e1}, ${e4}), (${tcId}, 'ZONE', ${zoneId}, 1, ${e2}, ${e3})`;
+  await tx`INSERT INTO matches (tc_id, phase, zone_id, round, slot) VALUES (${tcId}, 'ZONE', ${zoneId}, 2, 'GVG'), (${tcId}, 'ZONE', ${zoneId}, 2, 'PVP')`;
+}
+
+/**
+ * Completa (o vuelve a dejar «a definir») la 2ª ronda de las zonas GvG según los resultados de la 1ª.
+ * Si una corrección cambia quién juega y ese partido ya tenía resultado, el resultado queda invalidado.
+ */
+async function syncGvgZones(tx: Tx, user: CurrentUser, lc: LoadedCategory): Promise<boolean> {
+  let changed = false;
+  for (const z of lc.zones.filter((x) => x.format === "GVG")) {
+    const ms = lc.matches.filter((m) => m.zone_id === z.id && m.status !== "ANNULLED");
+    const pos = (id: string | null) => (id ? z.entry_ids.indexOf(id) : 99);
+    const r1 = ms.filter((m) => m.round === 1).sort((a, b) => Math.min(pos(a.entry_a), pos(a.entry_b)) - Math.min(pos(b.entry_a), pos(b.entry_b)));
+    const win = (m: MatchRow) => { const sm = lc.view.summaries.get(m.id); return sm ? (sm.winner === "A" ? m.entry_a : m.entry_b) : null; };
+    const lose = (m: MatchRow) => { const sm = lc.view.summaries.get(m.id); return sm ? (sm.winner === "A" ? m.entry_b : m.entry_a) : null; };
+    const done = r1.length === 2 && r1.every((m) => m.status === "PLAYED" && lc.view.summaries.has(m.id));
+    for (const m of ms.filter((x) => x.slot)) {
+      const want: [string | null, string | null] = !done ? [null, null] : m.slot === "GVG" ? [win(r1[0]), win(r1[1])] : [lose(r1[0]), lose(r1[1])];
+      if (m.entry_a === want[0] && m.entry_b === want[1]) continue;
+      changed = true;
+      if (m.status === "PLAYED" || m.status === "IN_PLAY") {
+        await saveMatchResult(tx, user, m, "PENDING", null, "Invalidado: cambiaron las parejas por una corrección de la 1ª ronda", want[0], want[1]);
+        await audit(tx, user, { entity: "match", entityId: m.id, action: "result_correction", tournamentId: lc.tc.tournament_id, summary: `Zona ${z.name}: resultado de ${m.slot === "GVG" ? "ganadores" : "perdedores"} invalidado porque cambió la 1ª ronda`, before: { outcome: m.outcome, entryA: m.entry_a, entryB: m.entry_b } });
+      } else {
+        await tx`UPDATE matches SET entry_a = ${want[0]}, entry_b = ${want[1]}, version = version + 1, updated_at = now() WHERE id = ${m.id}`;
+      }
+    }
+  }
+  return changed;
+}
+
 async function createFixtures(tx: Tx, tcId: string, zoneId: string, entryIds: string[], existing: MatchRow[]) {
   const has = (a: string, b: string) => existing.some((m) => m.zone_id === zoneId && m.status !== "ANNULLED" && ((m.entry_a === a && m.entry_b === b) || (m.entry_a === b && m.entry_b === a)));
   for (const f of roundRobin(entryIds.length)) {
@@ -212,10 +253,12 @@ export async function generateZones(tx: Tx, user: CurrentUser, tcId: string, siz
   await tx`DELETE FROM matches WHERE tc_id = ${tcId} AND phase = 'ZONE'`;
   await tx`DELETE FROM zones WHERE tc_id = ${tcId}`;
   for (let i = 0; i < groups.length; i++) {
-    const [z] = await tx<{ id: string }[]>`INSERT INTO zones (tc_id, name, sort) VALUES (${tcId}, ${zoneName(i)}, ${i}) RETURNING id`;
     const ids = groups[i].map((e) => e.id);
+    const gvg = ids.length === 4 && lc.rules.fourZone === "GVG";
+    const [z] = await tx<{ id: string }[]>`INSERT INTO zones (tc_id, name, sort, format) VALUES (${tcId}, ${zoneName(i)}, ${i}, ${gvg ? "GVG" : "RR"}) RETURNING id`;
     for (let k = 0; k < ids.length; k++) await tx`INSERT INTO zone_entries (zone_id, entry_id, tc_id, sort) VALUES (${z.id}, ${ids[k]}, ${tcId}, ${k})`;
-    await createFixtures(tx, tcId, z.id, ids, []);
+    if (gvg) await createGvgFixtures(tx, tcId, z.id, ids);
+    else await createFixtures(tx, tcId, z.id, ids, []);
   }
   await tx`UPDATE tournament_categories SET status = 'ZONES', version = version + 1 WHERE id = ${tcId}`;
   await audit(tx, user, {
@@ -256,6 +299,7 @@ export async function moveEntry(tx: Tx, user: CurrentUser, entryId: string, targ
   if (!target) throw new UserError("Zona destino inválida.");
   const source = lc.zones.find((z) => z.entry_ids.includes(entryId));
   if (source?.id === target.id) throw new UserError("La pareja ya está en esa zona.");
+  if (target.format === "GVG" || source?.format === "GVG") throw new UserError("Las zonas GvG/PvP tienen un cruce fijo de 4 parejas: no se pueden mover parejas. Si hace falta, regenerá las zonas o reemplazá un jugador.");
 
   const oldMatches = source ? lc.matches.filter((m) => m.zone_id === source.id && m.status !== "ANNULLED" && (m.entry_a === entryId || m.entry_b === entryId)) : [];
   const played = oldMatches.filter((m) => m.status === "PLAYED");
@@ -405,7 +449,7 @@ export async function matchContext(tx: Tx, user: CurrentUser, matchId: string) {
 export function matchLabel(lc: LoadedCategory, m: MatchRow): string {
   if (m.phase === "ZONE") {
     const z = lc.zones.find((x) => x.id === m.zone_id);
-    return `Zona ${z?.name ?? "?"}: ${entryLabel(lc.entryMap.get(m.entry_a!))} vs ${entryLabel(lc.entryMap.get(m.entry_b!))}`;
+    return `Zona ${z?.name ?? "?"}: ${zoneSideLabel(lc, m, "a")} vs ${zoneSideLabel(lc, m, "b")}`;
   }
   const rm = lc.view.bracket.find((x) => x.code === m.bracket_code);
   const name = (r?: { kind: string; entryId?: string }) => (r?.kind === "ENTRY" ? entryLabel(lc.entryMap.get(r.entryId!)) : r?.kind === "BYE" ? "Pase libre" : "A definir");
@@ -418,6 +462,7 @@ export async function recordResult(tx: Tx, user: CurrentUser, matchId: string, o
     throw new UserError("Este partido fue modificado por otra persona mientras cargabas. Revisá el resultado actual y volvé a intentar.");
   }
   if (m.status === "ANNULLED") throw new UserError("El partido está anulado.");
+  if (m.phase === "ZONE" && (!m.entry_a || !m.entry_b)) throw new UserError("Este partido se define cuando terminen los dos partidos de la 1ª ronda de la zona.");
   try { summarize(lc.rules.format, outcome); } catch (e) { if (e instanceof ScoreError) throw new UserError(e.message); throw e; }
 
   let entryA = m.entry_a, entryB = m.entry_b;
@@ -481,7 +526,9 @@ export async function setInPlay(tx: Tx, user: CurrentUser, matchId: string, inPl
  */
 export async function afterChange(tx: Tx, user: CurrentUser, tcId: string) {
   for (let i = 0; i < 10; i++) {
-    const lc = await loadCategory(tx, tcId, user.orgId);
+    const lc0 = await loadCategory(tx, tcId, user.orgId);
+    if (await syncGvgZones(tx, user, lc0)) continue;
+    const lc = lc0;
     const stale = lc.view.bracket.filter((b) => b.staleResult);
     if (!stale.length) {
       await recalcRanking(tx, user, lc);

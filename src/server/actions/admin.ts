@@ -195,6 +195,26 @@ async function resolveVenue(tx: Tx, fd: FormData, user: CurrentUser): Promise<st
   return v.id;
 }
 
+/**
+ * Usa N canchas de la sede (crea las que falten) y las habilita para el torneo
+ * todos los días, desde el horario de inicio (o 9:00) hasta las 23:59.
+ */
+async function setupCourts(tx: Tx, tournamentId: string, venueId: string, n: number, start: string, end: string, time: string | null) {
+  const have = await tx<{ id: string }[]>`SELECT id FROM courts WHERE venue_id = ${venueId} AND active ORDER BY sort, name`;
+  const ids = have.slice(0, n).map((c) => c.id);
+  for (let k = have.length + 1; ids.length < n; k++) {
+    const [c] = await tx<{ id: string }[]>`INSERT INTO courts (venue_id, name, sort) VALUES (${venueId}, ${`Cancha ${k}`}, ${k}) RETURNING id`;
+    ids.push(c.id);
+  }
+  const days: string[] = [];
+  for (let d = new Date(`${start}T12:00:00Z`); d <= new Date(`${end}T12:00:00Z`) && days.length < 31; d.setUTCDate(d.getUTCDate() + 1)) days.push(d.toISOString().slice(0, 10));
+  for (const day of days) {
+    const from = new Date(`${day}T${time ?? "09:00"}:00-03:00`), to = new Date(`${day}T23:59:00-03:00`);
+    if (from >= to) continue;
+    for (const c of ids) await tx`INSERT INTO court_availability (tournament_id, court_id, starts_at, ends_at) VALUES (${tournamentId}, ${c}, ${from}, ${to})`;
+  }
+}
+
 /** Campos extra de la tarjeta: horario, inscripción, cupo, logo y fondo. */
 function cardFields(fd: FormData) {
   const time = str(fd, "start_time");
@@ -242,7 +262,11 @@ function structureRules(fd: FormData): CategoryRules {
   const bestNext = perZone === "ALL" ? 0 : Math.max(0, Math.min(8, int(fd, "best_next", 0) ?? 0));
   const tb = str(fd, "tb");
   const fmt = { ...format, tiebreak: tb !== "NONE", ...(tb === "AT_G1" ? { tiebreakAt: format.gamesPerSet - 1 } : {}) };
-  return { ...DEFAULT_RULES, mode: str(fd, "mode") === "KNOCKOUT" ? "KNOCKOUT" : "ZONES", format: fmt, preferredZoneSize: size, qualification: { perZone, bestNext } };
+  return {
+    ...DEFAULT_RULES, mode: str(fd, "mode") === "KNOCKOUT" ? "KNOCKOUT" : "ZONES", format: fmt, preferredZoneSize: size,
+    fourZone: fd.get("four_gvg") === "on" ? "GVG" : "RR",
+    qualification: { perZone, bestNext, perZoneOf4: fd.get("four_pass3") === "on" ? 3 : null },
+  };
 }
 
 export async function createTournamentAction(_p: ActionState, fd: FormData): Promise<ActionState> {
@@ -261,11 +285,13 @@ export async function createTournamentAction(_p: ActionState, fd: FormData): Pro
       const slug = await uniqueSlug(tx, `${r.data.name} ${r.data.start_date.slice(0, 4)}`);
       const [t] = await tx<{ id: string }[]>`
         INSERT INTO tournaments (org_id, name, slug, venue_id, circuit_id, season_id, start_date, end_date, status, is_public, rules_text, match_duration_min, min_rest_min,
-                                 start_time, entry_fee, max_entries, logo, card_bg)
+                                 start_time, entry_fee, max_entries, logo, card_bg, no_schedule, ignore_restrictions)
         VALUES (${user.orgId}, ${r.data.name}, ${slug}, ${venue}, ${circuit}, ${season}, ${r.data.start_date}, ${r.data.end_date}, 'OPEN',
                 ${fd.get("is_public") === "on"}, ${optStr(fd, "rules_text")}, ${r.data.match_duration_min}, ${r.data.min_rest_min},
-                ${card.time}, ${card.fee}, ${card.cupo}, ${card.logo}, ${card.bg})
+                ${card.time}, ${card.fee}, ${card.cupo}, ${card.logo}, ${card.bg}, ${fd.get("no_schedule") === "on"}, ${fd.get("ignore_restrictions") === "on"})
         RETURNING id`;
+      const nCourts = int(fd, "courts_count");
+      if (venue && nCourts) await setupCourts(tx, t.id, venue, Math.max(1, Math.min(40, nCourts)), r.data.start_date, r.data.end_date, card.time);
       await audit(tx, user, { entity: "tournament", entityId: t.id, action: "create", tournamentId: t.id, summary: `Torneo ${r.data.name} creado`, after: r.data });
       const rules = structureRules(fd);
       const built = await builtCategory(tx, fd, user);
@@ -295,6 +321,7 @@ export async function updateTournamentAction(_p: ActionState, fd: FormData): Pro
       const venue = await resolveVenue(tx, fd, user);
       const [before] = await tx`SELECT name, start_date, end_date, status, venue_id, circuit_id, season_id, is_public, match_duration_min, min_rest_min FROM tournaments WHERE id = ${id} AND org_id = ${user.orgId} FOR UPDATE`;
       if (!before) throw new UserError("Torneo no encontrado.");
+      await tx`UPDATE tournaments SET no_schedule = ${fd.get("no_schedule") === "on"}, ignore_restrictions = ${fd.get("ignore_restrictions") === "on"} WHERE id = ${id}`;
       await tx`UPDATE tournaments SET start_time = ${card.time}, entry_fee = ${card.fee}, max_entries = ${card.cupo}, logo = ${card.logo}, card_bg = ${card.bg} WHERE id = ${id}`;
       await tx`UPDATE tournaments SET name = ${r.data.name}, start_date = ${r.data.start_date}, end_date = ${r.data.end_date}, status = ${status},
         venue_id = ${venue}, circuit_id = ${circuit}, season_id = ${season}, is_public = ${fd.get("is_public") === "on"},

@@ -64,6 +64,8 @@ export function refLabel(r: SlotRef, zoneNames: Record<string, string> = {}): st
 export interface QualificationRule {
   /** Cuántas parejas clasifican directo por zona. "ALL" = todas. */
   perZone: number | "ALL";
+  /** Si se indica, en las zonas de 4 parejas clasifican esta cantidad (ej. 3) en lugar de perZone. */
+  perZoneOf4?: number | null;
   /** Cuántas parejas extra clasifican como mejores de la posición siguiente (ej. 2 mejores terceros). */
   bestNext: number;
 }
@@ -71,36 +73,30 @@ export interface QualificationRule {
 export interface ZoneInfo { id: string; size: number }
 
 /** Lista de clasificados en orden de siembra. */
+export function qualifiersInZone(size: number, rule: QualificationRule): number {
+  if (size === 4 && rule.perZoneOf4) return Math.min(4, rule.perZoneOf4);
+  return rule.perZone === "ALL" ? size : Math.min(size, rule.perZone);
+}
+
 export function qualifierRefs(zones: ZoneInfo[], rule: QualificationRule): { ref: SlotRef; zone: string | null }[] {
   if (zones.length === 0) throw new BracketError("No hay zonas.");
-  const maxSize = Math.max(...zones.map((z) => z.size));
-  const per = rule.perZone === "ALL" ? maxSize : rule.perZone;
-  if (!Number.isInteger(per) || per < 1) throw new BracketError("Cantidad de clasificados por zona inválida.");
+  if (rule.perZone !== "ALL" && (!Number.isInteger(rule.perZone) || rule.perZone < 1)) throw new BracketError("Cantidad de clasificados por zona inválida.");
+  const perOf = new Map(zones.map((z) => [z.id, qualifiersInZone(z.size, rule)]));
+  const maxPer = Math.max(...perOf.values());
   const out: { ref: SlotRef; zone: string | null }[] = [];
-  for (let pos = 1; pos <= per; pos++) {
-    for (const z of zones) if (pos <= z.size) out.push({ ref: { t: "ZONE", zone: z.id, pos }, zone: z.id });
+  for (let pos = 1; pos <= maxPer; pos++) {
+    for (const z of zones) if (pos <= perOf.get(z.id)!) out.push({ ref: { t: "ZONE", zone: z.id, pos }, zone: z.id });
   }
-  if (rule.bestNext > 0) {
-    const pos = per + 1;
-    const available = zones.filter((z) => z.size >= pos).length;
-    if (rule.bestNext > available) throw new BracketError(`Solo hay ${available} zonas con ${pos}° puesto.`);
+  if (rule.bestNext > 0 && rule.perZone !== "ALL") {
+    const pos = rule.perZone + 1;
+    const available = zones.filter((z) => z.size >= pos && perOf.get(z.id)! < pos).length;
+    if (rule.bestNext > available) throw new BracketError(`Solo hay ${available} zonas con ${pos}° puesto disponible.`);
     for (let k = 1; k <= rule.bestNext; k++) out.push({ ref: { t: "CROSS", pos, rank: k }, zone: null });
   }
   if (out.length < 2) throw new BracketError("Se necesitan al menos 2 clasificados para armar un cuadro.");
   return out;
 }
 
-/**
- * Genera el cuadro completo.
- * - Tamaño = potencia de 2 ≥ clasificados; los pases libres van a los mejores sembrados.
- * - Los primeros de zona se ubican en posiciones de cabeza de serie.
- * - El resto se ubica evitando cruces de primera ronda entre parejas de la misma zona
- *   y separando a parejas de la misma zona en mitades distintas del cuadro.
- */
-/**
- * Eliminación directa: las parejas entran al cuadro sin zonas.
- * Primero las sembradas (por número de siembra), después el resto en orden de sorteo.
- */
 export function knockoutQualifiers(entries: { id: string; seed: number | null }[], randomSeed: number): { ref: SlotRef; zone: string | null }[] {
   if (entries.length < 2) throw new BracketError("Se necesitan al menos 2 parejas inscriptas.");
   const seeded = entries.filter((e) => e.seed != null).sort((a, b) => a.seed! - b.seed!);
