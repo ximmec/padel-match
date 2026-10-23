@@ -15,12 +15,12 @@ export default async function TournamentPage({ params, searchParams }: { params:
   const sp = await searchParams;
   if (!isUuid(id)) notFound();
   const u = await requireUser();
-  const [t] = await sql<{ id: string; name: string; slug: string; start_date: string; end_date: string; status: string; venue_id: string | null; circuit_id: string | null; season_id: string | null; is_public: boolean; rules_text: string | null; match_duration_min: number; min_rest_min: number; venue: string | null }[]>`
+  const [t] = await sql<{ id: string; name: string; slug: string; start_date: string; end_date: string; status: string; venue_id: string | null; circuit_id: string | null; season_id: string | null; is_public: boolean; rules_text: string | null; match_duration_min: number; min_rest_min: number; venue: string | null; max_entries: number | null }[]>`
     SELECT t.*, v.name AS venue FROM tournaments t LEFT JOIN venues v ON v.id = t.venue_id WHERE t.id = ${id} AND t.org_id = ${u.orgId}`;
   if (!t) notFound();
   const [cats, allCats, venues, circuits, seasons, courts, avail] = await Promise.all([
-    sql<{ id: string; name: string; status: string; entries: number; zones: number; played: number; total: number }[]>`
-      SELECT tc.id, c.name, tc.status,
+    sql<{ id: string; name: string; status: string; entries: number; zones: number; played: number; total: number; cap: number | null }[]>`
+      SELECT tc.id, c.name, tc.status, NULLIF(tc.rules->>'maxEntries', '')::int AS cap,
         (SELECT count(*)::int FROM entries e WHERE e.tc_id = tc.id AND e.status = 'ACTIVE') AS entries,
         (SELECT count(*)::int FROM zones z WHERE z.tc_id = tc.id) AS zones,
         (SELECT count(*)::int FROM matches m WHERE m.tc_id = tc.id AND m.status = 'PLAYED') AS played,
@@ -63,7 +63,7 @@ export default async function TournamentPage({ params, searchParams }: { params:
               <tr key={c.id}>
                 <td><Link href={`/admin/tournaments/${id}/c/${c.id}`}><b>{c.name}</b></Link></td>
                 <td><StatusBadge status={c.status} /></td>
-                <td className="num">{c.entries}</td>
+                <td className="num">{c.entries}{(c.cap ?? t.max_entries) ? `/${c.cap ?? t.max_entries}` : ""}</td>
                 <td className="num">{c.zones}</td>
                 <td>{c.total ? <><progress value={c.played} max={c.total} style={{ width: 80, verticalAlign: "middle" }} /> {c.played}/{c.total}</> : "—"}</td>
                 <td className="row" style={{ justifyContent: "flex-end" }}>

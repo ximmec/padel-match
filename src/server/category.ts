@@ -27,6 +27,7 @@ export interface TcRow {
   org_id: string;
   circuit_id: string | null;
   season_id: string | null;
+  tournament_max_entries: number | null;
 }
 
 export interface EntryRow {
@@ -76,7 +77,7 @@ export interface LoadedCategory {
 export async function loadTc(db: Db, tcId: string, orgId: string | null): Promise<TcRow> {
   const [tc] = await db<TcRow[]>`
     SELECT tc.*, c.name AS category_name, c.gender_rule, t.name AS tournament_name, t.slug AS tournament_slug,
-           t.org_id, t.circuit_id, t.season_id
+           t.org_id, t.circuit_id, t.season_id, t.max_entries AS tournament_max_entries
     FROM tournament_categories tc
     JOIN tournaments t ON t.id = tc.tournament_id
     JOIN categories c ON c.id = tc.category_id
@@ -189,6 +190,11 @@ export function resolvedLabel(r: Resolved, entryMap: Map<string, EntryRow>, fall
   if (r.kind === "ENTRY") return entryLabel(entryMap.get(r.entryId));
   if (r.kind === "BYE") return "Pase libre";
   return fallback;
+}
+
+/** Cupo de parejas de la categoría (propio o el del torneo). null = sin límite. */
+export function categoryCap(lc: Pick<LoadedCategory, "rules" | "tc">): number | null {
+  return lc.rules.maxEntries ?? lc.tc.tournament_max_entries ?? null;
 }
 
 export function stagesFor(lc: LoadedCategory) {

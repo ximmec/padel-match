@@ -7,7 +7,7 @@ import { UserError } from "./db";
 import type { CurrentUser } from "./auth";
 import { audit } from "./audit";
 import { NeedsConfirmation } from "./errors";
-import { loadCategory, entryLabel, type LoadedCategory, type MatchRow, zoneSideLabel } from "./category";
+import { loadCategory, categoryCap, entryLabel, type LoadedCategory, type MatchRow, zoneSideLabel } from "./category";
 import { recalcRanking } from "./ranking";
 import {
   planZoneSizes, validateZoneSizes, distributeEntries, roundRobin, zoneName,
@@ -97,6 +97,9 @@ export async function registerEntry(tx: Tx, user: CurrentUser, tcId: string, p1:
   if (p1 === p2) throw new UserError("Elegí dos jugadores distintos.");
   const lc = await loadCategory(tx, tcId, user.orgId, { lock: true });
   const ps = await checkGender(tx, lc.tc.gender_rule, [p1, p2], user.orgId);
+  const cap = categoryCap(lc);
+  const activeCount = lc.entries.filter((x) => x.status === "ACTIVE").length;
+  if (cap && activeCount >= cap) throw new UserError(`Se completó el cupo de ${cap} parejas de ${lc.tc.category_name}. Si querés sumar más, subí el cupo en «Editar torneo» o en las Reglas de la categoría.`);
   // Incompatibilidad: el mismo jugador en otra categoría del mismo torneo con horarios superpuestos se permite,
   // pero no dos veces en la misma categoría (lo garantiza un índice único).
   const [e] = await tx<{ id: string }[]>`INSERT INTO entries (tc_id, seed) VALUES (${tcId}, ${seed}) RETURNING id`;

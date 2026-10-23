@@ -384,3 +384,11 @@ test("restricción horaria de una pareja respetada por el cronograma", async () 
   const rows2 = await sql<{ scheduled_at: Date }[]>`SELECT scheduled_at FROM matches WHERE tc_id = ${tcId} AND (entry_a = ${entries[0]} OR entry_b = ${entries[0]})`;
   assert.ok(rows2.some((r) => r.scheduled_at.getTime() < new Date("2026-10-10T20:00:00-03:00").getTime()));
 });
+
+test("cupo por categoría: no deja inscribir más parejas que el cupo", async () => {
+  const { tournamentId, tcId } = await makeTournament({ ...DEFAULT_RULES, maxEntries: 2 });
+  await sql`UPDATE tournaments SET max_entries = 24 WHERE id = ${tournamentId}`;
+  const players = await makePlayers(6);
+  await register(tcId, players.slice(0, 4)); // 2 parejas = cupo propio de la categoría
+  await assert.rejects(tx((x) => ops.registerEntry(x, user, tcId, players[4], players[5], null)), /cupo de 2 parejas/);
+});

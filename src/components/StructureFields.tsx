@@ -54,7 +54,7 @@ export function StructureFields({ children, cupo }: { children?: React.ReactNode
             <option value="AT_G1">En 5-5 (termina 6-5)</option>
             <option value="NONE">Sin tiebreak</option>
           </select></div>
-        <div className="field"><label htmlFor="s-target">Parejas objetivo (cupo)</label>
+        <div className="field"><label htmlFor="s-target">Parejas por categoría (cupo)</label>
           <select id="s-target" name="max_entries" value={target} onChange={(e) => setTarget(Number(e.target.value))}>
             {Array.from({ length: 61 }, (_, i) => i + 4).map((n) => <option key={n} value={n}>{n} parejas</option>)}
           </select></div>

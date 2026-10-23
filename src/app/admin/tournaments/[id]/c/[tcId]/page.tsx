@@ -3,7 +3,7 @@ import { notFound } from "next/navigation";
 import { requireUser, can, type CurrentUser } from "@/server/auth";
 import { sql } from "@/server/db";
 import { isUuid } from "@/server/action";
-import { loadCategory, entryLabel, entryFullLabel, restrictionLabel, type LoadedCategory, zoneSideLabel } from "@/server/category";
+import { loadCategory, categoryCap, entryLabel, entryFullLabel, restrictionLabel, type LoadedCategory, zoneSideLabel } from "@/server/category";
 import { ActionForm, Submit } from "@/components/ActionForm";
 import { ResultForm } from "@/components/ResultForm";
 import { StatusBadge, StandingsTable, BracketView, MatchLine } from "@/components/views";
@@ -55,7 +55,7 @@ export default async function CategoryPage({ params, searchParams }: { params: P
       <div className="page-head">
         <div>
           <h1>{lc.tc.category_name}</h1>
-          <div className="row"><StatusBadge status={lc.tc.status} /><span className="muted">{active.length} parejas · {lc.zones.length} zonas · {pending} partidos pendientes · {formatLabel(lc.rules.format)}</span></div>
+          <div className="row"><StatusBadge status={lc.tc.status} /><span className="muted">{active.length}{categoryCap(lc) ? `/${categoryCap(lc)}` : ""} parejas · {lc.zones.length} zonas · {pending} partidos pendientes · {formatLabel(lc.rules.format)}</span></div>
         </div>
         <div className="row">
           {can(u, "exports.download") && <a className="btn ghost sm" href={`/api/export?type=category&tc=${tcId}`}>📊 Excel</a>}
@@ -507,6 +507,14 @@ function RulesTab({ lc, u }: { lc: LoadedCategory; u: CurrentUser }) {
               <option value="KNOCKOUT">Eliminación directa</option>
             </select>
             <div className="hint">En eliminación directa no hay zonas: todas las parejas entran al cuadro y el que pierde queda afuera. Para cambiarlo, la categoría no tiene que tener zonas ni cuadro.</div>
+          </div>
+        </fieldset>
+
+        <fieldset disabled={disabled}>
+          <legend>Cupo de parejas</legend>
+          <div className="field" style={{ maxWidth: 420 }}>
+            <input type="number" name="maxEntries" min={2} max={512} defaultValue={r.maxEntries ?? ""} placeholder={lc.tc.tournament_max_entries ? `Igual que el torneo: ${lc.tc.tournament_max_entries} por categoría` : "Sin límite"} aria-label="Cupo de parejas de esta categoría" />
+            <div className="hint">Máximo de parejas para esta categoría. Vacío = el cupo por categoría del torneo.</div>
           </div>
         </fieldset>
 

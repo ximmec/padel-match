@@ -18,6 +18,8 @@ export interface CategoryRules {
   mode: CompetitionMode;
   /** Zonas de 4: todos contra todos (RR) o GvG/PvP (1ª ronda 1v4 y 2v3; después ganadores y perdedores). */
   fourZone: "RR" | "GVG";
+  /** Cupo de parejas de esta categoría (si no se indica, se usa el cupo por categoría del torneo). */
+  maxEntries?: number | null;
   format: MatchFormat;
   tiebreaks: TiebreakCriterion[];
   qualification: QualificationRule;

@@ -40,7 +40,8 @@ export default async function EditTournament({ params }: { params: Promise<{ id:
         <VenueSection t={t} venues={venues} />
         <FormSection icon="grid" title="Estructura deportiva" desc="Cupo, tiempos y horarios. El formato competitivo, los sets, las zonas de 4 (GvG/PvP) y los clasificados se ajustan en cada categoría.">
           <div className="fgrid fgrid-3">
-            <div className="field"><label htmlFor="t-cupo">Parejas objetivo (cupo)</label><input id="t-cupo" type="number" name="max_entries" min={2} max={512} defaultValue={t.max_entries ?? ""} placeholder="Sin límite" /></div>
+            <div className="field"><label htmlFor="t-cupo">Parejas por categoría (cupo)</label><input id="t-cupo" type="number" name="max_entries" min={2} max={512} defaultValue={t.max_entries ?? ""} placeholder="Sin límite" />
+              <div className="hint">Ej. 24 = hasta 24 parejas en cada categoría. Una categoría puede tener su propio cupo en sus Reglas.</div></div>
             <TimingFields t={t} />
           </div>
           <div className="toggles" style={{ marginBottom: 16 }}>
