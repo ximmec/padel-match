@@ -89,10 +89,12 @@ test("torneo, inscripciones, zonas, cuadro y cronograma", async ({ page }) => {
   for (let i = 0; i < 11; i++) {
     await page.locator('select[name="player1"]').selectOption({ index: 1 });
     await page.locator('select[name="player2"]').selectOption({ index: 2 });
-    if (i < 3) await page.locator('input[name="seed"]').last().fill(String(i + 1));
+    if (i < 3) await page.locator('.part-manual input[name="seed"]').fill(String(i + 1));
     await page.getByRole("button", { name: "Inscribir" }).click();
     await expect(page.locator("summary", { hasText: "Acciones" })).toHaveCount(i + 1);
   }
+  await page.locator("button.pay").first().click();
+  await expect(page.locator("button.pay.on")).toHaveCount(1);
   await shot(page, "07-inscripciones");
 
   // Duplicado: el mismo jugador no aparece como disponible; probamos la validación de pareja repetida

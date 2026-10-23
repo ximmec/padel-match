@@ -12,7 +12,8 @@ import { planZoneSizes } from "@/core/zones";
 import { TIEBREAK_LABELS, DEFAULT_TIEBREAKS, type TiebreakCriterion } from "@/core/standings";
 import { STAGE_LABELS, STAGE_ORDER, roundName } from "@/core/bracket";
 import { FORMATS, formatLabel, scoreText, type MatchOutcome } from "@/core/scoring";
-import { fmtDateTime } from "@/lib/format";
+import { fmtDate, fmtDateTime } from "@/lib/format";
+import { fmtMoney } from "@/lib/cardBg";
 import { ResetForm } from "@/components/ResetForm";
 import { PairPlayerSelects } from "@/components/PairPlayerSelects";
 import { PLAYER_CATEGORIES } from "@/core/playerImport";
@@ -101,153 +102,192 @@ async function EntriesTab({ lc, u, focus }: { lc: LoadedCategory; u: CurrentUser
   const manage = can(u, "players.manage");
   const zoneOf = new Map(lc.zones.flatMap((z) => z.entry_ids.map((e) => [e, z.name] as const)));
 
+  const active = lc.entries.filter((e) => e.status === "ACTIVE");
+  const cap = categoryCap(lc);
+  const full = !!cap && active.length >= cap;
+  const [t] = await sql<{ start_date: string; start_time: string | null; entry_fee: number | null; venue: string | null }[]>`
+    SELECT t.start_date::text AS start_date, to_char(t.start_time, 'HH24:MI') AS start_time, t.entry_fee, v.name AS venue
+    FROM tournaments t LEFT JOIN venues v ON v.id = t.venue_id WHERE t.id = ${lc.tc.tournament_id}`;
+  const ps = active.flatMap((e) => e.players);
+  const paid = ps.filter((p) => p.paid_at).length;
+  const collected = t?.entry_fee ? Math.round((t.entry_fee * paid) / 2) : null;
+  const setsLabel: Record<string, string> = { ONE_SET: "1 set", PRO_SET_9: "Set a 9", BEST_OF_3_STB: "2 sets + STB", BEST_OF_3: "3 sets" };
+  const rf = lc.rules.format;
+  const fmtKey = Object.entries(FORMATS).find(([, f]) => f.setsToWin === rf.setsToWin && f.gamesPerSet === rf.gamesPerSet && f.superTiebreakDecider === rf.superTiebreakDecider)?.[0];
+  const sets = (fmtKey && setsLabel[fmtKey]) ?? formatLabel(lc.rules.format);
+
   return (
-    <div className="grid grid-2">
-      <div className="card flush">
-        <div className="card-head">
-          <h2>Parejas inscriptas ({lc.entries.filter((e) => e.status === "ACTIVE").length})</h2>
-          {(() => {
-            const ps = lc.entries.filter((e) => e.status === "ACTIVE").flatMap((e) => e.players);
-            const paid = ps.filter((p) => p.paid_at).length;
-            return ps.length ? <span className={`badge ${paid === ps.length ? "ok" : "warn"}`}>Pagaron {paid}/{ps.length} jugadores</span> : null;
-          })()}
+    <div className="stack part">
+      <section className="part-head">
+        <div>
+          <div className="part-kicker">Organizador</div>
+          <h2 className="part-title">Participantes oficiales</h2>
+          <div className="muted">{lc.tc.tournament_name} · {lc.tc.category_name}{t ? ` · ${fmtDate(t.start_date)}` : ""}{t?.start_time ? ` · ${t.start_time}` : ""}</div>
+          {t?.venue && <div className="muted dim">{t.venue}</div>}
         </div>
-        <div className="table-wrap"><table>
-          <thead><tr><th>Pareja</th><th>Pago</th><th className="num">Siembra</th><th>Zona</th><th></th></tr></thead>
-          <tbody>
-            {lc.entries.map((e) => (
-              <tr key={e.id} id={`e-${e.id}`} className={e.status === "WITHDRAWN" ? "out" : ""}>
-                <td>
-                  <b>{entryFullLabel(e)}</b>
-                  {e.former.length > 0 && <div className="muted" style={{ fontSize: 12 }}>Reemplazó a: {e.former.map((f) => `${f.first_name} ${f.last_name}`).join(", ")}</div>}
-                  {restrictionLabel(e) && <div><span className="badge info">🕒 {restrictionLabel(e)}</span></div>}
-                  {e.status === "WITHDRAWN" && <div><span className="badge err">Retirada ({e.withdrawal_policy === "ANNUL_ALL" ? "anulada" : "W.O. en pendientes"})</span></div>}
-                </td>
-                <td>
-                  <div className="pay-col">
-                    {e.players.map((p) => manage ? (
-                      <ActionForm key={p.slot} action={A.togglePaidAction} hideSuccess>
-                        <input type="hidden" name="entry_id" value={e.id} /><input type="hidden" name="slot" value={p.slot} />
-                        <button className={`pay ${p.paid_at ? "on" : ""}`} title={p.paid_at ? "Pagó — tocá para quitar la marca" : "Todavía no pagó — tocá para marcar"}>{p.paid_at ? "✓" : "$"} {p.last_name}</button>
-                      </ActionForm>
-                    ) : <span key={p.slot} className={`pay ${p.paid_at ? "on" : ""}`}>{p.paid_at ? "✓" : "$"} {p.last_name}</span>)}
-                  </div>
-                </td>
-                <td className="num">
-                  {manage && e.status === "ACTIVE" ? (
-                    <ActionForm action={A.setSeedAction} hideSuccess className="row" >
-                      <input type="hidden" name="entry_id" value={e.id} />
-                      <input name="seed" type="number" min={1} className="sm" style={{ width: 60 }} defaultValue={e.seed ?? ""} aria-label="Cabeza de serie" />
-                      <Submit className="btn ghost sm" pendingText="…">✓</Submit>
-                    </ActionForm>
-                  ) : e.seed ?? ""}
-                </td>
-                <td>{zoneOf.get(e.id) ?? "—"}</td>
-                <td>
-                  {manage && e.status === "ACTIVE" && (
-                    <details open={focus === e.id}>
-                      <summary className="muted" style={{ fontSize: 13 }}>Acciones</summary>
-                      <div className="stack" style={{ minWidth: 260, marginTop: 8 }}>
-                        <ActionForm action={A.replacePlayerAction}>
-                          <input type="hidden" name="entry_id" value={e.id} />
-                          <label>Reemplazar jugador</label>
-                          <div className="row">
-                            <select name="slot" className="sm">{e.players.map((p) => <option key={p.slot} value={p.slot}>Sale {p.first_name} {p.last_name}</option>)}</select>
-                            <select name="player_id" className="sm" required defaultValue=""><option value="" disabled>Entra…</option>{optGroups(free)}</select>
-                            <Submit className="btn sm">Reemplazar</Submit>
-                          </div>
-                          <div className="muted" style={{ fontSize: 12 }}>La pareja conserva sus resultados.</div>
-                        </ActionForm>
-                        <ActionForm action={A.swapPlayersAction}>
-                          <input type="hidden" name="entry_id" value={e.id} />
-                          <label>Cambiar de pareja (intercambiar con otra pareja)</label>
-                          <div className="row">
-                            <select name="slot" className="sm">{e.players.map((p) => <option key={p.slot} value={p.slot}>{p.first_name} {p.last_name}</option>)}</select>
-                            <span className="muted" style={{ fontSize: 13 }}>por</span>
-                            <select name="other" className="sm" required defaultValue="">
-                              <option value="" disabled>Elegir jugador…</option>
-                              {lc.entries.filter((o) => o.id !== e.id && o.status === "ACTIVE").flatMap((o) => o.players.map((p) => (
-                                <option key={`${o.id}:${p.slot}`} value={`${o.id}:${p.slot}`}>{p.last_name}, {p.first_name} (pareja {entryLabel(o)}{zoneOf.get(o.id) ? ` · Zona ${zoneOf.get(o.id)}` : ""})</option>
-                              )))}
-                            </select>
-                            <Submit className="btn sm">Intercambiar</Submit>
-                          </div>
-                          <div className="muted" style={{ fontSize: 12 }}>Cada pareja queda en su zona y conserva sus resultados; solo cambian los jugadores.</div>
-                        </ActionForm>
-                        <ActionForm action={A.setRestrictionAction}>
-                          <input type="hidden" name="entry_id" value={e.id} />
-                          <label>Restricción horaria</label>
-                          <div className="row">
-                            <span className="muted" style={{ fontSize: 13 }}>Desde</span><input type="time" name="not_before" className="sm" defaultValue={e.not_before?.slice(0, 5) ?? ""} />
-                            <span className="muted" style={{ fontSize: 13 }}>hasta</span><input type="time" name="not_after" className="sm" defaultValue={e.not_after?.slice(0, 5) ?? ""} />
-                          </div>
-                          <div className="row" style={{ marginTop: 6 }}>
-                            <input name="restriction_note" className="sm" style={{ flex: 1 }} placeholder="Nota (ej. llega del trabajo)" defaultValue={e.restriction_note ?? ""} maxLength={120} />
-                            <Submit className="btn sm">Guardar</Submit>
-                          </div>
-                          <div className="muted" style={{ fontSize: 12 }}>El cronograma solo programa a esta pareja dentro de ese horario. Dejalo vacío para quitarla.</div>
-                        </ActionForm>
-                        {can(u, "tournaments.manage") && (
-                          <ActionForm action={A.withdrawEntryAction}>
-                            <input type="hidden" name="entry_id" value={e.id} />
-                            <label>Retirar pareja</label>
-                            <div className="row">
-                              <select name="policy" className="sm" defaultValue={lc.rules.withdrawalDefault}>
-                                <option value="WO_PENDING">Mantener jugados, W.O. en pendientes</option>
-                                <option value="ANNUL_ALL">Anular todos sus partidos</option>
-                              </select>
-                              <Submit className="btn danger sm">Retirar</Submit>
-                            </div>
-                          </ActionForm>
-                        )}
-                        {!zoneOf.has(e.id) && (
-                          <ActionForm action={A.deleteEntryAction} confirmText="¿Eliminar esta inscripción?">
-                            <input type="hidden" name="entry_id" value={e.id} />
-                            <Submit className="btn ghost sm">Eliminar inscripción</Submit>
-                          </ActionForm>
-                        )}
-                      </div>
-                    </details>
-                  )}
-                </td>
-              </tr>
-            ))}
-            {lc.entries.length === 0 && <tr><td colSpan={5} className="empty">Todavía no hay parejas inscriptas.</td></tr>}
-          </tbody>
-        </table></div>
+        <div className="row">
+          <Link className="btn lime-ghost" href={`?tab=${lc.rules.mode === "KNOCKOUT" ? "cuadro" : "zonas"}`}>Ver estructura</Link>
+          <Link className="btn ghost" href={`/admin/tournaments/${lc.tc.tournament_id}`}>Volver</Link>
+        </div>
+      </section>
+
+      <div className="part-stats">
+        <div className="pstat"><div className="l">Formato</div><div className="v">{lc.rules.mode === "KNOCKOUT" ? "Eliminación directa" : "Grupos + playoff"}</div></div>
+        <div className="pstat"><div className="l">Sets</div><div className="v">{sets}</div></div>
+        <div className="pstat"><div className="l">Parejas objetivo</div><div className="v">{cap ?? "Sin cupo"}</div></div>
+        <div className="pstat hi"><div className="l">Participantes</div><div className="v">{active.length}</div></div>
+        <div className={`pstat ${ps.length && paid === ps.length ? "hi" : ""}`}><div className="l">Pagaron</div><div className="v">{paid}/{ps.length}<small> jug.</small></div>
+          {collected !== null && <div className="sub">Cobrado {fmtMoney(collected)} de {fmtMoney((t!.entry_fee ?? 0) * active.length)}</div>}</div>
       </div>
+
       {manage && (
-        <div className="card">
-          <h2>Inscribir pareja</h2>
-          <ActionForm action={A.registerEntryAction} resetOnSuccess>
-            <input type="hidden" name="tc_id" value={lc.tc.id} />
-            <PairPlayerSelects level={level} players={free.map((p) => ({ id: p.id, label: labelOf(p), category: p.category }))} />
-            {lc.rules.mode !== "KNOCKOUT" && lc.zones.length > 0 && (
-              <div className="field"><label>El torneo ya tiene zonas: ¿dónde la agrego?</label>
-                <select name="zone_id" defaultValue="AUTO">
-                  <option value="AUTO">En la zona con menos parejas (recomendado)</option>
-                  {lc.zones.filter((z) => z.format !== "GVG").map((z) => <option key={z.id} value={z.id}>Zona {z.name} ({z.entry_ids.length} parejas)</option>)}
-                  <option value="NONE">Dejarla sin zona por ahora</option>
-                </select>
-                <div className="hint">Se le crean solo sus partidos contra las parejas de esa zona. No se reorganiza nada y los resultados cargados no se tocan.</div></div>
-            )}
-            {lc.rules.mode === "KNOCKOUT" && lc.tc.bracket.length > 0 && (
-              <div className="alert info">El cuadro ya está armado: la pareja nueva ocupa un pase libre de la primera ronda (si queda alguno), sin tocar resultados.</div>
-            )}
-            <div className="field"><label>Restricción horaria (opcional)</label>
-              <div className="row"><span className="muted">Puede desde</span><input type="time" name="not_before" className="sm" /><span className="muted">hasta</span><input type="time" name="not_after" className="sm" /></div>
-              <input name="restriction_note" placeholder="Nota (ej. no puede antes de las 20 los sábados)" maxLength={120} style={{ marginTop: 6 }} />
-              <div className="hint">El cronograma la respeta, salvo que el torneo tenga activado «No tener en cuenta restricciones».</div></div>
-            <div className="field"><label>Cabeza de serie (opcional)</label><input type="number" name="seed" min={1} />
-              <div className="hint">1 = mejor sembrado. Las cabezas de serie quedan en zonas distintas.</div></div>
-            <Submit className="btn primary">Inscribir</Submit>
-          </ActionForm>
+        <section className="part-manual">
+          <div className="part-manual-head"><span className="part-kicker">Carga manual</span><span className="part-sub">Cargar inscripción manual</span></div>
+          {full ? (
+            <div className="alert err">La categoría ya alcanzó el máximo de {cap} parejas. No se pueden agregar más participantes (podés subir el cupo en Reglas).</div>
+          ) : (
+            <ActionForm action={A.registerEntryAction} resetOnSuccess>
+              <input type="hidden" name="tc_id" value={lc.tc.id} />
+              <PairPlayerSelects level={level} players={free.map((p) => ({ id: p.id, label: labelOf(p), category: p.category }))} />
+              {lc.rules.mode !== "KNOCKOUT" && lc.zones.length > 0 && (
+                <div className="field"><label>El torneo ya tiene zonas: ¿dónde la agrego?</label>
+                  <select name="zone_id" defaultValue="AUTO">
+                    <option value="AUTO">En la zona con menos parejas (recomendado)</option>
+                    {lc.zones.filter((z) => z.format !== "GVG").map((z) => <option key={z.id} value={z.id}>Zona {z.name} ({z.entry_ids.length} parejas)</option>)}
+                    <option value="NONE">Dejarla sin zona por ahora</option>
+                  </select>
+                  <div className="hint">Se le crean solo sus partidos contra las parejas de esa zona. No se reorganiza nada y los resultados cargados no se tocan.</div></div>
+              )}
+              {lc.rules.mode === "KNOCKOUT" && lc.tc.bracket.length > 0 && (
+                <div className="alert info">El cuadro ya está armado: la pareja nueva ocupa un pase libre de la primera ronda (si queda alguno), sin tocar resultados.</div>
+              )}
+              <div className="fgrid fgrid-2">
+                <div className="field"><label>Restricción horaria (opcional)</label>
+                  <div className="row"><span className="muted">Puede desde</span><input type="time" name="not_before" className="sm" /><span className="muted">hasta</span><input type="time" name="not_after" className="sm" /></div>
+                  <input name="restriction_note" placeholder="Nota (ej. no puede antes de las 20 los sábados)" maxLength={120} style={{ marginTop: 6 }} />
+                  <div className="hint">El cronograma la respeta, salvo que el torneo tenga activado «No tener en cuenta restricciones».</div></div>
+                <div className="field"><label>Cabeza de serie (opcional)</label><input type="number" name="seed" min={1} />
+                  <div className="hint">1 = mejor sembrado. Las cabezas de serie quedan en zonas distintas.</div></div>
+              </div>
+              <Submit className="btn primary">Inscribir</Submit>
+            </ActionForm>
+          )}
           <p className="muted" style={{ fontSize: 13, marginTop: 12 }}>
             Solo se muestran jugadores compatibles con la categoría ({lc.tc.gender_rule === "MALE" ? "masculina" : lc.tc.gender_rule === "FEMALE" ? "femenina" : lc.tc.gender_rule === "MIXED" ? "mixta: cualquier combinación de hombres y mujeres" : "libre"}) que no estén ya inscriptos.
             ¿Falta alguien? <Link href="/admin/players?new=1" target="_blank">Crear jugador</Link> y recargá esta página.
           </p>
-        </div>
+        </section>
       )}
+
+      <div className="part-list">
+        {lc.entries.length === 0 && <div className="part-empty">Todavía no hay parejas inscriptas.</div>}
+        {lc.entries.map((e) => {
+          const phones = e.players.map((p) => p.phone).filter(Boolean);
+          return (
+            <article key={e.id} id={`e-${e.id}`} className={`pcard ${e.status === "WITHDRAWN" ? "out" : ""}`}>
+              <div className="pcard-top">
+                <div className="pcard-main">
+                  <h3>{e.players.map((p) => `${p.first_name} ${p.last_name}`).join(" / ") || entryFullLabel(e)}</h3>
+                  <div className="pcard-line">Contacto: {phones.length ? phones.join(" · ") : <span className="dim">sin teléfono</span>}</div>
+                  <div className="pcard-line dim">Agregado: {fmtDateTime(new Date(e.created_at))}</div>
+                  <div className="pcard-tags">
+                    {zoneOf.get(e.id) && <span className="badge">Zona {zoneOf.get(e.id)}</span>}
+                    {e.seed && <span className="badge warn">Cabeza de serie {e.seed}</span>}
+                    {restrictionLabel(e) && <span className="badge info">🕒 {restrictionLabel(e)}</span>}
+                    {e.status === "WITHDRAWN" && <span className="badge err">Retirada ({e.withdrawal_policy === "ANNUL_ALL" ? "anulada" : "W.O. en pendientes"})</span>}
+                    {e.former.length > 0 && <span className="badge">Reemplazó a: {e.former.map((f) => `${f.first_name} ${f.last_name}`).join(", ")}</span>}
+                  </div>
+                </div>
+                <div className="pcard-side">
+                  <div className="pay-row">
+                    {e.players.map((p) => manage ? (
+                      <ActionForm key={p.slot} action={A.togglePaidAction} hideSuccess>
+                        <input type="hidden" name="entry_id" value={e.id} /><input type="hidden" name="slot" value={p.slot} />
+                        <button className={`pay ${p.paid_at ? "on" : ""}`} title={p.paid_at ? "Pagó — tocá para quitar la marca" : "Todavía no pagó — tocá para marcar"}>{p.paid_at ? "✓ Pagó" : "$ Debe"} · {p.last_name}</button>
+                      </ActionForm>
+                    ) : <span key={p.slot} className={`pay ${p.paid_at ? "on" : ""}`}>{p.paid_at ? "✓ Pagó" : "$ Debe"} · {p.last_name}</span>)}
+                  </div>
+                  {manage && !zoneOf.has(e.id) && (
+                    <ActionForm action={A.deleteEntryAction} confirmText="¿Quitar esta pareja de la categoría?">
+                      <input type="hidden" name="entry_id" value={e.id} />
+                      <Submit className="btn quitar sm">Quitar</Submit>
+                    </ActionForm>
+                  )}
+                </div>
+              </div>
+              {manage && e.status === "ACTIVE" && (
+                <details className="pcard-more" open={focus === e.id}>
+                  <summary>Más acciones <span className="chev">▾</span></summary>
+                  <div className="pcard-actions">
+                    <ActionForm action={A.setSeedAction} hideSuccess>
+                      <input type="hidden" name="entry_id" value={e.id} />
+                      <label>Cabeza de serie</label>
+                      <div className="row">
+                        <input name="seed" type="number" min={1} className="sm" style={{ width: 80 }} defaultValue={e.seed ?? ""} aria-label="Cabeza de serie" />
+                        <Submit className="btn sm" pendingText="…">Guardar</Submit>
+                      </div>
+                      <div className="muted" style={{ fontSize: 12 }}>Vacío = sin siembra.</div>
+                    </ActionForm>
+                    <ActionForm action={A.replacePlayerAction}>
+                      <input type="hidden" name="entry_id" value={e.id} />
+                      <label>Reemplazar jugador</label>
+                      <div className="row">
+                        <select name="slot" className="sm">{e.players.map((p) => <option key={p.slot} value={p.slot}>Sale {p.first_name} {p.last_name}</option>)}</select>
+                        <select name="player_id" className="sm" required defaultValue=""><option value="" disabled>Entra…</option>{optGroups(free)}</select>
+                        <Submit className="btn sm">Reemplazar</Submit>
+                      </div>
+                      <div className="muted" style={{ fontSize: 12 }}>La pareja conserva sus resultados.</div>
+                    </ActionForm>
+                    <ActionForm action={A.swapPlayersAction}>
+                      <input type="hidden" name="entry_id" value={e.id} />
+                      <label>Cambiar de pareja (intercambiar con otra pareja)</label>
+                      <div className="row">
+                        <select name="slot" className="sm">{e.players.map((p) => <option key={p.slot} value={p.slot}>{p.first_name} {p.last_name}</option>)}</select>
+                        <span className="muted" style={{ fontSize: 13 }}>por</span>
+                        <select name="other" className="sm" required defaultValue="">
+                          <option value="" disabled>Elegir jugador…</option>
+                          {lc.entries.filter((o) => o.id !== e.id && o.status === "ACTIVE").flatMap((o) => o.players.map((p) => (
+                            <option key={`${o.id}:${p.slot}`} value={`${o.id}:${p.slot}`}>{p.last_name}, {p.first_name} (pareja {entryLabel(o)}{zoneOf.get(o.id) ? ` · Zona ${zoneOf.get(o.id)}` : ""})</option>
+                          )))}
+                        </select>
+                        <Submit className="btn sm">Intercambiar</Submit>
+                      </div>
+                      <div className="muted" style={{ fontSize: 12 }}>Cada pareja queda en su zona y conserva sus resultados; solo cambian los jugadores.</div>
+                    </ActionForm>
+                    <ActionForm action={A.setRestrictionAction}>
+                      <input type="hidden" name="entry_id" value={e.id} />
+                      <label>Restricción horaria</label>
+                      <div className="row">
+                        <span className="muted" style={{ fontSize: 13 }}>Desde</span><input type="time" name="not_before" className="sm" defaultValue={e.not_before?.slice(0, 5) ?? ""} />
+                        <span className="muted" style={{ fontSize: 13 }}>hasta</span><input type="time" name="not_after" className="sm" defaultValue={e.not_after?.slice(0, 5) ?? ""} />
+                      </div>
+                      <div className="row" style={{ marginTop: 6 }}>
+                        <input name="restriction_note" className="sm" style={{ flex: 1 }} placeholder="Nota (ej. llega del trabajo)" defaultValue={e.restriction_note ?? ""} maxLength={120} />
+                        <Submit className="btn sm">Guardar</Submit>
+                      </div>
+                      <div className="muted" style={{ fontSize: 12 }}>El cronograma solo programa a esta pareja dentro de ese horario. Dejalo vacío para quitarla.</div>
+                    </ActionForm>
+                    {can(u, "tournaments.manage") && (
+                      <ActionForm action={A.withdrawEntryAction}>
+                        <input type="hidden" name="entry_id" value={e.id} />
+                        <label>Retirar pareja</label>
+                        <div className="row">
+                          <select name="policy" className="sm" defaultValue={lc.rules.withdrawalDefault}>
+                            <option value="WO_PENDING">Mantener jugados, W.O. en pendientes</option>
+                            <option value="ANNUL_ALL">Anular todos sus partidos</option>
+                          </select>
+                          <Submit className="btn danger sm">Retirar</Submit>
+                        </div>
+                        <div className="muted" style={{ fontSize: 12 }}>Para parejas que ya están en una zona: conserva el historial.</div>
+                      </ActionForm>
+                    )}
+                  </div>
+                </details>
+              )}
+            </article>
+          );
+        })}
+      </div>
     </div>
   );
 }
