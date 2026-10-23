@@ -11,8 +11,9 @@ import { createTournamentAction } from "@/server/actions/admin";
 
 export const metadata = { title: "Nuevo torneo" };
 
-export default async function NewTournament() {
+export default async function NewTournament({ searchParams }: { searchParams: Promise<{ circuit?: string }> }) {
   const u = await requireUser();
+  const sp = await searchParams;
   if (!can(u, "tournaments.manage")) return <Forbidden />;
   const [venues, circuits, seasons, categories] = await Promise.all([
     sql<{ id: string; name: string }[]>`SELECT id, name FROM venues WHERE org_id = ${u.orgId} ORDER BY name`,
@@ -24,10 +25,10 @@ export default async function NewTournament() {
     <div className="form-page">
       <Link className="back-link" href="/admin/tournaments">← Volver a Mis torneos</Link>
       <div className="form-eyebrow">Organizador</div>
-      <h1 className="form-title">Nuevo torneo</h1>
+      <h1 className="form-title">Nuevo torneo{circuits.find((c) => c.id === sp.circuit) ? <span style={{ color: "var(--orange)" }}> · {circuits.find((c) => c.id === sp.circuit)!.name}</span> : null}</h1>
       <p className="muted" style={{ marginBottom: 24 }}>Completá los datos básicos, elegí la sede y definí cómo se va a jugar.</p>
       <ActionForm action={createTournamentAction}>
-        <BasicInfoSection circuits={circuits} seasons={seasons} categories={
+        <BasicInfoSection t={{ circuit_id: circuits.some((c) => c.id === sp.circuit) ? sp.circuit : null }} circuits={circuits} seasons={seasons} categories={
           <>
             <label>Categorías *</label>
             {categories.length > 0 && <div className="chip-checks">{categories.map((c) => <label key={c.id}><input type="checkbox" name="category_ids" value={c.id} /> {c.name}</label>)}</div>}

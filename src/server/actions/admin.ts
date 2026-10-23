@@ -411,6 +411,63 @@ export async function createCategoryAction(_p: ActionState, fd: FormData): Promi
   }, ["/admin"]);
 }
 
+/* --------------------------- Circuitos --------------------------- */
+
+function circuitFields(fd: FormData) {
+  const name = req(fd, "name", "el nombre del circuito").slice(0, 80);
+  const logo = str(fd, "logo");
+  if (logo && (!/^data:image\/(png|jpeg|webp);base64,[A-Za-z0-9+/=]+$/.test(logo) || logo.length > 400_000)) throw new UserError("El logo no es válido o es demasiado grande.");
+  return { name, description: optStr(fd, "description")?.slice(0, 500) ?? null, logo: logo || null };
+}
+
+export async function createCircuitAction(_p: ActionState, fd: FormData): Promise<ActionState> {
+  return runAction("tournaments.manage", async (user) => {
+    const c = circuitFields(fd);
+    await sql.begin(async (tx) => {
+      const [dup] = await tx`SELECT 1 FROM circuits WHERE org_id = ${user.orgId} AND lower(name) = lower(${c.name})`;
+      if (dup) throw new UserError("Ya existe un circuito con ese nombre.");
+      const [r] = await tx<{ id: string }[]>`INSERT INTO circuits (org_id, name, description, logo) VALUES (${user.orgId}, ${c.name}, ${c.description}, ${c.logo}) RETURNING id`;
+      await audit(tx, user, { entity: "circuit", entityId: r.id, action: "create", summary: `Circuito ${c.name}` });
+    });
+    return { message: `Circuito «${c.name}» creado. Ya podés crear torneos dentro de él.` };
+  }, ["/admin", "/"]);
+}
+
+export async function updateCircuitAction(_p: ActionState, fd: FormData): Promise<ActionState> {
+  return runAction("tournaments.manage", async (user) => {
+    const id = uuid(fd, "circuit_id");
+    const c = circuitFields(fd);
+    await sql.begin(async (tx) => {
+      const [r] = await tx`UPDATE circuits SET name = ${c.name}, description = ${c.description}, logo = ${c.logo} WHERE id = ${id} AND org_id = ${user.orgId} RETURNING id`;
+      if (!r) throw new UserError("Circuito no encontrado.");
+      await audit(tx, user, { entity: "circuit", entityId: id, action: "update", summary: `Circuito ${c.name} modificado` });
+    });
+    return { message: "Circuito guardado." };
+  }, ["/admin", "/"]);
+}
+
+export async function deleteCircuitAction(_p: ActionState, fd: FormData): Promise<ActionState> {
+  return runAction("tournaments.manage", async (user) => {
+    const id = uuid(fd, "circuit_id");
+    const msg = await sql.begin(async (tx) => {
+      const [c] = await tx<{ name: string }[]>`SELECT name FROM circuits WHERE id = ${id} AND org_id = ${user.orgId} FOR UPDATE`;
+      if (!c) throw new UserError("Circuito no encontrado.");
+      const [{ n }] = await tx<{ n: number }[]>`SELECT count(*)::int AS n FROM tournaments WHERE circuit_id = ${id}`;
+      if (!isConfirmed(fd)) {
+        throw new NeedsConfirmation(`Eliminar el circuito «${c.name}»`, [
+          n ? `Sus ${n} torneo(s) NO se borran: quedan como torneos sin circuito.` : "No tiene torneos.",
+          "El ranking del circuito deja de existir; los puntos siguen contando en el ranking general.",
+          "Esta acción no se puede deshacer.",
+        ]);
+      }
+      await tx`DELETE FROM circuits WHERE id = ${id}`;
+      await audit(tx, user, { entity: "circuit", entityId: id, action: "delete", summary: `Circuito ${c.name} eliminado (${n} torneos quedaron sin circuito)` });
+      return `Circuito «${c.name}» eliminado.`;
+    });
+    return { message: msg, redirectTo: "/admin/circuits" };
+  }, ["/admin", "/"]);
+}
+
 export async function createSimpleAction(_p: ActionState, fd: FormData): Promise<ActionState> {
   return runAction("settings.manage", async (user) => {
     const kind = str(fd, "kind");

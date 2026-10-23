@@ -12,6 +12,7 @@ export default async function AdminLayout({ children }: { children: React.ReactN
   const main = [
     { href: "/admin", label: "Inicio", icon: "home", show: true },
     { href: "/admin/results", label: "Cargar resultados", icon: "bolt", show: can(u, "results.enter") },
+    { href: "/admin/circuits", label: "Circuitos", icon: "globe", show: true },
     { href: "/admin/tournaments", label: "Torneos", icon: "trophy", show: true },
     { href: "/admin/players", label: "Jugadores", icon: "users", show: true },
     { href: "/admin/ranking", label: "Ranking", icon: "chart", show: true },

@@ -100,6 +100,7 @@ export default async function PublicTournament({ params }: { params: Promise<{ s
         </div>
         <div className="row">
           <Link className="btn ghost sm" href={`/ranking?org=${t.org_slug}&t=${t.id}`}>🏆 Ranking de este torneo</Link>
+          {t.circuit_id && <Link className="btn ghost sm" href={`/circuito/${t.circuit_id}`}>🌎 Circuito {t.circuit_name}</Link>}
           {t.circuit_id && <Link className="btn ghost sm" href={`/ranking?org=${t.org_slug}&circuit=${t.circuit_id}`}>🏆 Ranking {t.circuit_name}</Link>}
         </div>
         {t.no_schedule && <div className="alert info">Los horarios de este torneo se asignan en el momento desde la mesa de control.</div>}

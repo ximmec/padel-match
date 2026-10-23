@@ -13,7 +13,7 @@ export type TournamentData = {
 
 export function BasicInfoSection({ t = {}, circuits, seasons, withStatus = false, categories }: { t?: TournamentData; circuits: Opt[]; seasons: Opt[]; withStatus?: boolean; categories?: React.ReactNode }) {
   return (
-    <FormSection icon="info" title="Información básica" desc="Título, categoría, fechas y datos generales del torneo.">
+    <FormSection icon="info" title="Información básica" desc="Título, categoría, fechas y circuito al que pertenece (ej. BLOKO PADEL TOUR → fecha Italia).">
       <div className="fgrid">
         <div className="field"><label htmlFor="t-name">Título *</label><input id="t-name" name="name" defaultValue={t.name} required minLength={3} maxLength={100} placeholder="Ej: Master Final 2026" /></div>
         <div className="field">{categories ?? (
@@ -31,7 +31,7 @@ export function BasicInfoSection({ t = {}, circuits, seasons, withStatus = false
       <DateFields start={t.start_date} end={t.end_date} time={t.start_time} fee={t.entry_fee} />
       <div className="fgrid" style={{ marginTop: 14 }}>
         <div className="field"><label htmlFor="t-circuit">Circuito</label>
-          <select id="t-circuit" name="circuit_id" defaultValue={t.circuit_id ?? ""}><option value="">Ninguno</option>{circuits.map((v) => <option key={v.id} value={v.id}>{v.name}</option>)}</select></div>
+          <select id="t-circuit" name="circuit_id" defaultValue={t.circuit_id ?? ""}><option value="">Ninguno (torneo suelto)</option>{circuits.map((v) => <option key={v.id} value={v.id}>{v.name}</option>)}</select></div>
         <div className="field"><label htmlFor="t-season">Temporada</label>
           <select id="t-season" name="season_id" defaultValue={t.season_id ?? ""}><option value="">Ninguna</option>{seasons.map((v) => <option key={v.id} value={v.id}>{v.name}</option>)}</select></div>
       </div>

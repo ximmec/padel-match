@@ -1,43 +1,14 @@
+import { TournamentCard, type Row } from "@/components/PublicTournamentCard";
 import Link from "next/link";
 import { sql } from "@/server/db";
-import { StatusBadge } from "@/components/views";
-import { fmtDate } from "@/lib/format";
 import { Icon } from "@/components/Icon";
-import { cardBgUrl, fmtMoney } from "@/lib/cardBg";
-
-type Row = { id: string; name: string; slug: string; start_date: string; end_date: string; start_time: string | null; entry_fee: number | null; max_entries: number | null; logo: string | null; card_bg: string; status: string; venue: string | null; org_name: string; categories: string | null; entries: number };
-
-function TournamentCard({ t }: { t: Row }) {
-  const cats = (t.categories ?? "").split(" · ").filter(Boolean);
-  const url = cardBgUrl(t.card_bg);
-  return (
-    <Link href={`/t/${t.slug}`} className="tcard2 tcard2-public" style={{ backgroundImage: `linear-gradient(90deg, rgba(8,8,10,.96) 0%, rgba(8,8,10,.82) 45%, rgba(8,8,10,.55) 100%)${url ? `, url(${url})` : ""}` }}>
-      <div className="tcard2-top"><StatusBadge status={t.status} /></div>
-      <div className="tcard2-body">
-        {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img className="tcard2-logo" src={t.logo ?? "/mark.webp"} alt="" width={84} height={84} />
-        <div style={{ minWidth: 0 }}>
-          <div className="tcard2-cats">{cats.join(" · ") || t.org_name}</div>
-          <h3 className="tcard2-name">{t.name}</h3>
-          <div className="tcard2-meta"><Icon name="calendar" size={18} /> {fmtDate(t.start_date)}{t.end_date !== t.start_date ? ` – ${fmtDate(t.end_date)}` : ""}{t.start_time ? ` · ${t.start_time.slice(0, 5)}` : ""}</div>
-          {t.venue && <div className="tcard2-meta"><Icon name="pin" size={18} /> {t.venue}</div>}
-        </div>
-      </div>
-      <div className="tcard2-foot">
-        <div className="tstat"><Icon name="users" size={20} /><span><b>{t.entries}{t.max_entries ? `/${t.max_entries}` : ""}</b><small>Parejas</small></span></div>
-        {t.entry_fee != null && <div className="tstat"><Icon name="tag" size={20} /><span><b>{fmtMoney(t.entry_fee)}</b><small>Inscripción</small></span></div>}
-        <span className="btn primary pill" style={{ marginLeft: "auto" }}>Ver detalle</span>
-      </div>
-    </Link>
-  );
-}
 
 export default async function Home() {
   const rows = await sql<Row[]>`
-    SELECT t.id, t.name, t.slug, t.start_date, t.end_date, t.start_time::text AS start_time, t.entry_fee, (SELECT sum(COALESCE(NULLIF(tc.rules->>'maxEntries', '')::int, t.max_entries))::int FROM tournament_categories tc WHERE tc.tournament_id = t.id) AS max_entries, t.logo, t.card_bg, t.status, v.name AS venue, o.name AS org_name,
+    SELECT t.id, t.name, t.slug, t.start_date, t.end_date, t.start_time::text AS start_time, t.entry_fee, (SELECT sum(COALESCE(NULLIF(tc.rules->>'maxEntries', '')::int, t.max_entries))::int FROM tournament_categories tc WHERE tc.tournament_id = t.id) AS max_entries, t.logo, t.card_bg, t.status, v.name AS venue, o.name AS org_name, ci.name AS circuit_name, ci.logo AS circuit_logo,
       (SELECT string_agg(c.name, ' · ' ORDER BY c.name) FROM tournament_categories tc JOIN categories c ON c.id = tc.category_id WHERE tc.tournament_id = t.id) AS categories,
       (SELECT count(*)::int FROM entries e JOIN tournament_categories tc ON tc.id = e.tc_id WHERE tc.tournament_id = t.id AND e.status = 'ACTIVE') AS entries
-    FROM tournaments t JOIN organizations o ON o.id = t.org_id LEFT JOIN venues v ON v.id = t.venue_id
+    FROM tournaments t JOIN organizations o ON o.id = t.org_id LEFT JOIN venues v ON v.id = t.venue_id LEFT JOIN circuits ci ON ci.id = t.circuit_id
     WHERE t.is_public AND t.status IN ('OPEN','IN_PROGRESS','FINISHED') AND t.end_date >= (now() - interval '60 days')::date
     ORDER BY CASE t.status WHEN 'IN_PROGRESS' THEN 0 WHEN 'OPEN' THEN 1 ELSE 2 END, t.start_date`;
   const [stats] = await sql<{ tournaments: number; players: number; played: number }[]>`

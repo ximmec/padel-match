@@ -327,3 +327,22 @@ test("sedes: cambiar cantidad de canchas y eliminar una sede", async ({ page }) 
   await expect(page.locator('input[name="name"][value="Sede Borrable"]')).toHaveCount(0);
   await shot(page, "39-sedes");
 });
+
+test("circuitos: crear un circuito y un torneo dentro de él", async ({ page }) => {
+  await login(page);
+  await page.goto("/admin/circuits");
+  await page.locator('input[name="name"]').last().fill("BLOKO PADEL TOUR");
+  await page.getByRole("button", { name: "Crear circuito" }).click();
+  await expect(page.getByText(/Circuito «BLOKO PADEL TOUR» creado/)).toBeVisible();
+  await page.reload();
+  await page.getByRole("link", { name: "+ Nuevo torneo en este circuito" }).first().click();
+  await expect(page.locator('select[name="circuit_id"]')).toHaveValue(/[0-9a-f-]{36}/);
+  await page.locator('input[name="name"]').fill("Fecha Italia");
+  await page.locator('input[name="start_date"]').fill("2026-11-02");
+  await page.getByLabel("Libre Masculina").check();
+  await page.getByRole("button", { name: "Crear torneo" }).click();
+  await page.waitForURL(/\/admin\/tournaments\/[0-9a-f-]{36}$/);
+  await page.goto("/admin/tournaments");
+  await expect(page.locator(".circuit-section h2", { hasText: "BLOKO PADEL TOUR" })).toBeVisible();
+  await shot(page, "40-circuitos");
+});
