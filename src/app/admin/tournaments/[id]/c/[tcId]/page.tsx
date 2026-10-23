@@ -205,6 +205,18 @@ async function EntriesTab({ lc, u, focus }: { lc: LoadedCategory; u: CurrentUser
           <ActionForm action={A.registerEntryAction} resetOnSuccess>
             <input type="hidden" name="tc_id" value={lc.tc.id} />
             <PairPlayerSelects level={level} players={free.map((p) => ({ id: p.id, label: labelOf(p), category: p.category }))} />
+            {lc.rules.mode !== "KNOCKOUT" && lc.zones.length > 0 && (
+              <div className="field"><label>El torneo ya tiene zonas: ¿dónde la agrego?</label>
+                <select name="zone_id" defaultValue="AUTO">
+                  <option value="AUTO">En la zona con menos parejas (recomendado)</option>
+                  {lc.zones.filter((z) => z.format !== "GVG").map((z) => <option key={z.id} value={z.id}>Zona {z.name} ({z.entry_ids.length} parejas)</option>)}
+                  <option value="NONE">Dejarla sin zona por ahora</option>
+                </select>
+                <div className="hint">Se le crean solo sus partidos contra las parejas de esa zona. No se reorganiza nada y los resultados cargados no se tocan.</div></div>
+            )}
+            {lc.rules.mode === "KNOCKOUT" && lc.tc.bracket.length > 0 && (
+              <div className="alert info">El cuadro ya está armado: la pareja nueva ocupa un pase libre de la primera ronda (si queda alguno), sin tocar resultados.</div>
+            )}
             <div className="field"><label>Restricción horaria (opcional)</label>
               <div className="row"><span className="muted">Puede desde</span><input type="time" name="not_before" className="sm" /><span className="muted">hasta</span><input type="time" name="not_after" className="sm" /></div>
               <input name="restriction_note" placeholder="Nota (ej. no puede antes de las 20 los sábados)" maxLength={120} style={{ marginTop: 6 }} />

@@ -435,3 +435,31 @@ test("cambio de pareja: intercambiar jugadores entre parejas conserva zonas y re
   assert.equal(lc.matches.find((x) => x.id === m.id)!.status, "PLAYED", "el resultado se conserva");
   assert.equal(lc.entryMap.get(a)!.former.length, 1, "queda el historial del cambio");
 });
+
+test("sumar una pareja con el torneo empezado: zona con menos parejas o pase libre, sin tocar resultados", async () => {
+  // Zonas
+  const { tcId } = await makeTournament();
+  const players = await makePlayers(16);
+  await register(tcId, players.slice(0, 14)); // 7 parejas → zonas 4 y 3
+  await tx((x) => ops.generateZones(x, user, tcId, null, 4));
+  let lc = await loadCategory(sql, tcId, orgId);
+  const played = lc.matches.find((m) => m.phase === "ZONE")!;
+  await result(played.id, [[6, 2], [6, 2]]);
+  const small = [...lc.zones].sort((a, b) => a.entry_ids.length - b.entry_ids.length)[0];
+  const id = await tx(async (x) => { const e = await ops.registerEntry(x, user, tcId, players[14], players[15], null); await ops.placeLateEntry(x, user, tcId, e, null); return e; });
+  lc = await loadCategory(sql, tcId, orgId);
+  assert.ok(lc.zones.find((z) => z.id === small.id)!.entry_ids.includes(id), "entró en la zona más chica");
+  assert.equal(lc.matches.filter((m) => m.entry_a === id || m.entry_b === id).length, small.entry_ids.length, "solo sus partidos nuevos");
+  assert.equal(lc.matches.find((m) => m.id === played.id)!.status, "PLAYED", "el resultado se conserva");
+
+  // Eliminación directa: ocupa un pase libre
+  const ko = await makeTournament({ ...DEFAULT_RULES, mode: "KNOCKOUT" });
+  const kp = await makePlayers(14);
+  await register(ko.tcId, kp.slice(0, 12)); // 6 parejas → cuadro de 8 con 2 pases libres
+  await tx((x) => ops.generateBracket(x, user, ko.tcId, 2));
+  const e7 = await tx(async (x) => { const e = await ops.registerEntry(x, user, ko.tcId, kp[12], kp[13], null); await ops.placeLateEntry(x, user, ko.tcId, e, null); return e; });
+  const lk = await loadCategory(sql, ko.tcId, orgId);
+  const r1 = lk.tc.bracket.filter((d) => d.round === 1);
+  assert.ok(r1.some((d) => (d.a.t === "ENTRY" && d.a.entryId === e7) || (d.b.t === "ENTRY" && d.b.entryId === e7)));
+  assert.equal(r1.filter((d) => d.a.t === "BYE" || d.b.t === "BYE").length, 1, "queda un solo pase libre");
+});

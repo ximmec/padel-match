@@ -24,11 +24,14 @@ export async function registerEntryAction(_p: ActionState, fd: FormData): Promis
     const seed = int(fd, "seed");
     if (seed !== null && seed < 1) throw new UserError("La cabeza de serie debe ser 1 o más.");
     const r = restrictionFields(fd);
-    await sql.begin(async (tx) => {
+    const zoneSel = str(fd, "zone_id");
+    const where = await sql.begin(async (tx) => {
       const id = await ops.registerEntry(tx, user, tcId, p1, p2, seed);
       if (r.from || r.to || r.note) await ops.setEntryRestriction(tx, user, id, r.from, r.to, r.note);
+      if (zoneSel === "NONE") return null;
+      return ops.placeLateEntry(tx, user, tcId, id, zoneSel && zoneSel !== "AUTO" ? uuid(zoneSel) : null);
     });
-    return { message: "Pareja inscripta." };
+    return { message: where ? `Pareja ${where}. Los resultados cargados no se tocaron.` : "Pareja inscripta." };
   }, REVAL);
 }
 

@@ -135,6 +135,38 @@ export async function swapPlayers(tx: Tx, user: CurrentUser, entryA: string, slo
   await afterChange(tx, user, lc.tc.id);
 }
 
+/**
+ * Sumar una pareja con el torneo ya armado, sin reorganizar nada ni tocar resultados:
+ * - Zonas + playoffs: entra en la zona elegida (o en la que tenga menos parejas) y se le crean sus partidos.
+ * - Eliminación directa con cuadro: ocupa un pase libre de la primera ronda.
+ * Devuelve dónde quedó.
+ */
+export async function placeLateEntry(tx: Tx, user: CurrentUser, tcId: string, entryId: string, zoneId: string | null): Promise<string | null> {
+  const lc = await loadCategory(tx, tcId, user.orgId, { lock: true });
+  if (lc.rules.mode === "KNOCKOUT") {
+    if (!lc.tc.bracket.length) return null;
+    const r1 = lc.tc.bracket.filter((d) => d.round === 1);
+    const playedCodes = new Set(lc.matches.filter((m) => m.phase === "BRACKET" && m.status !== "PENDING").map((m) => m.bracket_code));
+    const nextOf = (code: string) => lc.tc.bracket.find((d) => [d.a, d.b].some((r) => r.t === "WINNER" && r.match === code));
+    const spot = [...r1].reverse().find((d) => {
+      const bye = d.a.t === "BYE" ? "a" : d.b.t === "BYE" ? "b" : null;
+      const nx = nextOf(d.code);
+      return bye && !playedCodes.has(d.code) && !(nx && playedCodes.has(nx.code));
+    });
+    if (!spot) throw new UserError("No quedan pases libres disponibles en el cuadro para ubicar a la pareja. Si el cuadro no tiene resultados, podés regenerarlo.");
+    const side = spot.a.t === "BYE" ? "a" : "b";
+    await setBracketSlot(tx, user, tcId, spot.code, side, { t: "ENTRY", entryId }, true);
+    return `ubicada en el cuadro (partido ${spot.code}, en lugar de un pase libre)`;
+  }
+  if (!lc.zones.length) return null;
+  const candidates = lc.zones.filter((z) => z.format !== "GVG");
+  if (!candidates.length) throw new UserError("Todas las zonas son GvG/PvP (de 4 fijas): no se puede sumar una pareja a una zona. Inscribila y regenerá las zonas si todavía no hay resultados.");
+  const target = zoneId ? candidates.find((z) => z.id === zoneId) : [...candidates].sort((a, b) => a.entry_ids.length - b.entry_ids.length || a.sort - b.sort)[0];
+  if (!target) throw new UserError("Esa zona no admite parejas nuevas.");
+  await moveEntry(tx, user, entryId, target.id, true);
+  return `agregada a la Zona ${target.name} con sus partidos nuevos`;
+}
+
 export async function setEntryRestriction(tx: Tx, user: CurrentUser, entryId: string, from: string | null, to: string | null, note: string | null) {
   const { lc, entry } = await entryContext(tx, user, entryId);
   await tx`UPDATE entries SET not_before = ${from}, not_after = ${to}, restriction_note = ${note} WHERE id = ${entryId}`;
