@@ -20,7 +20,7 @@ import { PERMISSIONS, type Permission, type Role } from "../permissions";
 const playerSchema = z.object({
   first_name: z.string().trim().min(1, "Completá el nombre").max(60),
   last_name: z.string().trim().min(1, "Completá el apellido").max(60),
-  gender: z.enum(["M", "F", "X"], { message: "Elegí el género" }),
+  gender: z.preprocess((v) => (v === "" || v == null ? "X" : v), z.enum(["M", "F", "X"], { message: "Sexo / género inválido" })),
   document: z.string().trim().max(20).optional().transform((v) => (v ? v.replace(/\D/g, "") || v : null)),
   phone: z.string().trim().max(30).optional().transform((v) => v || null),
   email: z.string().trim().max(120).optional().transform((v) => v || null).refine((v) => !v || /^\S+@\S+\.\S+$/.test(v), "Email inválido"),

@@ -8,12 +8,11 @@ export function PlayerFields({ p = {} }: { p?: P; categories?: string[] }) {
       <div className="grid grid-2" style={{ gap: 12 }}>
         <div className="field"><label>Nombre *</label><input name="first_name" defaultValue={p.first_name} required maxLength={60} /></div>
         <div className="field"><label>Apellido *</label><input name="last_name" defaultValue={p.last_name} required maxLength={60} /></div>
-        <div className="field"><label>Género *</label>
-          <select name="gender" defaultValue={p.gender ?? ""} required>
-            <option value="" disabled>Elegir…</option>
+        <div className="field"><label>Sexo / género</label>
+          <select name="gender" defaultValue={p.gender ?? "X"}>
             <option value="M">Masculino</option>
             <option value="F">Femenino</option>
-            <option value="X">Otro / no especifica</option>
+            <option value="X">Sin definir</option>
           </select>
         </div>
         <div className="field"><label>Documento (opcional)</label><input name="document" defaultValue={p.document ?? ""} maxLength={20} inputMode="numeric" />

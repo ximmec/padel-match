@@ -66,7 +66,7 @@ export function parseGender(v: string): Gender | null {
   if (!g) return null;
   if (/^(m|h|masc|masculino|hombre|varon|caballero|v)$/.test(g)) return "M";
   if (/^(f|fem|femenino|mujer|dama|d)$/.test(g)) return "F";
-  if (/^(x|otro|otra|no binario|nb)$/.test(g)) return "X";
+  if (/^(x|otro|otra|no binario|nb|sin definir|no define|no especifica|ns|nc|nd|n d|s d|-)$/.test(g)) return "X";
   return null;
 }
 
@@ -140,8 +140,9 @@ export function parsePlayerSheet(rows: string[][], defaultGender: Gender | null)
     }
     if (!first || !last) { issues.push({ row: rowNo, message: "Falta el nombre o el apellido." }); continue; }
 
-    const g = parseGender(cell("gender")) ?? defaultGender;
-    if (!g) { issues.push({ row: rowNo, message: `No se reconoce el género «${cell("gender") || "vacío"}». Usá M o F, o elegí un género para todos.` }); continue; }
+    // Celda vacía (o sin columna de género): queda «sin definir», salvo que se haya elegido uno para todos.
+    const g = parseGender(cell("gender")) ?? defaultGender ?? (cell("gender").trim() === "" ? "X" : null);
+    if (!g) { issues.push({ row: rowNo, message: `No se reconoce el género «${cell("gender") || "vacío"}». Usá M, F o X (sin definir), o elegí una opción para todos.` }); continue; }
 
     const docRaw = cell("document").replace(/[.\s-]/g, "");
     const document = docRaw ? docRaw.slice(0, 20) : null;

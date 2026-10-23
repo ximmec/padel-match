@@ -51,7 +51,7 @@ export default async function PlayersPage({ searchParams }: { searchParams: Prom
             <option value="__none">Sin categoría</option>
           </select>
           <select name="sexo" defaultValue={sexo} className="sm" aria-label="Sexo">
-            <option value="">Todos</option><option value="M">Masculino</option><option value="F">Femenino</option>
+            <option value="">Todos</option><option value="M">Masculino</option><option value="F">Femenino</option><option value="X">Sin definir</option>
           </select>
           <button className="btn">Buscar</button>
         </form>
@@ -76,7 +76,7 @@ export default async function PlayersPage({ searchParams }: { searchParams: Prom
           <summary>📥 Importar jugadores desde Excel</summary>
           <div style={{ marginTop: 12 }} className="stack">
             <ol style={{ margin: 0, paddingLeft: 20, fontSize: 14 }}>
-              <li>Tu Excel tiene que tener en la <b>primera fila los títulos</b> de las columnas. Se reconocen: <b>Nombre</b>, <b>Apellido</b> (o una sola columna <b>Nombre y apellido</b>), <b>Sexo/Género</b>, <b>Categoría</b> (Beginner o Advanced), <b>DNI</b>, <b>Teléfono/Celular</b>, <b>Email</b> y <b>Ciudad</b>. Solo nombre y apellido son obligatorios.</li>
+              <li>Tu Excel tiene que tener en la <b>primera fila los títulos</b> de las columnas. Se reconocen: <b>Nombre</b>, <b>Apellido</b> (o una sola columna <b>Nombre y apellido</b>), <b>Sexo/Género</b> (M, F o vacío = sin definir), <b>Categoría</b> (Beginner o Advanced), <b>DNI</b>, <b>Teléfono/Celular</b>, <b>Email</b> y <b>Ciudad</b>. Solo nombre y apellido son obligatorios.</li>
               <li>Elegí el archivo y tocá <b>Revisar</b>. Antes de cargar nada te muestro un resumen: cuántos son nuevos, cuáles ya existían y si alguna fila tiene problemas.</li>
               <li>Si está todo bien, tocá <b>Confirmar y aplicar</b>.</li>
             </ol>
@@ -89,6 +89,7 @@ export default async function PlayersPage({ searchParams }: { searchParams: Prom
                     <option value="">— Mi Excel tiene la columna de género —</option>
                     <option value="M">Todos masculinos</option>
                     <option value="F">Todas femeninas</option>
+                    <option value="X">Sexo / género sin definir</option>
                   </select>
                   <div className="hint">Si la columna existe pero alguna celda está vacía, también se usa esta opción.</div>
                 </div>
@@ -115,7 +116,7 @@ export default async function PlayersPage({ searchParams }: { searchParams: Prom
                   <td><code>{p.code}</code></td>
                   <td><Link href={`/admin/players/${p.id}`}><b>{p.last_name}</b>, {p.first_name}</Link></td>
                   <td>{p.category ? <span className="badge">{p.category}</span> : <span className="muted">—</span>}</td>
-                  <td className="hide-sm">{p.gender === "M" ? "Masc." : p.gender === "F" ? "Fem." : "—"}</td>
+                  <td className="hide-sm">{p.gender === "M" ? "Masc." : p.gender === "F" ? "Fem." : "Sin definir"}</td>
                   <td className="hide-sm">{p.city ?? ""}</td>
                   <td className="num">{p.events}</td>
                   <td className="num"><b>{p.points}</b></td>

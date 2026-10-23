@@ -86,9 +86,9 @@ async function checkGender(tx: Tx, rule: string, playerIds: string[], orgId: str
     SELECT id, gender, first_name, last_name, deleted_at FROM players WHERE id = ANY(${playerIds}::uuid[]) AND org_id = ${orgId}`;
   if (ps.length !== playerIds.length) throw new UserError("Algún jugador no existe.");
   if (ps.some((p) => p.deleted_at)) throw new UserError("No se puede inscribir a un jugador dado de baja.");
-  const g = ps.map((p) => p.gender).sort().join("");
-  if (rule === "MALE" && g !== "MM") throw new UserError("Esta categoría es masculina: ambos jugadores deben ser hombres.");
-  if (rule === "FEMALE" && g !== "FF") throw new UserError("Esta categoría es femenina: ambas jugadoras deben ser mujeres.");
+  // Los jugadores con sexo/género «sin definir» (X) pueden inscribirse en cualquier categoría.
+  if (rule === "MALE" && ps.some((p) => p.gender === "F")) throw new UserError("Esta categoría es masculina: no se puede inscribir a una jugadora registrada como femenina.");
+  if (rule === "FEMALE" && ps.some((p) => p.gender === "M")) throw new UserError("Esta categoría es femenina: no se puede inscribir a un jugador registrado como masculino.");
   // Mixta: se permite cualquier combinación (dos hombres, dos mujeres o un hombre y una mujer).
   return ps;
 }

@@ -69,3 +69,16 @@ test("columna de categoría", () => {
   assert.ok(r.issues.some((i) => i.row === 5 && /no reconocida/.test(i.message)));
   assert.ok(r.columns.includes("Categoría"));
 });
+
+test("sexo / género sin definir: celda vacía o «sin definir» → X", () => {
+  const r = parsePlayerSheet([
+    ["Nombre", "Apellido", "Sexo"],
+    ["Lucía", "Gómez", ""],
+    ["Mar", "Paz", "Sin definir"],
+    ["Juan", "Ruiz", "M"],
+  ], null);
+  assert.equal(r.issues.length, 0);
+  assert.deepEqual(r.players.map((p) => p.gender), ["X", "X", "M"]);
+  const sinColumna = parsePlayerSheet([["Nombre", "Apellido"], ["Ana", "Sol"]], null);
+  assert.equal(sinColumna.players[0].gender, "X");
+});
