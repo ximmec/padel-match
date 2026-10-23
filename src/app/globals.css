@@ -742,3 +742,18 @@ details[open] > summary::before { content: "▾ "; }
 .part-title, .pcard h3, .part-manual-head .part-sub, .pstat .v { text-transform: none; font-style: normal; letter-spacing: -.01em; }
 .pcard h3 { font-weight: 700; }
 .pcard-more .chev { display: none; }
+
+/* ---------- Corregir clasificados (cuadro) ---------- */
+.bfix h2 { margin: 4px 0 6px; }
+.bfix h2::before { display: none; }
+.bfix-head p { margin: 0 0 14px; font-size: 14px; }
+.bfix-list { display: flex; flex-direction: column; gap: 8px; }
+.bfix-row { display: grid; grid-template-columns: minmax(170px, 1fr) minmax(180px, 1.3fr) minmax(260px, 1.4fr); gap: 12px; align-items: center; padding: 10px 14px; border: 1px solid var(--line-2); border-radius: 14px; background: rgba(255, 255, 255, .015); }
+.bfix-row.manual { border-color: rgba(255, 115, 0, .45); }
+.bfix-place b { display: block; font-size: 14px; }
+.bfix-place small { color: #8a909b; font-size: 12px; }
+.bfix-who { font-weight: 700; display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+.bfix-form { display: flex; gap: 6px; }
+.bfix-form select { flex: 1; min-width: 0; }
+.bfix-swap { margin-top: 18px; padding-top: 14px; border-top: 1px solid var(--line); }
+@media (max-width: 760px) { .bfix-row { grid-template-columns: 1fr; gap: 6px; } }

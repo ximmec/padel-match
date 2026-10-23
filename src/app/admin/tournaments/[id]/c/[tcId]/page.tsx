@@ -517,6 +517,7 @@ function StandingsTab({ lc, u }: { lc: LoadedCategory; u: CurrentUser }) {
 
 function BracketTab({ lc, u }: { lc: LoadedCategory; u: CurrentUser }) {
   const manage = can(u, "tournaments.manage");
+  const master = manage && (u.role === "ADMIN" || u.isSuperadmin);
   const zoneNames = Object.fromEntries(lc.zones.map((z) => [z.id, z.name]));
   const hasResults = lc.matches.some((m) => m.phase === "BRACKET" && m.status === "PLAYED");
   const q = lc.rules.qualification;
@@ -556,19 +557,73 @@ function BracketTab({ lc, u }: { lc: LoadedCategory; u: CurrentUser }) {
         </p>}
       </div>
       <div className="card">
-        <BracketView lc={lc} zoneNames={zoneNames} renderFoot={manage ? (rm) => (
-          <details>
-            <summary style={{ fontSize: 11 }}>Cambiar cruce</summary>
-            <ActionForm action={A.setBracketSlotAction}>
-              <input type="hidden" name="tc_id" value={lc.tc.id} />
-              <input type="hidden" name="code" value={rm.code} />
-              <select name="side" className="sm"><option value="a">Arriba</option><option value="b">Abajo</option></select>
-              <select name="ref" className="sm" style={{ maxWidth: 180 }}>{options.map((o) => <option key={o.v} value={o.v}>{o.l}</option>)}</select>
-              <Submit className="btn sm" pendingText="…">Aplicar</Submit>
-            </ActionForm>
-          </details>
-        ) : undefined} />
+        <BracketView lc={lc} zoneNames={zoneNames} />
       </div>
+      {master && lc.tc.bracket.length > 0 && <BracketFix lc={lc} zoneNames={zoneNames} options={options} />}
+    </div>
+  );
+}
+
+/** Corrección manual de clasificados (solo administrador general). */
+function BracketFix({ lc, zoneNames, options }: { lc: LoadedCategory; zoneNames: Record<string, string>; options: { v: string; l: string }[] }) {
+  const r1 = lc.view.bracket.filter((m) => m.round === 1).sort((a, b) => a.index - b.index);
+  const n = r1.length;
+  const def = (code: string) => lc.tc.bracket.find((d) => d.code === code)!;
+  const origin = (code: string, side: "a" | "b") => {
+    const r = def(code)[side];
+    return r.t === "ZONE" ? `${r.pos}° Zona ${zoneNames[r.zone] ?? "?"}` : r.t === "CROSS" ? `${r.rank}° mejor ${r.pos}°` : r.t === "BYE" ? "Pase libre" : r.t === "ENTRY" ? "Elegida a mano" : "—";
+  };
+  const slots = r1.flatMap((m) => (["a", "b"] as const).map((side) => {
+    const res = m[side];
+    const who = res.kind === "ENTRY" ? entryLabel(lc.entryMap.get(res.entryId)) : res.kind === "BYE" ? "Pase libre" : "A definir";
+    return { key: `${m.code}|${side}`, code: m.code, side, place: `${roundName(n)} ${m.index} · ${side === "a" ? "arriba" : "abajo"}`, origin: origin(m.code, side), who, manual: def(m.code)[side].t === "ENTRY", entryId: res.kind === "ENTRY" ? res.entryId : null };
+  }));
+  const inBracket = new Set(slots.map((x) => x.entryId).filter(Boolean));
+  const active = lc.entries.filter((e) => e.status === "ACTIVE");
+  const auto = options.filter((o) => !o.v.startsWith("ENTRY:"));
+  return (
+    <div className="card bfix">
+      <div className="bfix-head">
+        <div>
+          <div className="part-kicker">Administrador general</div>
+          <h2>Corregir clasificados del playoff</h2>
+          <p className="muted">Si clasificó una pareja que no correspondía, elegí qué pareja va en su lugar. También podés intercambiar dos lugares del cuadro. Antes de aplicar te mostramos el cambio para que lo confirmes, y queda registrado en Auditoría.</p>
+        </div>
+      </div>
+      <div className="bfix-list">
+        {slots.map((x) => (
+          <div key={x.key} className={`bfix-row ${x.manual ? "manual" : ""}`}>
+            <div className="bfix-place"><b>{x.place}</b><small>Le corresponde: {x.origin}</small></div>
+            <div className="bfix-who">{x.who}{x.manual && <span className="badge warn">corregido a mano</span>}</div>
+            <ActionForm action={A.setBracketSlotAction} className="bfix-form" hideSuccess>
+              <input type="hidden" name="tc_id" value={lc.tc.id} />
+              <input type="hidden" name="code" value={x.code} />
+              <input type="hidden" name="side" value={x.side} />
+              <select name="ref" className="sm" required defaultValue="">
+                <option value="" disabled>Poner en su lugar…</option>
+                <optgroup label="Parejas que no están en el cuadro">
+                  {active.filter((e) => !inBracket.has(e.id)).map((e) => <option key={e.id} value={`ENTRY:${e.id}`}>{entryLabel(e)}</option>)}
+                </optgroup>
+                <optgroup label="Volver a automático">
+                  {auto.map((o) => <option key={o.v} value={o.v}>{o.l}</option>)}
+                </optgroup>
+              </select>
+              <Submit className="btn sm" pendingText="…">Cambiar</Submit>
+            </ActionForm>
+          </div>
+        ))}
+      </div>
+      <ActionForm action={A.swapBracketSlotsAction} className="bfix-swap">
+        <input type="hidden" name="tc_id" value={lc.tc.id} />
+        <label>Intercambiar dos lugares</label>
+        <div className="row">
+          <select name="x" className="sm" required defaultValue=""><option value="" disabled>Lugar 1…</option>{slots.map((x) => <option key={x.key} value={x.key}>{x.place}: {x.who}</option>)}</select>
+          <span className="muted">↔</span>
+          <select name="y" className="sm" required defaultValue=""><option value="" disabled>Lugar 2…</option>{slots.map((x) => <option key={x.key} value={x.key}>{x.place}: {x.who}</option>)}</select>
+          <Submit className="btn sm">Intercambiar</Submit>
+        </div>
+        <div className="muted" style={{ fontSize: 12 }}>Sirve cuando las dos parejas ya están en el cuadro y solo hay que cambiarlas de lugar (por ejemplo, para que no se crucen dos de la misma zona).</div>
+      </ActionForm>
     </div>
   );
 }

@@ -233,6 +233,25 @@ export async function deleteBracketAction(_p: ActionState, fd: FormData): Promis
   }, REVAL);
 }
 
+function masterOnly(user: { role: string; isSuperadmin: boolean }) {
+  if (user.role !== "ADMIN" && !user.isSuperadmin) throw new UserError("Solo el administrador general puede corregir los cruces del cuadro.");
+}
+
+const slotOf = (v: string) => {
+  const [code, side] = v.split("|");
+  if (!/^R\d+-\d+$/.test(code ?? "") || (side !== "a" && side !== "b")) throw new UserError("Elegí los dos lugares.");
+  return { code, side: side as "a" | "b" };
+};
+
+export async function swapBracketSlotsAction(_p: ActionState, fd: FormData): Promise<ActionState> {
+  return runAction("tournaments.manage", async (user) => {
+    masterOnly(user);
+    const x = slotOf(str(fd, "x")), y = slotOf(str(fd, "y"));
+    await sql.begin((tx) => ops.swapBracketSlots(tx, user, uuid(fd, "tc_id"), x, y, isConfirmed(fd)));
+    return { message: "Lugares intercambiados." };
+  }, REVAL);
+}
+
 export async function setBracketSlotAction(_p: ActionState, fd: FormData): Promise<ActionState> {
   return runAction("tournaments.manage", async (user) => {
     const side = str(fd, "side");
@@ -245,8 +264,9 @@ export async function setBracketSlotAction(_p: ActionState, fd: FormData): Promi
     else if (v.startsWith("CROSS:")) { const [, pos, rank] = v.split(":"); ref = { t: "CROSS", pos: Number(pos), rank: Number(rank) }; }
     else if (v.startsWith("WINNER:")) ref = { t: "WINNER", match: v.slice(7) };
     else throw new UserError("Elegí a quién ubicar.");
+    masterOnly(user);
     await sql.begin((tx) => ops.setBracketSlot(tx, user, uuid(fd, "tc_id"), str(fd, "code"), side, ref, isConfirmed(fd)));
-    return { message: "Cruce modificado." };
+    return { message: "Clasificado corregido." };
   }, REVAL);
 }
 

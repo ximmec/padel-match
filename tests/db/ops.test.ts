@@ -480,3 +480,32 @@ test("pago del arancel: marcar y desmarcar por jugador; el pago acompaña al jug
   lc = await loadCategory(sql, tcId, orgId);
   assert.equal(lc.entryMap.get(b)!.players.find((p) => p.slot === 1)!.paid_at, null, "se desmarcó");
 });
+
+test("corregir clasificados: poner una pareja no clasificada e intercambiar lugares", async () => {
+  const { tcId } = await makeTournament({ ...DEFAULT_RULES, qualification: { perZone: 2, bestNext: 0 } });
+  const players = await makePlayers(18);
+  const entries = await register(tcId, players); // 9 parejas → 3 zonas de 3
+  await tx((x) => ops.generateZones(x, user, tcId, null, 7));
+  await tx((x) => ops.generateBracket(x, user, tcId));
+  await playZones(tcId, entries);
+  let lc = await loadCategory(sql, tcId, orgId);
+  const r1 = lc.view.bracket.filter((m) => m.round === 1);
+  const inside = new Set(r1.flatMap((m) => [m.a, m.b]).filter((r) => r.kind === "ENTRY").map((r) => (r as { entryId: string }).entryId));
+  const outside = entries.find((e) => !inside.has(e))!;
+  const spot = r1.find((m) => m.a.kind === "ENTRY")!;
+  // Pide confirmación primero
+  await assert.rejects(tx((x) => ops.setBracketSlot(x, user, tcId, spot.code, "a", { t: "ENTRY", entryId: outside }, false)), NeedsConfirmation);
+  await tx((x) => ops.setBracketSlot(x, user, tcId, spot.code, "a", { t: "ENTRY", entryId: outside }, true));
+  lc = await loadCategory(sql, tcId, orgId);
+  const now = lc.view.bracket.find((m) => m.code === spot.code)!;
+  assert.equal(now.a.kind === "ENTRY" && now.a.entryId, outside, "entra la pareja elegida");
+  // No se puede poner dos veces la misma pareja
+  const other = r1.find((m) => m.code !== spot.code && m.a.kind === "ENTRY")!;
+  await assert.rejects(tx((x) => ops.setBracketSlot(x, user, tcId, other.code, "a", { t: "ENTRY", entryId: outside }, true)), /ya está en el cuadro/);
+  // Intercambio de lugares
+  const otherWho = (lc.view.bracket.find((m) => m.code === other.code)!.a as { entryId: string }).entryId;
+  await tx((x) => ops.swapBracketSlots(x, user, tcId, { code: spot.code, side: "a" }, { code: other.code, side: "a" }, true));
+  lc = await loadCategory(sql, tcId, orgId);
+  assert.equal((lc.view.bracket.find((m) => m.code === other.code)!.a as { entryId: string }).entryId, outside);
+  assert.equal((lc.view.bracket.find((m) => m.code === spot.code)!.a as { entryId: string }).entryId, otherWho);
+});
