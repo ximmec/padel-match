@@ -17,7 +17,7 @@ const FILTERS: [string, string, string[] | null][] = [
   ["cancelados", "Cancelados", ["CANCELLED"]],
 ];
 
-type Row = { id: string; circuit_id: string | null; circuit_logo: string | null; name: string; slug: string; start_date: string; end_date: string; start_time: string | null; entry_fee: number | null; max_entries: number | null; logo: string | null; card_bg: string; status: string; venue: string | null; categories: string | null; ncat: number; entries: number; played: number; total: number };
+type Row = { id: string; circuit_id: string | null; circuit_logo: string | null; name: string; slug: string; start_date: string; end_date: string; start_time: string | null; entry_fee: number | null; max_entries: number | null; logo: string | null; card_bg: string; status: string; venue: string | null; categories: string | null; ncat: number; first_tc: string | null; entries: number; played: number; total: number };
 
 function cardStyle(bg: string): React.CSSProperties {
   const url = cardBgUrl(bg);
@@ -31,6 +31,7 @@ export default async function TournamentsPage({ searchParams }: { searchParams: 
     SELECT t.id, t.circuit_id, ci.logo AS circuit_logo, t.name, t.slug, t.start_date, t.end_date, t.start_time::text AS start_time, t.entry_fee, (SELECT sum(COALESCE(NULLIF(tc.rules->>'maxEntries', '')::int, t.max_entries))::int FROM tournament_categories tc WHERE tc.tournament_id = t.id) AS max_entries, t.logo, t.card_bg, t.status, v.name AS venue,
       (SELECT string_agg(c.name, ' · ' ORDER BY c.name) FROM tournament_categories tc JOIN categories c ON c.id = tc.category_id WHERE tc.tournament_id = t.id) AS categories,
       (SELECT count(*)::int FROM tournament_categories tc WHERE tc.tournament_id = t.id) AS ncat,
+      (SELECT tc.id FROM tournament_categories tc JOIN categories c ON c.id = tc.category_id WHERE tc.tournament_id = t.id ORDER BY c.name LIMIT 1) AS first_tc,
       (SELECT count(*)::int FROM entries e JOIN tournament_categories tc ON tc.id = e.tc_id WHERE tc.tournament_id = t.id AND e.status = 'ACTIVE') AS entries,
       (SELECT count(*)::int FROM matches m JOIN tournament_categories tc ON tc.id = m.tc_id WHERE tc.tournament_id = t.id AND m.status = 'PLAYED') AS played,
       (SELECT count(*)::int FROM matches m JOIN tournament_categories tc ON tc.id = m.tc_id WHERE tc.tournament_id = t.id AND m.status <> 'ANNULLED') AS total
@@ -117,6 +118,7 @@ export default async function TournamentsPage({ searchParams }: { searchParams: 
                   <summary aria-label="Más acciones">•••</summary>
                   <div className="tmenu-pop">
                     <Link href={`/admin/tournaments/${t.id}`}><Icon name="trophy" size={18} /> Gestionar</Link>
+                    <Link href={t.first_tc ? `/admin/tournaments/${t.id}/c/${t.first_tc}?tab=inscripciones` : `/admin/tournaments/${t.id}`}><Icon name="users" size={18} /> Participantes</Link>
                     {manage && <Link href={`/admin/tournaments/${t.id}/edit`}><Icon name="edit" size={18} /> Editar datos</Link>}
                     <Link href={`/admin/tournaments/${t.id}/schedule`}><Icon name="calendar" size={18} /> Cronograma</Link>
                     {can(u, "results.enter") && <Link href={`/admin/results?t=${t.id}`}><Icon name="bolt" size={18} /> Cargar resultados</Link>}
