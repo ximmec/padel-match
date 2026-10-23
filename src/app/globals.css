@@ -739,3 +739,6 @@ details[open] > summary::before { content: "▾ "; }
   .pay-row { justify-content: flex-start; }
   .pcard-actions { grid-template-columns: 1fr; }
 }
+.part-title, .pcard h3, .part-manual-head .part-sub, .pstat .v { text-transform: none; font-style: normal; letter-spacing: -.01em; }
+.pcard h3 { font-weight: 700; }
+.pcard-more .chev { display: none; }
