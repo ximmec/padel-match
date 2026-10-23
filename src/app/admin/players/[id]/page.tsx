@@ -31,7 +31,7 @@ export default async function PlayerPage({ params }: { params: Promise<{ id: str
 
   return (
     <div className="stack">
-      <div className="crumbs"><Link href="/admin/players">Jugadores</Link> /</div>
+      <Link className="back-link" href="/admin/players">← Volver a Jugadores</Link>
       <div className="page-head">
         <div>
           <h1>{p.first_name} {p.last_name}</h1>

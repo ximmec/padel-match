@@ -26,7 +26,7 @@ export default async function SchedulePage({ params }: { params: Promise<{ id: s
 
   return (
     <div className="stack">
-      <div className="crumbs"><Link href="/admin/tournaments">Torneos</Link> / <Link href={`/admin/tournaments/${id}`}>{s.tournament.name}</Link> /</div>
+      <Link className="back-link" href={`/admin/tournaments/${id}`}>← Volver al torneo <b>{s.tournament.name}</b></Link>
       <div className="page-head">
         <div>
           <h1>Cronograma</h1>

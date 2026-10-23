@@ -40,7 +40,7 @@ export default async function TournamentPage({ params, searchParams }: { params:
 
   return (
     <div className="stack">
-      <div className="crumbs"><Link href="/admin/tournaments">Torneos</Link> /</div>
+      <Link className="back-link" href="/admin/tournaments">← Volver a Mis torneos</Link>
       <div className="page-head">
         <div>
           <h1>{t.name}</h1>

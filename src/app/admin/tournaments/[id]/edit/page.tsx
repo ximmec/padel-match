@@ -30,7 +30,7 @@ export default async function EditTournament({ params }: { params: Promise<{ id:
   ]);
   return (
     <div className="form-page">
-      <div className="crumbs"><Link href="/admin/tournaments">Torneos</Link> / <Link href={`/admin/tournaments/${id}`}>{t.name}</Link> /</div>
+      <Link className="back-link" href={`/admin/tournaments/${id}`}>← Volver al torneo <b>{t.name}</b></Link>
       <div className="form-eyebrow">Organizador</div>
       <h1 className="form-title">Editar torneo</h1>
       <p className="muted" style={{ marginBottom: 24 }}>Cambiá los datos del torneo. Los cambios se ven al instante en la página pública.</p>

@@ -36,6 +36,7 @@ export default async function CategoryPage({ params, searchParams }: { params: P
   try { lc = await loadCategory(sql, tcId, u.orgId); } catch { notFound(); }
   if (lc.tc.tournament_id !== id) notFound();
   const active = lc.entries.filter((e) => e.status === "ACTIVE");
+  const siblings = await sql<{ id: string; name: string }[]>`SELECT tc.id, c.name FROM tournament_categories tc JOIN categories c ON c.id = tc.category_id WHERE tc.tournament_id = ${id} ORDER BY c.name`;
   const isByeMatch = (code: string | null) => {
     const d = lc.tc.bracket.find((x) => x.code === code);
     const rm = lc.view.bracket.find((x) => x.code === code);
@@ -45,7 +46,12 @@ export default async function CategoryPage({ params, searchParams }: { params: P
 
   return (
     <div className="stack">
-      <div className="crumbs"><Link href="/admin/tournaments">Torneos</Link> / <Link href={`/admin/tournaments/${id}`}>{lc.tc.tournament_name}</Link> /</div>
+      <div className="row" style={{ marginBottom: 4 }}>
+        <Link className="back-link" style={{ marginBottom: 0 }} href={`/admin/tournaments/${id}`}>← Volver al torneo <b>{lc.tc.tournament_name}</b></Link>
+        {siblings.length > 1 && (
+          <div className="chips">{siblings.map((c) => <Link key={c.id} href={`/admin/tournaments/${id}/c/${c.id}?tab=${tab}`} className={c.id === tcId ? "active" : ""}>{c.name}</Link>)}</div>
+        )}
+      </div>
       <div className="page-head">
         <div>
           <h1>{lc.tc.category_name}</h1>

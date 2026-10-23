@@ -22,7 +22,7 @@ export default async function NewTournament() {
   ]);
   return (
     <div className="form-page">
-      <div className="crumbs"><Link href="/admin/tournaments">Torneos</Link> /</div>
+      <Link className="back-link" href="/admin/tournaments">← Volver a Mis torneos</Link>
       <div className="form-eyebrow">Organizador</div>
       <h1 className="form-title">Nuevo torneo</h1>
       <p className="muted" style={{ marginBottom: 24 }}>Completá los datos básicos, elegí la sede y definí cómo se va a jugar.</p>
