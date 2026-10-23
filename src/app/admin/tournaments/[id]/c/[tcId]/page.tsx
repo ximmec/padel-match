@@ -6,7 +6,7 @@ import { isUuid } from "@/server/action";
 import { loadCategory, categoryCap, entryLabel, entryFullLabel, restrictionLabel, type LoadedCategory, zoneSideLabel } from "@/server/category";
 import { ActionForm, Submit } from "@/components/ActionForm";
 import { ResultForm } from "@/components/ResultForm";
-import { StatusBadge, StandingsTable, BracketView, MatchLine } from "@/components/views";
+import { StatusBadge, StandingsTable, BracketView, SetScores, winnerSide } from "@/components/views";
 import * as A from "@/server/actions/competition";
 import { planZoneSizes } from "@/core/zones";
 import { TIEBREAK_LABELS, DEFAULT_TIEBREAKS, type TiebreakCriterion } from "@/core/standings";
@@ -394,30 +394,55 @@ function MatchesTab({ lc, u }: { lc: LoadedCategory; u: CurrentUser }) {
     ...[...perRound.keys()].sort((a, b) => a - b).map((r) => ({ title: roundName(perRound.get(r)!), matches: lc.matches.filter((m) => m.phase === "BRACKET" && m.round === r) })),
   ];
   const errors = new Map(lc.view.errors.map((e) => [e.matchId, e.message]));
+  const shown = (m: (typeof lc.matches)[number]) => {
+    const rm = m.phase === "BRACKET" ? lc.view.bracket.find((b) => b.code === m.bracket_code) : null;
+    return !(rm && (rm.byeAdvance || rm.a.kind === "BYE" || rm.b.kind === "BYE"));
+  };
   return (
     <div className="stack">
-      {groups.map((g) => (
-        <div key={g.title} className="card flush">
-          <div className="card-head"><h3>{g.title}</h3></div>
-          {g.matches.length === 0 && <div className="empty">Sin partidos.</div>}
-          {g.matches.map((m) => {
+      {groups.map((g) => {
+        const ms = g.matches.filter(shown);
+        const played = ms.filter((m) => m.status === "PLAYED").length;
+        return (
+        <section key={g.title} className="mgroup">
+          <div className="mgroup-head"><h3>{g.title}</h3><span className="muted">{played}/{ms.length} jugados</span></div>
+          {ms.length === 0 && <div className="empty card">Sin partidos.</div>}
+          <div className="mgrid">
+          {ms.map((m, i) => {
             const rm = m.phase === "BRACKET" ? lc.view.bracket.find((b) => b.code === m.bracket_code) : null;
-            if (rm && (rm.byeAdvance || (rm.a.kind === "BYE" && rm.b.kind === "BYE"))) return null;
             const ready = m.phase === "ZONE" ? !!(m.entry_a && m.entry_b) : (rm && rm.a.kind === "ENTRY" && rm.b.kind === "ENTRY");
             const sideA = m.phase === "ZONE" ? zoneSideLabel(lc, m, "a") : rm?.a.kind === "ENTRY" ? entryLabel(lc.entryMap.get(rm.a.entryId)) : "A definir";
             const sideB = m.phase === "ZONE" ? zoneSideLabel(lc, m, "b") : rm?.b.kind === "ENTRY" ? entryLabel(lc.entryMap.get(rm.b.entryId)) : "A definir";
+            const w = winnerSide(m.outcome, lc, m);
+            const team = (side: "A" | "B", label: string) => (
+              <div className={`mteam ${w === side ? "win" : w ? "lose" : ""}`}>
+                <span className="mname">{label}</span>
+                {m.status === "PLAYED" && <SetScores outcome={m.outcome} side={side} />}
+              </div>
+            );
             return (
-              <div key={m.id} id={`m-${m.id}`} style={{ borderBottom: "1px solid var(--line)" }}>
-                <MatchLine lc={lc} m={m} extra={<>
-                  {errors.has(m.id) && <span className="badge err">{errors.get(m.id)}</span>}
-                  {rm?.staleResult && <span className="badge warn">Resultado invalidado: cambiaron los participantes</span>}
-                </>} />
+              <article key={m.id} id={`m-${m.id}`} className={`mcard st-${m.status.toLowerCase()} ${errors.has(m.id) || rm?.staleResult ? "warn" : ""}`}>
+                <div className="mcard-top">
+                  <span className="mnum">{m.phase === "BRACKET" ? m.bracket_code : `Partido ${i + 1}`}</span>
+                  <StatusBadge status={m.status} />
+                </div>
+                <div className="mteams">
+                  {team("A", sideA)}
+                  <div className="mvs">vs</div>
+                  {team("B", sideB)}
+                </div>
+                <div className="mmeta">
+                  <span>🕒 {m.scheduled_at ? fmtDateTime(m.scheduled_at) : "Sin horario"}</span>
+                  {m.court_name && <span>📍 {m.court_name}</span>}
+                </div>
+                {errors.has(m.id) && <span className="badge err">{errors.get(m.id)}</span>}
+                {rm?.staleResult && <span className="badge warn">Resultado invalidado: cambiaron los participantes</span>}
                 {canEnter && ready && m.status !== "ANNULLED" && (
-                  <details style={{ padding: "0 12px 10px" }} open={m.status === "IN_PLAY"}>
-                    <summary className="muted" style={{ fontSize: 13 }}>{m.status === "PLAYED" ? "Corregir resultado" : "Cargar resultado"}</summary>
-                    <div style={{ marginTop: 8 }}>
+                  <details className="mcard-load" open={m.status === "IN_PLAY"}>
+                    <summary>{m.status === "PLAYED" ? "Corregir resultado" : "Cargar resultado"}</summary>
+                    <div className="mcard-form">
                       <ResultForm matchId={m.id} version={m.version} sideA={sideA} sideB={sideB} maxSets={maxSets} current={m.status === "PLAYED" ? m.outcome : null} />
-                      <div className="row" style={{ marginTop: 6 }}>
+                      <div className="row" style={{ marginTop: 8 }}>
                         {m.status !== "PLAYED" && (
                           <ActionForm action={A.setInPlayAction} hideSuccess>
                             <input type="hidden" name="match_id" value={m.id} />
@@ -436,11 +461,13 @@ function MatchesTab({ lc, u }: { lc: LoadedCategory; u: CurrentUser }) {
                     </div>
                   </details>
                 )}
-              </div>
+              </article>
             );
           })}
-        </div>
-      ))}
+          </div>
+        </section>
+        );
+      })}
       {groups.length === 0 && <div className="empty card">Generá las zonas para ver los partidos.</div>}
     </div>
   );
