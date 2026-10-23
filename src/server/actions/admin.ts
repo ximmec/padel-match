@@ -7,6 +7,7 @@ import { audit } from "../audit";
 import { NeedsConfirmation } from "../errors";
 import { runAction, str, optStr, int, req, uuid, isConfirmed, type ActionState } from "../action";
 import { importPlayers } from "../importPlayers";
+import { generateTournamentSchedule } from "../schedule";
 import { PLAYER_CATEGORIES } from "@/core/playerImport";
 import { hashPassword, passwordProblems } from "../password";
 import { uniqueSlug, addCategory, slugify } from "../ops";
@@ -470,13 +471,21 @@ export async function updateVenueAction(_p: ActionState, fd: FormData): Promise<
         if (live) throw new UserError(`Hay ${live} partido(s) en juego en las canchas que querés quitar. Esperá a que terminen.`);
         if (!isConfirmed(fd)) {
           const items = [`Se desactivan: ${off.map((c) => c.name).join(", ")}.`];
-          if (sched) items.push(`${sched} partido(s) pendiente(s) programados en esas canchas quedan sin horario: después regenerá el cronograma.`);
+          if (sched) items.push(`${sched} partido(s) pendiente(s) programados en esas canchas se reprograman desde ahora en las canchas que quedan (los resultados no se tocan).`);
           items.push("Los partidos ya jugados conservan su cancha. Podés volver a activarlas cuando quieras.");
           throw new NeedsConfirmation(`Bajar ${v.name} a ${n} cancha(s)`, items);
         }
         await tx`UPDATE matches SET court_id = NULL, scheduled_at = NULL, schedule_locked = false, updated_at = now() WHERE court_id = ANY(${offIds}::uuid[]) AND status = 'PENDING'`;
         await tx`UPDATE courts SET active = false WHERE id = ANY(${offIds}::uuid[])`;
-        changes = ` Se desactivaron ${off.length} cancha(s)${sched ? ` y ${sched} partido(s) quedaron sin horario` : ""}.`;
+        changes = ` Se desactivaron ${off.length} cancha(s).`;
+        // Torneos en curso en esta sede: se reprograman solos desde ahora (los resultados no se tocan).
+        const live = await tx<{ id: string; name: string }[]>`SELECT id, name FROM tournaments WHERE venue_id = ${id} AND status IN ('OPEN','IN_PROGRESS') AND NOT no_schedule`;
+        const done: string[] = [];
+        for (const t of live) {
+          try { await generateTournamentSchedule(tx, user, t.id, "FROM_NOW"); done.push(t.name); } catch (e) { if (!(e instanceof UserError)) throw e; }
+        }
+        if (done.length) changes += ` Se reprogramó desde ahora: ${done.join(", ")}.`;
+        else if (sched) changes += ` ${sched} partido(s) quedaron sin horario.`;
       }
       await tx`UPDATE venues SET name = ${name}, address = ${optStr(fd, "address")} WHERE id = ${id}`;
       await audit(tx, user, { entity: "venue", entityId: id, action: "update", summary: `Sede ${name}: ${n} cancha(s) activas` });

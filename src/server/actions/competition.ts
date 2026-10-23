@@ -3,7 +3,7 @@
 import { sql, UserError } from "../db";
 import { runAction, str, optStr, int, uuid, isConfirmed, type ActionState } from "../action";
 import * as ops from "../ops";
-import { generateTournamentSchedule, moveMatchSchedule } from "../schedule";
+import { generateTournamentSchedule, moveMatchSchedule, setCourtsInUse } from "../schedule";
 import { manualAdjustment, recalcRankingById } from "../ranking";
 import { parseScoreText, ScoreError, FORMATS, type MatchOutcome, type MatchFormat } from "@/core/scoring";
 import { DEFAULT_TIEBREAKS, TIEBREAK_LABELS, type TiebreakCriterion } from "@/core/standings";
@@ -293,6 +293,14 @@ export async function generateScheduleAction(_p: ActionState, fd: FormData): Pro
     const mode = str(fd, "mode") === "FROM_NOW" ? "FROM_NOW" : "ALL";
     const r = await sql.begin((tx) => generateTournamentSchedule(tx, user, uuid(fd, "tournament_id"), mode));
     return { message: `${r.scheduled} partidos programados${r.unscheduled ? `, ${r.unscheduled} sin lugar (agregá canchas u horarios)` : ""}.` };
+  }, REVAL);
+}
+
+export async function setCourtsInUseAction(_p: ActionState, fd: FormData): Promise<ActionState> {
+  return runAction("schedule.manage", async (user) => {
+    const keep = fd.getAll("court_ids").map(String);
+    const msg = await sql.begin((tx) => setCourtsInUse(tx, user, uuid(fd, "tournament_id"), keep, isConfirmed(fd)));
+    return { message: msg };
   }, REVAL);
 }
 

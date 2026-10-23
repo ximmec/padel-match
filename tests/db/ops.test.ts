@@ -8,7 +8,7 @@ import { sql, type Tx } from "../../src/server/db";
 import * as ops from "../../src/server/ops";
 import { NeedsConfirmation } from "../../src/server/errors";
 import { loadCategory } from "../../src/server/category";
-import { generateTournamentSchedule, moveMatchSchedule, loadTournamentSchedule, scheduleConflicts } from "../../src/server/schedule";
+import { generateTournamentSchedule, moveMatchSchedule, loadTournamentSchedule, scheduleConflicts, setCourtsInUse } from "../../src/server/schedule";
 import { getRanking, manualAdjustment } from "../../src/server/ranking";
 import { effectivePermissions } from "../../src/server/permissions";
 import type { CurrentUser } from "../../src/server/auth";
@@ -391,4 +391,25 @@ test("cupo por categoría: no deja inscribir más parejas que el cupo", async ()
   const players = await makePlayers(6);
   await register(tcId, players.slice(0, 4)); // 2 parejas = cupo propio de la categoría
   await assert.rejects(tx((x) => ops.registerEntry(x, user, tcId, players[4], players[5], null)), /cupo de 2 parejas/);
+});
+
+test("con el torneo empezado, bajar de 3 a 2 canchas reprograma lo pendiente sin tocar resultados", async () => {
+  const { tournamentId, tcId } = await makeTournament();
+  const players = await makePlayers(12);
+  await register(tcId, players);
+  await tx((x) => ops.generateZones(x, user, tcId, null, 5));
+  const courtIds = (await sql<{ id: string }[]>`SELECT id FROM courts WHERE venue_id = ${venueId} AND active ORDER BY sort`).map((c) => c.id);
+  const start = new Date(Date.now() - 60 * 60_000), end = new Date(Date.now() + 10 * 3_600_000);
+  for (const c of courtIds) await sql`INSERT INTO court_availability (tournament_id, court_id, starts_at, ends_at) VALUES (${tournamentId}, ${c}, ${start}, ${end})`;
+  await tx((x) => generateTournamentSchedule(x, user, tournamentId, "ALL"));
+  let lc = await loadCategory(sql, tcId, orgId);
+  const playedOne = lc.matches[0];
+  await result(playedOne.id, [[6, 1], [6, 1]]);
+  const keep = courtIds.slice(0, 2);
+  await assert.rejects(tx((x) => setCourtsInUse(x, user, tournamentId, keep, false)), (e) => e instanceof NeedsConfirmation);
+  await tx((x) => setCourtsInUse(x, user, tournamentId, keep, true));
+  lc = await loadCategory(sql, tcId, orgId);
+  const pending = lc.matches.filter((m) => m.status === "PENDING");
+  assert.ok(pending.every((m) => m.court_id && keep.includes(m.court_id) && m.scheduled_at && m.scheduled_at.getTime() >= Date.now() - 60_000), "pendientes en las 2 canchas que quedan, desde ahora");
+  assert.equal(lc.matches.find((m) => m.id === playedOne.id)!.status, "PLAYED", "el resultado se conserva");
 });

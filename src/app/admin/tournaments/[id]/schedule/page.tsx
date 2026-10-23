@@ -7,7 +7,7 @@ import { loadTournamentSchedule, scheduleConflicts } from "@/server/schedule";
 import { ActionForm, Submit } from "@/components/ActionForm";
 import { AgendaBoard } from "@/components/AgendaBoard";
 import { StatusBadge } from "@/components/views";
-import { generateScheduleAction, moveMatchAction } from "@/server/actions/competition";
+import { generateScheduleAction, moveMatchAction, setCourtsInUseAction } from "@/server/actions/competition";
 import { APP_TZ, fmtDateTime, toLocalInput } from "@/lib/format";
 
 export const metadata = { title: "Cronograma" };
@@ -48,6 +48,24 @@ export default async function SchedulePage({ params }: { params: Promise<{ id: s
       {s.tournament.no_schedule && <div className="alert info">Este torneo está configurado <b>«Sin horarios»</b>: los partidos se asignan en el momento desde la mesa. Igual podés poner cancha y hora a mano arrastrando cada partido. Para generar el cronograma automático, desactivá esa opción en <Link href={`/admin/tournaments/${id}/edit`}>Editar torneo</Link>.</div>}
       {s.tournament.ignore_restrictions && !s.tournament.no_schedule && <div className="alert warn">Las restricciones horarias de las parejas <b>no se tienen en cuenta</b> en este torneo.</div>}
       {s.courts.length === 0 && <div className="alert warn">El torneo no tiene canchas disponibles. Asigná una sede y cargá horarios en <Link href={`/admin/tournaments/${id}`}>los datos del torneo</Link>.</div>}
+      {edit && s.courts.length > 0 && (
+        <details className="card" open={false}>
+          <summary>Cambiar canchas en uso (con el torneo empezado)</summary>
+          <p className="muted" style={{ marginTop: 8 }}>
+            ¿Te quedaste con menos canchas (o se sumaron)? Marcá las que se pueden usar desde ahora. Los partidos pendientes se reprograman solos en esas canchas;
+            los resultados cargados no se tocan y los partidos en juego terminan donde están.
+          </p>
+          <ActionForm action={setCourtsInUseAction}>
+            <input type="hidden" name="tournament_id" value={id} />
+            <div className="chip-checks" style={{ marginBottom: 12 }}>
+              {s.courts.map((c) => (
+                <label key={c.id}><input type="checkbox" name="court_ids" value={c.id} defaultChecked={c.windows.some((w) => w.end > Date.now())} /> {c.name}</label>
+              ))}
+            </div>
+            <Submit className="btn warn" pendingText="Revisando…">Aplicar desde ahora</Submit>
+          </ActionForm>
+        </details>
+      )}
       {conflicts.length > 0 && (
         <div className="alert err">
           <b>{conflicts.length} conflicto(s) en el cronograma:</b>

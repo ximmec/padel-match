@@ -198,3 +198,58 @@ export function scheduleConflicts(s: TournamentSchedule) {
   const assignments = s.items.filter((i) => i.courtId && i.start).map((i) => ({ matchId: i.matchId, courtId: i.courtId!, start: i.start!.getTime(), end: i.start!.getTime() + cfg.durationMin * 60_000 }));
   return validateSchedule(s.courts, toSched(s.items, cfg.durationMin, s.tournament.ignore_restrictions), assignments, cfg);
 }
+
+/**
+ * Cambiar las canchas en uso con el torneo ya empezado (ej. de 8 a 6).
+ * Las canchas que salen dejan de estar disponibles desde ahora; los partidos pendientes
+ * que tenían se reprograman desde ahora en las que quedan. Los resultados no se tocan
+ * y los partidos en juego terminan donde están.
+ */
+export async function setCourtsInUse(tx: Tx, user: CurrentUser, tournamentId: string, keepIds: string[], confirmed: boolean) {
+  const s = await loadTournamentSchedule(tx, tournamentId, user.orgId);
+  const now = Date.now();
+  const keep = new Set(keepIds.filter((id) => s.courts.some((c) => c.id === id)));
+  if (!keep.size) throw new UserError("Dejá al menos una cancha en uso.");
+  const removed = s.courts.filter((c) => !keep.has(c.id));
+  const added = s.courts.filter((c) => keep.has(c.id) && !c.windows.some((w) => w.end > now));
+  const onRemoved = (i: ScheduleItem) => !!i.courtId && removed.some((c) => c.id === i.courtId);
+  const pendingMoved = s.items.filter((i) => onRemoved(i) && i.status === "PENDING");
+  const live = s.items.filter((i) => onRemoved(i) && i.status === "IN_PLAY");
+  if (!removed.length && !added.length) throw new UserError("No hay cambios: ya se están usando esas canchas.");
+  if (!confirmed) {
+    const items: string[] = [];
+    if (removed.length) items.push(`Dejan de usarse desde ahora: ${removed.map((c) => c.name).join(", ")}.`);
+    if (added.length) items.push(`Se suman desde ahora: ${added.map((c) => c.name).join(", ")}.`);
+    items.push(s.tournament.no_schedule
+      ? `${pendingMoved.length} partido(s) pendiente(s) de esas canchas quedan sin cancha para asignarlos desde la mesa.`
+      : `Los partidos pendientes se reprograman desde ahora en ${keep.size} cancha(s).`);
+    if (live.length) items.push(`${live.length} partido(s) en juego terminan en la cancha donde están.`);
+    items.push("Los resultados cargados no se tocan.");
+    throw new NeedsConfirmation(`Usar ${keep.size} cancha(s) desde ahora`, items);
+  }
+  const nowD = new Date(now);
+  const removedIds = removed.map((c) => c.id);
+  if (removedIds.length) {
+    await tx`DELETE FROM court_availability WHERE tournament_id = ${tournamentId} AND court_id = ANY(${removedIds}::uuid[]) AND starts_at >= ${nowD}`;
+    await tx`UPDATE court_availability SET ends_at = ${nowD} WHERE tournament_id = ${tournamentId} AND court_id = ANY(${removedIds}::uuid[]) AND starts_at < ${nowD} AND ends_at > ${nowD}`;
+    await tx`UPDATE matches SET court_id = NULL, scheduled_at = NULL, schedule_locked = false, updated_at = now()
+             WHERE court_id = ANY(${removedIds}::uuid[]) AND status = 'PENDING'
+               AND tc_id IN (SELECT id FROM tournament_categories WHERE tournament_id = ${tournamentId})`;
+  }
+  if (added.length) {
+    // Las canchas que se suman quedan disponibles desde ahora hasta el final de los horarios del torneo.
+    const lastEnd = Math.max(...s.courts.flatMap((c) => c.windows.map((w) => w.end)), 0);
+    const end = new Date(lastEnd > now ? lastEnd : now + 6 * 3_600_000);
+    for (const c of added) await tx`INSERT INTO court_availability (tournament_id, court_id, starts_at, ends_at) VALUES (${tournamentId}, ${c.id}, ${nowD}, ${end})`;
+  }
+  let summary = "";
+  if (!s.tournament.no_schedule) {
+    const r = await generateTournamentSchedule(tx, user, tournamentId, "FROM_NOW");
+    summary = ` ${r.scheduled} partidos programados${r.unscheduled ? `, ${r.unscheduled} sin lugar (agregá horarios o canchas)` : ""}.`;
+  }
+  await audit(tx, user, {
+    entity: "schedule", entityId: tournamentId, action: "schedule", tournamentId,
+    summary: `Canchas en uso desde ahora: ${keep.size}${removed.length ? ` (salen ${removed.map((c) => c.name).join(", ")})` : ""}${added.length ? ` (entran ${added.map((c) => c.name).join(", ")})` : ""}`,
+  });
+  return `Listo: ahora se usan ${keep.size} cancha(s).${summary}`;
+}
