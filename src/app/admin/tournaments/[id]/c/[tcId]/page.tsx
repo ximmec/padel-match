@@ -85,7 +85,7 @@ async function EntriesTab({ lc, u }: { lc: LoadedCategory; u: CurrentUser }) {
   const fold = (x: string) => x.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase();
   const level = PLAYER_CATEGORIES.find((c) => fold(lc.tc.category_name).includes(fold(c))) ?? null;
   const labelOf = (p: (typeof players)[number]) => `${p.last_name}, ${p.first_name}${p.category ? ` · ${p.category}` : ""} (${p.code})${p.gender === "X" ? " · sin definir" : lc.tc.gender_rule === "MIXED" ? ` · ${p.gender}` : ""}`;
-  const optGroups = (list: typeof players) => level ? (
+  const optGroups = (list: (typeof players)[number][]) => level ? (
     <>
       <optgroup label={level}>{list.filter((p) => p.category === level).map(opt)}</optgroup>
       <optgroup label="Otras categorías">{list.filter((p) => p.category !== level).map(opt)}</optgroup>
