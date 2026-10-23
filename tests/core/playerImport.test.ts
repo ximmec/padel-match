@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { parsePlayerSheet, detectField, splitFullName, parseGender } from "../../src/core/playerImport";
+import { parsePlayerSheet, detectField, splitFullName, parseGender, parsePlayerCategory } from "../../src/core/playerImport";
 
 test("reconoce columnas típicas", () => {
   assert.equal(detectField("Apellido"), "last_name");
@@ -81,4 +81,15 @@ test("sexo / género sin definir: celda vacía o «sin definir» → X", () => {
   assert.deepEqual(r.players.map((p) => p.gender), ["X", "X", "M"]);
   const sinColumna = parsePlayerSheet([["Nombre", "Apellido"], ["Ana", "Sol"]], null);
   assert.equal(sinColumna.players[0].gender, "X");
+});
+
+test("categorías de 8va a 3ra", () => {
+  assert.equal(parsePlayerCategory("8va"), "8va");
+  assert.equal(parsePlayerCategory("7"), "7ma");
+  assert.equal(parsePlayerCategory("6°"), "6ta");
+  assert.equal(parsePlayerCategory("Quinta"), "5ta");
+  assert.equal(parsePlayerCategory("4ta categoría"), "4ta");
+  assert.equal(parsePlayerCategory("3RA"), "3ra");
+  assert.equal(parsePlayerCategory("Advanced"), "Advanced");
+  assert.equal(parsePlayerCategory("9na"), null);
 });

@@ -76,7 +76,7 @@ export default async function PlayersPage({ searchParams }: { searchParams: Prom
           <summary>📥 Importar jugadores desde Excel</summary>
           <div style={{ marginTop: 12 }} className="stack">
             <ol style={{ margin: 0, paddingLeft: 20, fontSize: 14 }}>
-              <li>Tu Excel tiene que tener en la <b>primera fila los títulos</b> de las columnas. Se reconocen: <b>Nombre</b>, <b>Apellido</b> (o una sola columna <b>Nombre y apellido</b>), <b>Sexo/Género</b> (M, F o vacío = sin definir), <b>Categoría</b> (Beginner o Advanced), <b>DNI</b>, <b>Teléfono/Celular</b>, <b>Email</b> y <b>Ciudad</b>. Solo nombre y apellido son obligatorios.</li>
+              <li>Tu Excel tiene que tener en la <b>primera fila los títulos</b> de las columnas. Se reconocen: <b>Nombre</b>, <b>Apellido</b> (o una sola columna <b>Nombre y apellido</b>), <b>Sexo/Género</b> (M, F o vacío = sin definir), <b>Categoría</b> (Beginner, Advanced o de 8va a 3ra), <b>DNI</b>, <b>Teléfono/Celular</b>, <b>Email</b> y <b>Ciudad</b>. Solo nombre y apellido son obligatorios.</li>
               <li>Elegí el archivo y tocá <b>Revisar</b>. Antes de cargar nada te muestro un resumen: cuántos son nuevos, cuáles ya existían y si alguna fila tiene problemas.</li>
               <li>Si está todo bien, tocá <b>Confirmar y aplicar</b>.</li>
             </ol>
