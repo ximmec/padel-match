@@ -479,9 +479,9 @@ export async function updateVenueAction(_p: ActionState, fd: FormData): Promise<
         await tx`UPDATE courts SET active = false WHERE id = ANY(${offIds}::uuid[])`;
         changes = ` Se desactivaron ${off.length} cancha(s).`;
         // Torneos en curso en esta sede: se reprograman solos desde ahora (los resultados no se tocan).
-        const live = await tx<{ id: string; name: string }[]>`SELECT id, name FROM tournaments WHERE venue_id = ${id} AND status IN ('OPEN','IN_PROGRESS') AND NOT no_schedule`;
+        const running = await tx<{ id: string; name: string }[]>`SELECT id, name FROM tournaments WHERE venue_id = ${id} AND status IN ('OPEN','IN_PROGRESS') AND NOT no_schedule`;
         const done: string[] = [];
-        for (const t of live) {
+        for (const t of running) {
           try { await generateTournamentSchedule(tx, user, t.id, "FROM_NOW"); done.push(t.name); } catch (e) { if (!(e instanceof UserError)) throw e; }
         }
         if (done.length) changes += ` Se reprogramó desde ahora: ${done.join(", ")}.`;
