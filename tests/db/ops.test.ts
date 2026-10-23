@@ -463,3 +463,20 @@ test("sumar una pareja con el torneo empezado: zona con menos parejas o pase lib
   assert.ok(r1.some((d) => (d.a.t === "ENTRY" && d.a.entryId === e7) || (d.b.t === "ENTRY" && d.b.entryId === e7)));
   assert.equal(r1.filter((d) => d.a.t === "BYE" || d.b.t === "BYE").length, 1, "queda un solo pase libre");
 });
+
+test("pago del arancel: marcar y desmarcar por jugador; el pago acompaña al jugador si cambia de pareja", async () => {
+  const { tcId } = await makeTournament();
+  const players = await makePlayers(4);
+  const [a, b] = await register(tcId, players);
+  assert.equal(await tx((x) => ops.togglePaid(x, user, a, 1)), true);
+  let lc = await loadCategory(sql, tcId, orgId);
+  const pa = lc.entryMap.get(a)!.players.find((p) => p.slot === 1)!;
+  assert.ok(pa.paid_at, "quedó marcado");
+  assert.equal(lc.entryMap.get(a)!.players.find((p) => p.slot === 2)!.paid_at, null, "el compañero no");
+  await tx((x) => ops.swapPlayers(x, user, a, 1, b, 1));
+  lc = await loadCategory(sql, tcId, orgId);
+  assert.ok(lc.entryMap.get(b)!.players.find((p) => p.id === pa.id)!.paid_at, "el pago viaja con el jugador");
+  assert.equal(await tx((x) => ops.togglePaid(x, user, b, 1)), false);
+  lc = await loadCategory(sql, tcId, orgId);
+  assert.equal(lc.entryMap.get(b)!.players.find((p) => p.slot === 1)!.paid_at, null, "se desmarcó");
+});

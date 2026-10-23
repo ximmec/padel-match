@@ -50,6 +50,15 @@ export async function setRestrictionAction(_p: ActionState, fd: FormData): Promi
   }, REVAL);
 }
 
+export async function togglePaidAction(_p: ActionState, fd: FormData): Promise<ActionState> {
+  return runAction("players.manage", async (user) => {
+    const slot = int(fd, "slot");
+    if (slot !== 1 && slot !== 2) throw new UserError("Jugador inválido.");
+    await sql.begin((tx) => ops.togglePaid(tx, user, uuid(fd, "entry_id"), slot));
+    return {};
+  }, REVAL);
+}
+
 export async function setSeedAction(_p: ActionState, fd: FormData): Promise<ActionState> {
   return runAction("players.manage", async (user) => {
     const seed = int(fd, "seed");

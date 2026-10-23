@@ -125,7 +125,7 @@ export async function swapPlayers(tx: Tx, user: CurrentUser, entryA: string, slo
   await checkGender(tx, lc.tc.gender_rule, restA ? [restA.id, pb.id] : [pb.id], user.orgId);
   await checkGender(tx, lc.tc.gender_rule, restB ? [restB.id, pa.id] : [pa.id], user.orgId);
   await tx`UPDATE entry_players SET active = false, replaced_at = now() WHERE (entry_id = ${entryA} AND slot = ${slotA} OR entry_id = ${entryB} AND slot = ${slotB}) AND replaced_at IS NULL`;
-  await tx`INSERT INTO entry_players (entry_id, tc_id, player_id, slot, active) VALUES (${entryA}, ${lc.tc.id}, ${pb.id}, ${slotA}, true), (${entryB}, ${lc.tc.id}, ${pa.id}, ${slotB}, true)`;
+  await tx`INSERT INTO entry_players (entry_id, tc_id, player_id, slot, active, paid_at) VALUES (${entryA}, ${lc.tc.id}, ${pb.id}, ${slotA}, true, ${pb.paid_at ? new Date(pb.paid_at) : null}), (${entryB}, ${lc.tc.id}, ${pa.id}, ${slotB}, true, ${pa.paid_at ? new Date(pa.paid_at) : null})`;
   const nm = (p: { first_name: string; last_name: string }) => `${p.first_name} ${p.last_name}`;
   await audit(tx, user, {
     entity: "entry", entityId: entryA, action: "replace_player", tournamentId: lc.tc.tournament_id,
@@ -165,6 +165,17 @@ export async function placeLateEntry(tx: Tx, user: CurrentUser, tcId: string, en
   if (!target) throw new UserError("Esa zona no admite parejas nuevas.");
   await moveEntry(tx, user, entryId, target.id, true);
   return `agregada a la Zona ${target.name} con sus partidos nuevos`;
+}
+
+/** Marcar / desmarcar que un jugador de la pareja pagó el arancel. */
+export async function togglePaid(tx: Tx, user: CurrentUser, entryId: string, slot: 1 | 2) {
+  const { lc, entry } = await entryContext(tx, user, entryId);
+  const p = entry.players.find((x) => x.slot === slot);
+  if (!p) throw new UserError("Jugador no encontrado.");
+  const paid = !p.paid_at;
+  await tx`UPDATE entry_players SET paid_at = ${paid ? new Date() : null}, paid_by = ${paid ? user.id : null} WHERE entry_id = ${entryId} AND slot = ${slot} AND replaced_at IS NULL`;
+  await audit(tx, user, { entity: "entry", entityId: entryId, action: "update", tournamentId: lc.tc.tournament_id, summary: `${p.first_name} ${p.last_name} (${lc.tc.category_name}): ${paid ? "pagó el arancel" : "se quitó la marca de pago"}` });
+  return paid;
 }
 
 export async function setEntryRestriction(tx: Tx, user: CurrentUser, entryId: string, from: string | null, to: string | null, note: string | null) {

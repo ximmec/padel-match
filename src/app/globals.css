@@ -682,3 +682,7 @@ details[open] > summary::before { content: "▾ "; }
 .circuit-section .ini { display: grid; place-items: center; color: var(--orange); font-weight: 900; background: rgba(255,115,0,.1); }
 .circuit-section h2 { margin: 0; font-family: var(--font-hero), var(--font-body), sans-serif; font-style: normal; text-transform: uppercase; font-size: 22px; }
 .circuit-section a { font-size: 14px; }
+.pay-col { display: flex; flex-direction: column; gap: 4px; }
+.pay { display: inline-flex; align-items: center; gap: 4px; padding: 3px 9px; border-radius: 999px; border: 1px solid var(--line-2); background: transparent; color: #a8abb3; font-size: 12px; font-weight: 700; cursor: pointer; white-space: nowrap; }
+.pay:hover { border-color: #555; color: #fff; }
+.pay.on { background: rgba(200, 230, 0, .15); border-color: rgba(200, 230, 0, .5); color: var(--lime); }

@@ -104,9 +104,16 @@ async function EntriesTab({ lc, u, focus }: { lc: LoadedCategory; u: CurrentUser
   return (
     <div className="grid grid-2">
       <div className="card flush">
-        <div className="card-head"><h2>Parejas inscriptas ({lc.entries.filter((e) => e.status === "ACTIVE").length})</h2></div>
+        <div className="card-head">
+          <h2>Parejas inscriptas ({lc.entries.filter((e) => e.status === "ACTIVE").length})</h2>
+          {(() => {
+            const ps = lc.entries.filter((e) => e.status === "ACTIVE").flatMap((e) => e.players);
+            const paid = ps.filter((p) => p.paid_at).length;
+            return ps.length ? <span className={`badge ${paid === ps.length ? "ok" : "warn"}`}>Pagaron {paid}/{ps.length} jugadores</span> : null;
+          })()}
+        </div>
         <div className="table-wrap"><table>
-          <thead><tr><th>Pareja</th><th className="num">Siembra</th><th>Zona</th><th></th></tr></thead>
+          <thead><tr><th>Pareja</th><th>Pago</th><th className="num">Siembra</th><th>Zona</th><th></th></tr></thead>
           <tbody>
             {lc.entries.map((e) => (
               <tr key={e.id} id={`e-${e.id}`} className={e.status === "WITHDRAWN" ? "out" : ""}>
@@ -115,6 +122,16 @@ async function EntriesTab({ lc, u, focus }: { lc: LoadedCategory; u: CurrentUser
                   {e.former.length > 0 && <div className="muted" style={{ fontSize: 12 }}>Reemplazó a: {e.former.map((f) => `${f.first_name} ${f.last_name}`).join(", ")}</div>}
                   {restrictionLabel(e) && <div><span className="badge info">🕒 {restrictionLabel(e)}</span></div>}
                   {e.status === "WITHDRAWN" && <div><span className="badge err">Retirada ({e.withdrawal_policy === "ANNUL_ALL" ? "anulada" : "W.O. en pendientes"})</span></div>}
+                </td>
+                <td>
+                  <div className="pay-col">
+                    {e.players.map((p) => manage ? (
+                      <ActionForm key={p.slot} action={A.togglePaidAction} hideSuccess>
+                        <input type="hidden" name="entry_id" value={e.id} /><input type="hidden" name="slot" value={p.slot} />
+                        <button className={`pay ${p.paid_at ? "on" : ""}`} title={p.paid_at ? "Pagó — tocá para quitar la marca" : "Todavía no pagó — tocá para marcar"}>{p.paid_at ? "✓" : "$"} {p.last_name}</button>
+                      </ActionForm>
+                    ) : <span key={p.slot} className={`pay ${p.paid_at ? "on" : ""}`}>{p.paid_at ? "✓" : "$"} {p.last_name}</span>)}
+                  </div>
                 </td>
                 <td className="num">
                   {manage && e.status === "ACTIVE" ? (
@@ -195,7 +212,7 @@ async function EntriesTab({ lc, u, focus }: { lc: LoadedCategory; u: CurrentUser
                 </td>
               </tr>
             ))}
-            {lc.entries.length === 0 && <tr><td colSpan={4} className="empty">Todavía no hay parejas inscriptas.</td></tr>}
+            {lc.entries.length === 0 && <tr><td colSpan={5} className="empty">Todavía no hay parejas inscriptas.</td></tr>}
           </tbody>
         </table></div>
       </div>

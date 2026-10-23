@@ -38,7 +38,7 @@ export interface EntryRow {
   not_before: string | null;
   not_after: string | null;
   restriction_note: string | null;
-  players: { id: string; code: string; first_name: string; last_name: string; slot: number }[];
+  players: { id: string; code: string; first_name: string; last_name: string; slot: number; paid_at: string | null }[];
   former: { id: string; first_name: string; last_name: string; slot: number; replaced_at: Date }[];
 }
 
@@ -93,7 +93,7 @@ export async function loadCategory(db: Db, tcId: string, orgId: string | null, o
 
   const entries = await db<EntryRow[]>`
     SELECT e.id, e.seed, e.status, e.withdrawal_policy, e.not_before::text AS not_before, e.not_after::text AS not_after, e.restriction_note,
-      COALESCE((SELECT json_agg(json_build_object('id', p.id, 'code', p.code, 'first_name', p.first_name, 'last_name', p.last_name, 'slot', ep.slot) ORDER BY ep.slot)
+      COALESCE((SELECT json_agg(json_build_object('id', p.id, 'code', p.code, 'first_name', p.first_name, 'last_name', p.last_name, 'slot', ep.slot, 'paid_at', ep.paid_at) ORDER BY ep.slot)
                 FROM entry_players ep JOIN players p ON p.id = ep.player_id
                 WHERE ep.entry_id = e.id AND ep.replaced_at IS NULL), '[]') AS players,
       COALESCE((SELECT json_agg(json_build_object('id', p.id, 'first_name', p.first_name, 'last_name', p.last_name, 'slot', ep.slot, 'replaced_at', ep.replaced_at) ORDER BY ep.replaced_at)
