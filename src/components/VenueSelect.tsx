@@ -21,7 +21,7 @@ export function VenueSelect({ venues, value }: { venues: Opt[]; value: string })
           <div className="hint">La sede se crea al guardar el torneo, con canchas «Cancha 1», «Cancha 2»… Después podés cambiarles el nombre en Configuración.</div>
         </div>
       ) : (
-        <div className="hint">Las canchas de la sede se usan para el cronograma. ¿Falta una? Elegí «+ Agregar nueva sede…».</div>
+        <div className="hint">Las canchas de la sede se usan para el cronograma. ¿Falta una? Elegí «+ Agregar nueva sede…». Para editar o eliminar sedes y cambiar la cantidad de canchas: <a href="/admin/settings#sedes">Configuración → Sedes y canchas</a>.</div>
       )}
     </>
   );

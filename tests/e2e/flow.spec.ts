@@ -303,3 +303,27 @@ test("eliminar un jugador y eliminar todos", async ({ page }) => {
   await page.getByRole("button", { name: "Confirmar y aplicar" }).click();
   await expect(page.getByText(/Listo: \d+ eliminados/)).toBeVisible();
 });
+
+test("sedes: cambiar cantidad de canchas y eliminar una sede", async ({ page }) => {
+  await login(page);
+  await page.goto("/admin/settings");
+  const central = page.locator(".venue-box", { has: page.locator('input[name="name"][value="Club Central"]') });
+  await central.locator('input[name="courts"]').fill("4");
+  await central.getByRole("button", { name: "Guardar sede" }).click();
+  await expect(central.getByText(/Ahora tiene 4 cancha/)).toBeVisible();
+  await expect(central.locator("button.badge", { hasText: "Cancha 4" })).toBeVisible();
+  // Bajar a 3 pide confirmación
+  await central.locator('input[name="courts"]').fill("3");
+  await central.getByRole("button", { name: "Guardar sede" }).click();
+  await central.getByRole("button", { name: "Confirmar y aplicar" }).click();
+  await expect(central.getByText(/Se desactivaron 1 cancha/)).toBeVisible();
+  // Nueva sede y eliminarla
+  await page.getByPlaceholder("Nombre de la sede").fill("Sede Borrable");
+  await page.getByRole("button", { name: "+ Nueva sede" }).click();
+  await expect(page.getByText("Sede creada.")).toBeVisible();
+  const borrable = page.locator(".venue-box", { has: page.locator('input[name="name"][value="Sede Borrable"]') });
+  await borrable.getByRole("button", { name: "Eliminar sede" }).click();
+  await borrable.getByRole("button", { name: "Confirmar y aplicar" }).click();
+  await expect(page.locator('input[name="name"][value="Sede Borrable"]')).toHaveCount(0);
+  await shot(page, "39-sedes");
+});

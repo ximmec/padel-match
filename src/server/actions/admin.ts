@@ -436,6 +436,81 @@ export async function createVenueAction(_p: ActionState, fd: FormData): Promise<
   }, ["/admin"]);
 }
 
+/**
+ * Editar una sede: nombre, dirección y cantidad de canchas activas.
+ * Si se suben las canchas se reactivan las desactivadas y se crean las que falten;
+ * si se bajan se desactivan las últimas (los partidos ya jugados conservan su cancha).
+ */
+export async function updateVenueAction(_p: ActionState, fd: FormData): Promise<ActionState> {
+  return runAction("settings.manage", async (user) => {
+    const id = uuid(fd, "venue_id");
+    const name = req(fd, "name", "el nombre de la sede");
+    const n = int(fd, "courts");
+    if (n === null || n < 0 || n > 40) throw new UserError("La cantidad de canchas tiene que ser entre 0 y 40.");
+    const msg = await sql.begin(async (tx) => {
+      const [v] = await tx<{ name: string }[]>`SELECT name FROM venues WHERE id = ${id} AND org_id = ${user.orgId} FOR UPDATE`;
+      if (!v) throw new UserError("Sede no encontrada.");
+      const all = await tx<{ id: string; name: string; active: boolean; sort: number }[]>`SELECT id, name, active, sort FROM courts WHERE venue_id = ${id} ORDER BY sort, name`;
+      const active = all.filter((c) => c.active);
+      let changes = "";
+      if (n > active.length) {
+        let need = n - active.length;
+        for (const c of all.filter((x) => !x.active)) { if (!need) break; await tx`UPDATE courts SET active = true WHERE id = ${c.id}`; need--; }
+        const nums = all.map((c) => Number(/(\d+)\s*$/.exec(c.name)?.[1] ?? 0));
+        let k = Math.max(0, ...nums), sort = Math.max(0, ...all.map((c) => c.sort));
+        while (need-- > 0) { k++; sort++; await tx`INSERT INTO courts (venue_id, name, sort) VALUES (${id}, ${`Cancha ${k}`}, ${sort})`; }
+        changes = ` Ahora tiene ${n} cancha(s) activas.`;
+      } else if (n < active.length) {
+        const off = active.slice(n);
+        const offIds = off.map((c) => c.id);
+        const [{ live, sched }] = await tx<{ live: number; sched: number }[]>`
+          SELECT count(*) FILTER (WHERE status = 'IN_PLAY')::int AS live,
+                 count(*) FILTER (WHERE status = 'PENDING' AND scheduled_at IS NOT NULL)::int AS sched
+          FROM matches WHERE court_id = ANY(${offIds}::uuid[])`;
+        if (live) throw new UserError(`Hay ${live} partido(s) en juego en las canchas que querés quitar. Esperá a que terminen.`);
+        if (!isConfirmed(fd)) {
+          const items = [`Se desactivan: ${off.map((c) => c.name).join(", ")}.`];
+          if (sched) items.push(`${sched} partido(s) pendiente(s) programados en esas canchas quedan sin horario: después regenerá el cronograma.`);
+          items.push("Los partidos ya jugados conservan su cancha. Podés volver a activarlas cuando quieras.");
+          throw new NeedsConfirmation(`Bajar ${v.name} a ${n} cancha(s)`, items);
+        }
+        await tx`UPDATE matches SET court_id = NULL, scheduled_at = NULL, schedule_locked = false, updated_at = now() WHERE court_id = ANY(${offIds}::uuid[]) AND status = 'PENDING'`;
+        await tx`UPDATE courts SET active = false WHERE id = ANY(${offIds}::uuid[])`;
+        changes = ` Se desactivaron ${off.length} cancha(s)${sched ? ` y ${sched} partido(s) quedaron sin horario` : ""}.`;
+      }
+      await tx`UPDATE venues SET name = ${name}, address = ${optStr(fd, "address")} WHERE id = ${id}`;
+      await audit(tx, user, { entity: "venue", entityId: id, action: "update", summary: `Sede ${name}: ${n} cancha(s) activas` });
+      return `Sede guardada.${changes}`;
+    });
+    return { message: msg };
+  }, ["/admin"]);
+}
+
+/** Eliminar una sede (no se puede si la usa un torneo que todavía no terminó). */
+export async function deleteVenueAction(_p: ActionState, fd: FormData): Promise<ActionState> {
+  return runAction("settings.manage", async (user) => {
+    const id = uuid(fd, "venue_id");
+    const msg = await sql.begin(async (tx) => {
+      const [v] = await tx<{ name: string }[]>`SELECT name FROM venues WHERE id = ${id} AND org_id = ${user.orgId} FOR UPDATE`;
+      if (!v) throw new UserError("Sede no encontrada.");
+      const ts = await tx<{ name: string; status: string }[]>`SELECT name, status FROM tournaments WHERE venue_id = ${id} ORDER BY start_date DESC`;
+      const open = ts.filter((t) => !["FINISHED", "CANCELLED"].includes(t.status));
+      if (open.length) throw new UserError(`No se puede eliminar: la usan torneos que todavía no terminaron (${open.map((t) => t.name).join(", ")}). Cambiales la sede o eliminalos primero.`);
+      const [{ n }] = await tx<{ n: number }[]>`SELECT count(*)::int AS n FROM courts WHERE venue_id = ${id}`;
+      if (!isConfirmed(fd)) {
+        const items = [`Se borran sus ${n} cancha(s).`];
+        if (ts.length) items.push(`${ts.length} torneo(s) terminado(s) van a figurar «Sin sede» y sus partidos sin cancha.`);
+        items.push("Esta acción no se puede deshacer.");
+        throw new NeedsConfirmation(`Eliminar la sede «${v.name}»`, items);
+      }
+      await tx`DELETE FROM venues WHERE id = ${id}`;
+      await audit(tx, user, { entity: "venue", entityId: id, action: "delete", summary: `Sede ${v.name} eliminada (${n} canchas)` });
+      return `Sede «${v.name}» eliminada.`;
+    });
+    return { message: msg };
+  }, ["/admin"]);
+}
+
 export async function addCourtAction(_p: ActionState, fd: FormData): Promise<ActionState> {
   return runAction("settings.manage", async (user) => {
     const venueId = uuid(fd, "venue_id");

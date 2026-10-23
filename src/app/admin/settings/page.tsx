@@ -40,25 +40,43 @@ export default async function SettingsPage() {
           </div>
 
           <div className="card">
-            <h2>Sedes y canchas</h2>
-            {venues.map((v) => (
-              <div key={v.id} style={{ marginBottom: 12 }}>
-                <b>{v.name}</b> <span className="muted">{v.address}</span>
-                <div className="row" style={{ marginTop: 6 }}>
-                  {courts.filter((c) => c.venue_id === v.id).map((c) => (
-                    <ActionForm key={c.id} action={A.toggleCourtAction} hideSuccess>
-                      <input type="hidden" name="id" value={c.id} />
-                      <button className={`badge ${c.active ? "ok" : ""}`} style={{ border: "none", cursor: "pointer" }} title={c.active ? "Desactivar" : "Activar"}>{c.name}{c.active ? "" : " (inactiva)"}</button>
+            <h2 id="sedes">Sedes y canchas</h2>
+            {venues.map((v) => {
+              const vc = courts.filter((c) => c.venue_id === v.id);
+              return (
+                <div key={v.id} className="venue-box">
+                  <ActionForm action={A.updateVenueAction}>
+                    <input type="hidden" name="venue_id" value={v.id} />
+                    <div className="grid grid-3" style={{ gap: 8 }}>
+                      <div className="field"><label>Sede</label><input name="name" defaultValue={v.name} required /></div>
+                      <div className="field"><label>Dirección</label><input name="address" defaultValue={v.address ?? ""} /></div>
+                      <div className="field"><label>Cantidad de canchas</label><input name="courts" type="number" min={0} max={40} defaultValue={vc.filter((c) => c.active).length} /></div>
+                    </div>
+                    <Submit className="btn sm">Guardar sede</Submit>
+                  </ActionForm>
+                  <div className="row" style={{ marginTop: 10 }}>
+                    <span className="muted" style={{ fontSize: 12 }}>Canchas (tocá para activar o desactivar):</span>
+                    {vc.map((c) => (
+                      <ActionForm key={c.id} action={A.toggleCourtAction} hideSuccess>
+                        <input type="hidden" name="id" value={c.id} />
+                        <button className={`badge ${c.active ? "ok" : ""}`} style={{ border: "none", cursor: "pointer" }} title={c.active ? "Desactivar" : "Activar"}>{c.name}{c.active ? "" : " (inactiva)"}</button>
+                      </ActionForm>
+                    ))}
+                  </div>
+                  <div className="row between" style={{ marginTop: 8 }}>
+                    <ActionForm action={A.addCourtAction} resetOnSuccess className="row">
+                      <input type="hidden" name="venue_id" value={v.id} />
+                      <input name="name" className="sm" placeholder="Nombre de cancha (ej. Central)" required />
+                      <Submit className="btn ghost sm">+ Cancha con nombre</Submit>
                     </ActionForm>
-                  ))}
+                    <ActionForm action={A.deleteVenueAction}>
+                      <input type="hidden" name="venue_id" value={v.id} />
+                      <Submit className="btn danger sm" pendingText="Revisando…">Eliminar sede</Submit>
+                    </ActionForm>
+                  </div>
                 </div>
-                <ActionForm action={A.addCourtAction} resetOnSuccess className="row">
-                  <input type="hidden" name="venue_id" value={v.id} />
-                  <input name="name" className="sm" placeholder="Nombre de cancha" required />
-                  <Submit className="btn ghost sm">+ Cancha</Submit>
-                </ActionForm>
-              </div>
-            ))}
+              );
+            })}
             <ActionForm action={A.createVenueAction} resetOnSuccess>
               <div className="grid grid-3" style={{ gap: 8 }}>
                 <input name="name" placeholder="Nombre de la sede" required />
