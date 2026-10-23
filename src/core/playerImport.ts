@@ -12,12 +12,12 @@ export type PlayerCategory = (typeof PLAYER_CATEGORIES)[number];
 /** Reconoce la categoría escrita de distintas formas (en inglés o castellano). */
 export function parsePlayerCategory(v: string): PlayerCategory | null {
   const c = fold(v).replace(/[^a-z]/g, "");
-  if (!c) return null;
+  if (!fold(v)) return null;
   if (/^(beginner|begginer|principiante|inicial|iniciante|basico|b)$/.test(c)) return "Beginner";
   if (/^(advanced|advance|avanzado|avanzada|a)$/.test(c)) return "Advanced";
   // 8va … 3ra: «8va», «8», «8°», «octava», «8va categoría»…
   const byNum: Record<string, PlayerCategory> = { "8": "8va", "7": "7ma", "6": "6ta", "5": "5ta", "4": "4ta", "3": "3ra" };
-  const n = /^([3-8])\s*(ra|da|ta|ma|va|na|er|era|a|o|°|º)?\.?(\s*(categoria|cat))?$/.exec(fold(v).trim());
+  const n = /^([3-8])\s*(ra|da|ta|ma|va|na|era|er|a|o)?[^a-z0-9]*(categoria|cat)?$/.exec(fold(v).replace(/\s+/g, " "));
   if (n) return byNum[n[1]];
   const words: Record<string, PlayerCategory> = { octava: "8va", septima: "7ma", sexta: "6ta", quinta: "5ta", cuarta: "4ta", tercera: "3ra" };
   for (const [w, cat] of Object.entries(words)) if (c === w || c === `${w}categoria`) return cat;

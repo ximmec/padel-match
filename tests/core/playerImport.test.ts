@@ -61,7 +61,7 @@ test("sin columnas reconocibles", () => {
 });
 
 test("columna de categoría", () => {
-  const r = parsePlayerSheet([["Nombre", "Apellido", "Categoría"], ["Juan", "Pérez", " advanced "], ["Ana", "López", ""], ["Luis", "Paz", "Principiante"], ["Leo", "Sosa", "4ta"]], "M");
+  const r = parsePlayerSheet([["Nombre", "Apellido", "Categoría"], ["Juan", "Pérez", " advanced "], ["Ana", "López", ""], ["Luis", "Paz", "Principiante"], ["Leo", "Sosa", "Experto"]], "M");
   assert.equal(r.players[0].category, "Advanced");
   assert.equal(r.players[1].category, null);
   assert.equal(r.players[2].category, "Beginner");
