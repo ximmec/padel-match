@@ -109,6 +109,32 @@ export async function registerEntry(tx: Tx, user: CurrentUser, tcId: string, p1:
   return e.id;
 }
 
+/**
+ * Cambio de pareja: intercambia un jugador de una pareja con un jugador de otra pareja de la misma categoría.
+ * Cada pareja conserva su lugar en la zona, sus resultados y sus puntos; queda registrado en el historial.
+ */
+export async function swapPlayers(tx: Tx, user: CurrentUser, entryA: string, slotA: 1 | 2, entryB: string, slotB: 1 | 2) {
+  if (entryA === entryB) throw new UserError("Elegí un jugador de otra pareja.");
+  const { lc, entry: a } = await entryContext(tx, user, entryA);
+  const b = lc.entryMap.get(entryB);
+  if (!b) throw new UserError("La otra pareja no es de esta categoría.");
+  if (a.status !== "ACTIVE" || b.status !== "ACTIVE") throw new UserError("Las dos parejas tienen que estar activas.");
+  const pa = a.players.find((p) => p.slot === slotA), pb = b.players.find((p) => p.slot === slotB);
+  if (!pa || !pb) throw new UserError("Jugador inválido.");
+  const restA = a.players.find((p) => p.slot !== slotA), restB = b.players.find((p) => p.slot !== slotB);
+  await checkGender(tx, lc.tc.gender_rule, restA ? [restA.id, pb.id] : [pb.id], user.orgId);
+  await checkGender(tx, lc.tc.gender_rule, restB ? [restB.id, pa.id] : [pa.id], user.orgId);
+  await tx`UPDATE entry_players SET active = false, replaced_at = now() WHERE (entry_id = ${entryA} AND slot = ${slotA} OR entry_id = ${entryB} AND slot = ${slotB}) AND replaced_at IS NULL`;
+  await tx`INSERT INTO entry_players (entry_id, tc_id, player_id, slot, active) VALUES (${entryA}, ${lc.tc.id}, ${pb.id}, ${slotA}, true), (${entryB}, ${lc.tc.id}, ${pa.id}, ${slotB}, true)`;
+  const nm = (p: { first_name: string; last_name: string }) => `${p.first_name} ${p.last_name}`;
+  await audit(tx, user, {
+    entity: "entry", entityId: entryA, action: "replace_player", tournamentId: lc.tc.tournament_id,
+    summary: `Cambio de pareja: ${nm(pa)} pasa a ${entryLabel(b)} y ${nm(pb)} pasa a ${entryLabel(a)}. Cada pareja conserva su zona y sus resultados.`,
+    before: { [entryA]: pa.id, [entryB]: pb.id }, after: { [entryA]: pb.id, [entryB]: pa.id },
+  });
+  await afterChange(tx, user, lc.tc.id);
+}
+
 export async function setEntryRestriction(tx: Tx, user: CurrentUser, entryId: string, from: string | null, to: string | null, note: string | null) {
   const { lc, entry } = await entryContext(tx, user, entryId);
   await tx`UPDATE entries SET not_before = ${from}, not_after = ${to}, restriction_note = ${note} WHERE id = ${entryId}`;

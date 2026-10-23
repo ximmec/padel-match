@@ -27,9 +27,9 @@ const TABS: [string, string][] = [
   ["historial", "Historial"],
 ];
 
-export default async function CategoryPage({ params, searchParams }: { params: Promise<{ id: string; tcId: string }>; searchParams: Promise<{ tab?: string }> }) {
+export default async function CategoryPage({ params, searchParams }: { params: Promise<{ id: string; tcId: string }>; searchParams: Promise<{ tab?: string; e?: string }> }) {
   const { id, tcId } = await params;
-  const { tab = "inscripciones" } = await searchParams;
+  const { tab = "inscripciones", e: focus } = await searchParams;
   if (!isUuid(id) || !isUuid(tcId)) notFound();
   const u = await requireUser();
   let lc: LoadedCategory;
@@ -66,7 +66,7 @@ export default async function CategoryPage({ params, searchParams }: { params: P
       <nav className="tabs">
         {TABS.map(([k, label]) => <Link key={k} href={`?tab=${k}`} className={tab === k ? "active" : ""}>{label}</Link>)}
       </nav>
-      {tab === "inscripciones" && <EntriesTab lc={lc} u={u} />}
+      {tab === "inscripciones" && <EntriesTab lc={lc} u={u} focus={focus} />}
       {tab === "zonas" && <ZonesTab lc={lc} u={u} />}
       {tab === "partidos" && <MatchesTab lc={lc} u={u} />}
       {tab === "posiciones" && <StandingsTab lc={lc} u={u} />}
@@ -80,7 +80,7 @@ export default async function CategoryPage({ params, searchParams }: { params: P
 
 /* ---------------------------------------------------------------- */
 
-async function EntriesTab({ lc, u }: { lc: LoadedCategory; u: CurrentUser }) {
+async function EntriesTab({ lc, u, focus }: { lc: LoadedCategory; u: CurrentUser; focus?: string }) {
   const genderFilter = lc.tc.gender_rule === "MALE" ? ["M", "X"] : lc.tc.gender_rule === "FEMALE" ? ["F", "X"] : ["M", "F", "X"];
   const players = await sql<{ id: string; code: string; first_name: string; last_name: string; gender: string; category: string | null; busy: boolean }[]>`
     SELECT p.id, p.code, p.first_name, p.last_name, p.gender, p.category,
@@ -109,7 +109,7 @@ async function EntriesTab({ lc, u }: { lc: LoadedCategory; u: CurrentUser }) {
           <thead><tr><th>Pareja</th><th className="num">Siembra</th><th>Zona</th><th></th></tr></thead>
           <tbody>
             {lc.entries.map((e) => (
-              <tr key={e.id} className={e.status === "WITHDRAWN" ? "out" : ""}>
+              <tr key={e.id} id={`e-${e.id}`} className={e.status === "WITHDRAWN" ? "out" : ""}>
                 <td>
                   <b>{entryFullLabel(e)}</b>
                   {e.former.length > 0 && <div className="muted" style={{ fontSize: 12 }}>Reemplazó a: {e.former.map((f) => `${f.first_name} ${f.last_name}`).join(", ")}</div>}
@@ -128,7 +128,7 @@ async function EntriesTab({ lc, u }: { lc: LoadedCategory; u: CurrentUser }) {
                 <td>{zoneOf.get(e.id) ?? "—"}</td>
                 <td>
                   {manage && e.status === "ACTIVE" && (
-                    <details>
+                    <details open={focus === e.id}>
                       <summary className="muted" style={{ fontSize: 13 }}>Acciones</summary>
                       <div className="stack" style={{ minWidth: 260, marginTop: 8 }}>
                         <ActionForm action={A.replacePlayerAction}>
@@ -140,6 +140,22 @@ async function EntriesTab({ lc, u }: { lc: LoadedCategory; u: CurrentUser }) {
                             <Submit className="btn sm">Reemplazar</Submit>
                           </div>
                           <div className="muted" style={{ fontSize: 12 }}>La pareja conserva sus resultados.</div>
+                        </ActionForm>
+                        <ActionForm action={A.swapPlayersAction}>
+                          <input type="hidden" name="entry_id" value={e.id} />
+                          <label>Cambiar de pareja (intercambiar con otra pareja)</label>
+                          <div className="row">
+                            <select name="slot" className="sm">{e.players.map((p) => <option key={p.slot} value={p.slot}>{p.first_name} {p.last_name}</option>)}</select>
+                            <span className="muted" style={{ fontSize: 13 }}>por</span>
+                            <select name="other" className="sm" required defaultValue="">
+                              <option value="" disabled>Elegir jugador…</option>
+                              {lc.entries.filter((o) => o.id !== e.id && o.status === "ACTIVE").flatMap((o) => o.players.map((p) => (
+                                <option key={`${o.id}:${p.slot}`} value={`${o.id}:${p.slot}`}>{p.last_name}, {p.first_name} (pareja {entryLabel(o)}{zoneOf.get(o.id) ? ` · Zona ${zoneOf.get(o.id)}` : ""})</option>
+                              )))}
+                            </select>
+                            <Submit className="btn sm">Intercambiar</Submit>
+                          </div>
+                          <div className="muted" style={{ fontSize: 12 }}>Cada pareja queda en su zona y conserva sus resultados; solo cambian los jugadores.</div>
                         </ActionForm>
                         <ActionForm action={A.setRestrictionAction}>
                           <input type="hidden" name="entry_id" value={e.id} />
@@ -257,16 +273,17 @@ function ZonesTab({ lc, u }: { lc: LoadedCategory; u: CurrentUser }) {
                 <div key={eid} className="match">
                   <div><b>{entryLabel(e)}</b>{e?.seed ? <span className="badge" style={{ marginLeft: 6 }}>Siembra {e.seed}</span> : null}{e?.status === "WITHDRAWN" && <span className="badge err" style={{ marginLeft: 6 }}>Retirada</span>}</div>
                   <div />
-                  {manage && e?.status === "ACTIVE" && lc.zones.length > 1 && (
+                  {manage && e?.status === "ACTIVE" && (
                     <div className="meta">
-                      <ActionForm action={A.moveEntryAction} className="row">
+                      <Link className="btn ghost sm" href={`?tab=inscripciones&e=${eid}#e-${eid}`}>Cambiar jugadores</Link>
+                      {lc.zones.length > 1 && <ActionForm action={A.moveEntryAction} className="row">
                         <input type="hidden" name="entry_id" value={eid} />
                         <select name="zone_id" className="sm" required defaultValue="">
                           <option value="" disabled>Mover a…</option>
                           {lc.zones.filter((x) => x.id !== z.id).map((x) => <option key={x.id} value={x.id}>Zona {x.name}</option>)}
                         </select>
                         <Submit className="btn ghost sm" pendingText="…">Mover</Submit>
-                      </ActionForm>
+                      </ActionForm>}
                     </div>
                   )}
                 </div>

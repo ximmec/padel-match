@@ -413,3 +413,25 @@ test("con el torneo empezado, bajar de 3 a 2 canchas reprograma lo pendiente sin
   assert.ok(pending.every((m) => m.court_id && keep.includes(m.court_id) && m.scheduled_at && m.scheduled_at.getTime() >= Date.now() - 60_000), "pendientes en las 2 canchas que quedan, desde ahora");
   assert.equal(lc.matches.find((m) => m.id === playedOne.id)!.status, "PLAYED", "el resultado se conserva");
 });
+
+test("cambio de pareja: intercambiar jugadores entre parejas conserva zonas y resultados", async () => {
+  const { tcId } = await makeTournament();
+  const players = await makePlayers(12);
+  const entries = await register(tcId, players);
+  await tx((x) => ops.generateZones(x, user, tcId, null, 9));
+  let lc = await loadCategory(sql, tcId, orgId);
+  const m = lc.matches.find((x) => x.phase === "ZONE")!;
+  await result(m.id, [[6, 3], [6, 3]]);
+  const [a, b] = [entries[0], entries[5]];
+  const zoneOf = (e: string) => lc.zones.find((z) => z.entry_ids.includes(e))!.id;
+  const za = zoneOf(a), zb = zoneOf(b);
+  const pa = lc.entryMap.get(a)!.players.find((p) => p.slot === 1)!.id;
+  const pb = lc.entryMap.get(b)!.players.find((p) => p.slot === 2)!.id;
+  await tx((x) => ops.swapPlayers(x, user, a, 1, b, 2));
+  lc = await loadCategory(sql, tcId, orgId);
+  assert.ok(lc.entryMap.get(a)!.players.some((p) => p.id === pb), "el jugador de B pasó a A");
+  assert.ok(lc.entryMap.get(b)!.players.some((p) => p.id === pa), "el jugador de A pasó a B");
+  assert.equal(zoneOf(a), za); assert.equal(zoneOf(b), zb);
+  assert.equal(lc.matches.find((x) => x.id === m.id)!.status, "PLAYED", "el resultado se conserva");
+  assert.equal(lc.entryMap.get(a)!.former.length, 1, "queda el historial del cambio");
+});

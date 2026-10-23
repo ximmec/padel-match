@@ -80,6 +80,16 @@ export async function replacePlayerAction(_p: ActionState, fd: FormData): Promis
   }, REVAL);
 }
 
+export async function swapPlayersAction(_p: ActionState, fd: FormData): Promise<ActionState> {
+  return runAction("players.manage", async (user) => {
+    const slot = int(fd, "slot");
+    const [otherEntry, otherSlot] = str(fd, "other").split(":");
+    if ((slot !== 1 && slot !== 2) || (otherSlot !== "1" && otherSlot !== "2")) throw new UserError("Elegí los dos jugadores a intercambiar.");
+    await sql.begin((tx) => ops.swapPlayers(tx, user, uuid(fd, "entry_id"), slot, uuid(otherEntry), Number(otherSlot) as 1 | 2));
+    return { message: "Listo: se intercambiaron los jugadores. Las parejas conservan su zona y sus resultados." };
+  }, REVAL);
+}
+
 /* --------------------------- Reglas --------------------------- */
 
 /** Tiebreak elegido: en g-g (por defecto), en (g-1)-(g-1) o sin tiebreak. */
