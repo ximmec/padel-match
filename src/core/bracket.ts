@@ -66,6 +66,8 @@ export interface QualificationRule {
   perZone: number | "ALL";
   /** Si se indica, en las zonas de 4 parejas clasifican esta cantidad (ej. 3) en lugar de perZone. */
   perZoneOf4?: number | null;
+  /** Automático: se suman los mejores del puesto siguiente que hagan falta para completar el cuadro (menos pases libres). */
+  autoBestNext?: boolean;
   /** Cuántas parejas extra clasifican como mejores de la posición siguiente (ej. 2 mejores terceros). */
   bestNext: number;
 }
@@ -76,6 +78,23 @@ export interface ZoneInfo { id: string; size: number }
 export function qualifiersInZone(size: number, rule: QualificationRule): number {
   if (size === 4 && rule.perZoneOf4) return Math.min(4, rule.perZoneOf4);
   return rule.perZone === "ALL" ? size : Math.min(size, rule.perZone);
+}
+
+/**
+ * Cantidad de «mejores siguientes» en modo automático: los que faltan para llegar a un cuadro
+ * completo (8, 16, 32…), sin pasar de las zonas que tienen ese puesto disponible.
+ */
+export function autoBestNext(sizes: number[], rule: QualificationRule): number {
+  if (rule.perZone === "ALL" || !sizes.length) return 0;
+  const q = sizes.reduce((a, s) => a + qualifiersInZone(s, rule), 0);
+  const pos = rule.perZone + 1;
+  const available = sizes.filter((s) => s >= pos && qualifiersInZone(s, rule) < pos).length;
+  return Math.max(0, Math.min(nextPow2(q) - q, available));
+}
+
+/** Regla con los mejores siguientes ya calculados (si está en automático). */
+export function resolveQualification(rule: QualificationRule, sizes: number[]): QualificationRule {
+  return rule.autoBestNext ? { ...rule, bestNext: autoBestNext(sizes, rule) } : rule;
 }
 
 export function qualifierRefs(zones: ZoneInfo[], rule: QualificationRule): { ref: SlotRef; zone: string | null }[] {

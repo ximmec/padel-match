@@ -260,13 +260,14 @@ function structureRules(fd: FormData): CategoryRules {
   const pz = str(fd, "per_zone");
   const perZone: number | "ALL" = pz === "ALL" ? "ALL" : pz ? Number(pz) : DEFAULT_RULES.qualification.perZone;
   if (perZone !== "ALL" && (!Number.isInteger(perZone) || perZone < 1 || perZone > 8)) throw new UserError("Clasificados por zona inválido.");
-  const bestNext = perZone === "ALL" ? 0 : Math.max(0, Math.min(8, int(fd, "best_next", 0) ?? 0));
+  const autoBest = str(fd, "best_next") === "AUTO" && perZone !== "ALL";
+  const bestNext = perZone === "ALL" || autoBest ? 0 : Math.max(0, Math.min(8, int(fd, "best_next", 0) ?? 0));
   const tb = str(fd, "tb");
   const fmt = { ...format, tiebreak: tb !== "NONE", ...(tb === "AT_G1" ? { tiebreakAt: format.gamesPerSet - 1 } : {}) };
   return {
     ...DEFAULT_RULES, mode: str(fd, "mode") === "KNOCKOUT" ? "KNOCKOUT" : "ZONES", format: fmt, preferredZoneSize: size,
     fourZone: fd.get("four_gvg") === "on" ? "GVG" : "RR",
-    qualification: { perZone, bestNext, perZoneOf4: fd.get("four_pass3") === "on" ? 3 : null },
+    qualification: { perZone, bestNext, perZoneOf4: fd.get("four_pass3") === "on" ? 3 : null, autoBestNext: autoBest },
   };
 }
 

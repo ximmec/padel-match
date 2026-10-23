@@ -1,7 +1,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { planZoneSizes, roundRobin, distributeEntries } from "../../src/core/zones";
-import { generateBracket, qualifierRefs, seedPositions, diffBracket, type QualificationRule } from "../../src/core/bracket";
+import { generateBracket, qualifierRefs, seedPositions, diffBracket, autoBestNext, resolveQualification, type QualificationRule } from "../../src/core/bracket";
 import { evaluateCategory, categoryStages, DEFAULT_RULES, withdrawalChanges, type CategoryRules, type CategoryState } from "../../src/core/engine";
 import { computeAwards, aggregateRanking, DEFAULT_POINTS } from "../../src/core/ranking";
 import { rng } from "../../src/core/zones";
@@ -237,4 +237,14 @@ test("ranking por circuito y por torneo: cada uno suma solo sus puntos", () => {
   assert.equal(aggregateRanking(rows).find((r) => r.playerId === "p1")!.points, 1600);
   assert.equal(aggregateRanking(rows, { circuitId: "bloko" }).find((r) => r.playerId === "p1")!.points, 1000);
   assert.deepEqual(aggregateRanking(rows, { tournamentId: "t2" }).map((r) => r.playerId), ["p1"]);
+});
+
+test("mejores terceros automático: completa el cuadro con los que hagan falta", () => {
+  const rule: QualificationRule = { perZone: 2, bestNext: 0, autoBestNext: true };
+  assert.equal(autoBestNext([4, 3, 3, 3, 3, 3], rule), 4, "19 parejas: 12 clasificados + 4 terceros = 16");
+  assert.equal(autoBestNext([3, 3, 3], rule), 2, "9 parejas: 6 + 2 terceros = 8");
+  assert.equal(autoBestNext([3, 3, 3, 3], rule), 0, "12 parejas: 8 clasificados, cuadro completo");
+  assert.equal(autoBestNext([3, 3, 3, 3, 3], rule), 5, "15 parejas: 10 + los 5 terceros (queda 1 pase libre)");
+  const q = qualifierRefs([{ id: "A", size: 3 }, { id: "B", size: 3 }, { id: "C", size: 3 }], resolveQualification(rule, [3, 3, 3]));
+  assert.equal(q.length, 8);
 });

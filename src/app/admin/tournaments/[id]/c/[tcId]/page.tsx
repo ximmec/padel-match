@@ -584,7 +584,8 @@ function RulesTab({ lc, u }: { lc: LoadedCategory; u: CurrentUser }) {
               </select></div>
             <label className="checkbox" style={{ alignSelf: "center" }}><input type="checkbox" name="fourGvg" defaultChecked={r.fourZone === "GVG"} /> Zonas de 4: GvG/PvP (1° vs 4° y 2° vs 3°; después ganadores contra ganadores y perdedores contra perdedores)</label>
             <label className="checkbox" style={{ alignSelf: "center" }}><input type="checkbox" name="pass3of4" defaultChecked={!!r.qualification.perZoneOf4} /> En las zonas de 4 pasan 3 (las demás siguen con lo de arriba)</label>
-            <div className="field"><label>Más los mejores del puesto siguiente</label><input type="number" name="bestNext" min={0} max={16} defaultValue={r.qualification.bestNext} />
+            <label className="checkbox" style={{ alignSelf: "center" }}><input type="checkbox" name="autoBestNext" defaultChecked={!!r.qualification.autoBestNext} /> Mejores siguientes automático: se suman los que hagan falta para completar el cuadro (8, 16, 32…){r.qualification.autoBestNext ? ` — hoy: ${r.qualification.bestNext}` : ""}</label>
+            <div className="field"><label>Más los mejores del puesto siguiente</label><input type="number" name="bestNext" min={0} max={16} defaultValue={r.qualification.autoBestNext ? 0 : r.qualification.bestNext} />
               <div className="hint">Ej. 2 = clasifican además los 2 mejores terceros.</div></div>
             <div className="field"><label>Comparación entre zonas de distinto tamaño</label>
               <select name="crossZoneMode" defaultValue={r.crossZoneMode}>

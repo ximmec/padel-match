@@ -7,7 +7,7 @@ import {
   evaluateCategory, normalizeRules, categoryStages,
   type CategoryRules, type CategoryState, type CategoryView, type ZoneMatchData, type MatchStatus,
 } from "@/core/engine";
-import type { BracketMatchDef, Resolved } from "@/core/bracket";
+import { resolveQualification, type BracketMatchDef, type Resolved } from "@/core/bracket";
 import type { MatchOutcome } from "@/core/scoring";
 
 export interface TcRow {
@@ -115,6 +115,8 @@ export async function loadCategory(db: Db, tcId: string, orgId: string | null, o
     ORDER BY m.phase DESC, m.round, m.bracket_code, m.created_at`;
 
   const state = buildState(tc, zones, matches, entries);
+  // «Mejores siguientes» automático: se calcula según cómo quedaron las zonas.
+  rules.qualification = resolveQualification(rules.qualification, state.zones.map((z) => z.entryIds.length - (z.withdrawn?.length ?? 0)).filter((n) => n > 0));
   const view = evaluateCategory(rules, state);
   return { tc, rules, entries, entryMap: new Map(entries.map((e) => [e.id, e])), zones, matches, state, view };
 }
