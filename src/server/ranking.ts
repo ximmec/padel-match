@@ -90,8 +90,8 @@ export interface RankingListRow { position: number; player_id: string; code: str
 export async function getRanking(db: Db, orgId: string, f: RankingFilter): Promise<RankingListRow[]> {
   const rows = await db<(LedgerRow & { code: string; first_name: string; last_name: string })[]>`
     SELECT l.player_id AS "playerId", l.points, l.tc_id AS "tournamentCategoryId", l.category_id AS "categoryId",
-           l.circuit_id AS "circuitId", l.season_id AS "seasonId", p.code, p.first_name, p.last_name
-    FROM ranking_ledger l JOIN players p ON p.id = l.player_id
+           l.circuit_id AS "circuitId", l.season_id AS "seasonId", tc.tournament_id AS "tournamentId", p.code, p.first_name, p.last_name
+    FROM ranking_ledger l JOIN players p ON p.id = l.player_id LEFT JOIN tournament_categories tc ON tc.id = l.tc_id
     WHERE l.org_id = ${orgId} AND l.superseded_at IS NULL AND p.deleted_at IS NULL`;
   const info = new Map(rows.map((r) => [r.playerId, r]));
   return aggregateRanking(rows, f).map((r) => {

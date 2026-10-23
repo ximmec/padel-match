@@ -5,7 +5,7 @@ import { getRanking } from "@/server/ranking";
 
 export const metadata = { title: "Ranking" };
 
-export default async function PublicRanking({ searchParams }: { searchParams: Promise<{ org?: string; category?: string; circuit?: string; season?: string }> }) {
+export default async function PublicRanking({ searchParams }: { searchParams: Promise<{ org?: string; category?: string; circuit?: string; season?: string; t?: string }> }) {
   const sp = await searchParams;
   const orgs = await sql<{ id: string; name: string; slug: string }[]>`
     SELECT o.id, o.name, o.slug FROM organizations o WHERE EXISTS (SELECT 1 FROM tournaments t WHERE t.org_id = o.id AND t.is_public) ORDER BY o.name`;
@@ -15,23 +15,32 @@ export default async function PublicRanking({ searchParams }: { searchParams: Pr
     categoryId: sp.category && isUuid(sp.category) ? sp.category : undefined,
     circuitId: sp.circuit && isUuid(sp.circuit) ? sp.circuit : undefined,
     seasonId: sp.season && isUuid(sp.season) ? sp.season : undefined,
+    tournamentId: sp.t && isUuid(sp.t) ? sp.t : undefined,
   };
-  const [rows, categories, circuits, seasons] = await Promise.all([
+  const [rows, categories, circuits, seasons, tournaments] = await Promise.all([
     getRanking(sql, org.id, f),
     sql<{ id: string; name: string }[]>`SELECT id, name FROM categories WHERE org_id = ${org.id} ORDER BY name`,
     sql<{ id: string; name: string }[]>`SELECT id, name FROM circuits WHERE org_id = ${org.id} ORDER BY name`,
     sql<{ id: string; name: string }[]>`SELECT id, name FROM seasons WHERE org_id = ${org.id} ORDER BY name DESC`,
+    sql<{ id: string; name: string; circuit_id: string | null }[]>`SELECT id, name, circuit_id FROM tournaments WHERE org_id = ${org.id} AND is_public AND status <> 'DRAFT' ORDER BY start_date DESC`,
   ]);
   return (
     <>
-      <section className="hero"><div className="inner"><h1>Ranking</h1><p>{org.name} · puntos individuales acumulados</p></div></section>
+      <section className="hero"><div className="inner"><h1>Ranking{f.circuitId ? ` · ${circuits.find((c) => c.id === f.circuitId)?.name ?? ""}` : ""}</h1><p>{org.name} · puntos individuales acumulados{f.tournamentId ? ` en ${tournaments.find((x) => x.id === f.tournamentId)?.name ?? "el torneo"}` : f.circuitId ? " en este circuito" : ""}</p></div></section>
       <main className="container stack">
+        {circuits.length > 0 && (
+          <nav className="filter-pills">
+            <Link href={`/ranking`} className={!f.circuitId ? "active" : ""}>Ranking general</Link>
+            {circuits.map((c) => <Link key={c.id} href={`/ranking?circuit=${c.id}`} className={f.circuitId === c.id ? "active" : ""}>{c.name}</Link>)}
+          </nav>
+        )}
         <form className="card row">
           {orgs.length > 1 && <select name="org" defaultValue={org.slug} className="sm">{orgs.map((o) => <option key={o.id} value={o.slug}>{o.name}</option>)}</select>}
           {orgs.length === 1 && <input type="hidden" name="org" value={org.slug} />}
           <select name="category" defaultValue={f.categoryId ?? ""} className="sm"><option value="">General (todas las categorías)</option>{categories.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}</select>
           {circuits.length > 0 && <select name="circuit" defaultValue={f.circuitId ?? ""} className="sm"><option value="">Todos los circuitos</option>{circuits.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}</select>}
           {seasons.length > 0 && <select name="season" defaultValue={f.seasonId ?? ""} className="sm"><option value="">Todas las temporadas</option>{seasons.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}</select>}
+          {tournaments.length > 0 && <select name="t" defaultValue={f.tournamentId ?? ""} className="sm"><option value="">Todos los torneos</option>{tournaments.filter((t) => !f.circuitId || t.circuit_id === f.circuitId).map((t) => <option key={t.id} value={t.id}>{t.name}</option>)}</select>}
           <button className="btn sm">Ver</button>
         </form>
         <div className="card flush"><div className="table-wrap"><table>

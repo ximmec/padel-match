@@ -48,9 +48,10 @@ export interface LedgerRow {
   categoryId: string | null;
   circuitId: string | null;
   seasonId: string | null;
+  tournamentId?: string | null;
 }
 
-export interface RankingFilter { categoryId?: string; circuitId?: string; seasonId?: string }
+export interface RankingFilter { categoryId?: string; circuitId?: string; seasonId?: string; tournamentId?: string }
 
 export interface RankingRow { playerId: string; points: number; events: number; position: number }
 
@@ -60,6 +61,7 @@ export function aggregateRanking(rows: LedgerRow[], f: RankingFilter = {}): Rank
     if (f.categoryId && r.categoryId !== f.categoryId) continue;
     if (f.circuitId && r.circuitId !== f.circuitId) continue;
     if (f.seasonId && r.seasonId !== f.seasonId) continue;
+    if (f.tournamentId && r.tournamentId !== f.tournamentId) continue;
     const a = acc.get(r.playerId) ?? { points: 0, events: new Set<string>() };
     a.points += r.points;
     if (r.tournamentCategoryId) a.events.add(r.tournamentCategoryId);

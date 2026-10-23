@@ -106,7 +106,7 @@ export async function categoryWorkbook(db: Db, orgId: string, tcId: string) {
   return { wb, name: `${lc.tc.tournament_name} - ${lc.tc.category_name}` };
 }
 
-export async function rankingWorkbook(db: Db, orgId: string, f: { categoryId?: string; circuitId?: string; seasonId?: string }) {
+export async function rankingWorkbook(db: Db, orgId: string, f: { categoryId?: string; circuitId?: string; seasonId?: string; tournamentId?: string }) {
   const wb = new ExcelJS.Workbook();
   const rows = await getRanking(db, orgId, f);
   sheet(wb, "Ranking", ["Posición", "Código", "Apellido", "Nombre", "Torneos", "Puntos"], rows.map((r) => [r.position, r.code, r.last_name, r.first_name, r.events, r.points]), [10, 12, 20, 20, 10, 10]);

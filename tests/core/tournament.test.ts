@@ -227,3 +227,14 @@ test("zonas de 4 que pasan 3: 14 parejas (4,4,3,3) → 3+3+2+2 = 10 clasificados
   const defs = generateBracket(q);
   assert.equal(defs.filter((d) => d.round === 1).length, 8);
 });
+
+test("ranking por circuito y por torneo: cada uno suma solo sus puntos", () => {
+  const rows = [
+    { playerId: "p1", points: 1000, tournamentCategoryId: "tc1", categoryId: "c", circuitId: "bloko", seasonId: null, tournamentId: "t1" },
+    { playerId: "p1", points: 600, tournamentCategoryId: "tc2", categoryId: "c", circuitId: "otro", seasonId: null, tournamentId: "t2" },
+    { playerId: "p2", points: 360, tournamentCategoryId: "tc1", categoryId: "c", circuitId: "bloko", seasonId: null, tournamentId: "t1" },
+  ];
+  assert.equal(aggregateRanking(rows).find((r) => r.playerId === "p1")!.points, 1600);
+  assert.equal(aggregateRanking(rows, { circuitId: "bloko" }).find((r) => r.playerId === "p1")!.points, 1000);
+  assert.deepEqual(aggregateRanking(rows, { tournamentId: "t2" }).map((r) => r.playerId), ["p1"]);
+});

@@ -8,19 +8,21 @@ import { rankingAdjustAction, recalcRankingAction } from "@/server/actions/compe
 
 export const metadata = { title: "Ranking" };
 
-export default async function RankingAdmin({ searchParams }: { searchParams: Promise<{ category?: string; circuit?: string; season?: string }> }) {
+export default async function RankingAdmin({ searchParams }: { searchParams: Promise<{ category?: string; circuit?: string; season?: string; t?: string }> }) {
   const u = await requireUser();
   const sp = await searchParams;
   const f = {
     categoryId: sp.category && isUuid(sp.category) ? sp.category : undefined,
     circuitId: sp.circuit && isUuid(sp.circuit) ? sp.circuit : undefined,
     seasonId: sp.season && isUuid(sp.season) ? sp.season : undefined,
+    tournamentId: sp.t && isUuid(sp.t) ? sp.t : undefined,
   };
-  const [rows, categories, circuits, seasons, players, tcs] = await Promise.all([
+  const [rows, categories, circuits, seasons, tournaments, players, tcs] = await Promise.all([
     getRanking(sql, u.orgId, f),
     sql<{ id: string; name: string }[]>`SELECT id, name FROM categories WHERE org_id = ${u.orgId} ORDER BY name`,
     sql<{ id: string; name: string }[]>`SELECT id, name FROM circuits WHERE org_id = ${u.orgId} ORDER BY name`,
     sql<{ id: string; name: string }[]>`SELECT id, name FROM seasons WHERE org_id = ${u.orgId} ORDER BY name DESC`,
+    sql<{ id: string; name: string; circuit_id: string | null }[]>`SELECT id, name, circuit_id FROM tournaments WHERE org_id = ${u.orgId} ORDER BY start_date DESC`,
     sql<{ id: string; first_name: string; last_name: string; code: string }[]>`SELECT id, first_name, last_name, code FROM players WHERE org_id = ${u.orgId} AND deleted_at IS NULL ORDER BY lower(last_name), lower(first_name)`,
     sql<{ id: string; label: string; points_awarded_at: Date | null }[]>`
       SELECT tc.id, t.name || ' · ' || c.name AS label, tc.points_awarded_at FROM tournament_categories tc
@@ -33,10 +35,17 @@ export default async function RankingAdmin({ searchParams }: { searchParams: Pro
         <h1>Ranking</h1>
         {can(u, "exports.download") && <a className="btn ghost sm" href={`/api/export?type=ranking&${new URLSearchParams(Object.entries(sp).filter(([, v]) => v) as [string, string][])}`}>📊 Excel</a>}
       </div>
+      {circuits.length > 0 && (
+        <nav className="filter-pills">
+          <Link href={`/admin/ranking`} className={!f.circuitId ? "active" : ""}>Ranking general</Link>
+          {circuits.map((c) => <Link key={c.id} href={`/admin/ranking?circuit=${c.id}`} className={f.circuitId === c.id ? "active" : ""}>{c.name}</Link>)}
+        </nav>
+      )}
       <form className="card row">
         <select name="category" defaultValue={f.categoryId ?? ""} className="sm"><option value="">Todas las categorías</option>{categories.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}</select>
         <select name="circuit" defaultValue={f.circuitId ?? ""} className="sm"><option value="">Todos los circuitos</option>{circuits.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}</select>
         <select name="season" defaultValue={f.seasonId ?? ""} className="sm"><option value="">Todas las temporadas</option>{seasons.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}</select>
+          {tournaments.length > 0 && <select name="t" defaultValue={f.tournamentId ?? ""} className="sm"><option value="">Todos los torneos</option>{tournaments.filter((t) => !f.circuitId || t.circuit_id === f.circuitId).map((t) => <option key={t.id} value={t.id}>{t.name}</option>)}</select>}
         <button className="btn sm">Filtrar</button>
       </form>
       <div className="grid grid-2">

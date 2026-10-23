@@ -33,7 +33,7 @@ export async function GET(req: Request) {
         break;
       }
       case "ranking":
-        out = await rankingWorkbook(sql, user.orgId, { categoryId: id("category") ?? undefined, circuitId: id("circuit") ?? undefined, seasonId: id("season") ?? undefined });
+        out = await rankingWorkbook(sql, user.orgId, { categoryId: id("category") ?? undefined, circuitId: id("circuit") ?? undefined, seasonId: id("season") ?? undefined, tournamentId: id("t") ?? undefined });
         break;
       case "players-template":
         out = await playersTemplateWorkbook();
