@@ -14,6 +14,8 @@ import { STAGE_LABELS, STAGE_ORDER, roundName } from "@/core/bracket";
 import { FORMATS, formatLabel, scoreText, type MatchOutcome } from "@/core/scoring";
 import { fmtDateTime } from "@/lib/format";
 import { ResetForm } from "@/components/ResetForm";
+import { PairPlayerSelects } from "@/components/PairPlayerSelects";
+import { PLAYER_CATEGORIES } from "@/core/playerImport";
 
 const TABS: [string, string][] = [
   ["inscripciones", "Inscripciones"],
@@ -80,6 +82,15 @@ async function EntriesTab({ lc, u }: { lc: LoadedCategory; u: CurrentUser }) {
     FROM players p WHERE p.org_id = ${u.orgId} AND p.deleted_at IS NULL AND p.gender = ANY(${genderFilter})
     ORDER BY lower(p.last_name), lower(p.first_name)`;
   const free = players.filter((p) => !p.busy);
+  const fold = (x: string) => x.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase();
+  const level = PLAYER_CATEGORIES.find((c) => fold(lc.tc.category_name).includes(fold(c))) ?? null;
+  const labelOf = (p: (typeof players)[number]) => `${p.last_name}, ${p.first_name}${p.category ? ` · ${p.category}` : ""} (${p.code})${p.gender === "X" ? " · sin definir" : lc.tc.gender_rule === "MIXED" ? ` · ${p.gender}` : ""}`;
+  const optGroups = (list: typeof players) => level ? (
+    <>
+      <optgroup label={level}>{list.filter((p) => p.category === level).map(opt)}</optgroup>
+      <optgroup label="Otras categorías">{list.filter((p) => p.category !== level).map(opt)}</optgroup>
+    </>
+  ) : list.map(opt);
   const opt = (p: (typeof players)[number]) => <option key={p.id} value={p.id}>{p.last_name}, {p.first_name}{p.category ? ` · ${p.category}` : ""} ({p.code}){p.gender === "X" ? " · sin definir" : lc.tc.gender_rule === "MIXED" ? ` · ${p.gender}` : ""}</option>;
   const manage = can(u, "players.manage");
   const zoneOf = new Map(lc.zones.flatMap((z) => z.entry_ids.map((e) => [e, z.name] as const)));
@@ -119,7 +130,7 @@ async function EntriesTab({ lc, u }: { lc: LoadedCategory; u: CurrentUser }) {
                           <label>Reemplazar jugador</label>
                           <div className="row">
                             <select name="slot" className="sm">{e.players.map((p) => <option key={p.slot} value={p.slot}>Sale {p.first_name} {p.last_name}</option>)}</select>
-                            <select name="player_id" className="sm" required defaultValue=""><option value="" disabled>Entra…</option>{free.map(opt)}</select>
+                            <select name="player_id" className="sm" required defaultValue=""><option value="" disabled>Entra…</option>{optGroups(free)}</select>
                             <Submit className="btn sm">Reemplazar</Submit>
                           </div>
                           <div className="muted" style={{ fontSize: 12 }}>La pareja conserva sus resultados.</div>
@@ -171,8 +182,7 @@ async function EntriesTab({ lc, u }: { lc: LoadedCategory; u: CurrentUser }) {
           <h2>Inscribir pareja</h2>
           <ActionForm action={A.registerEntryAction} resetOnSuccess>
             <input type="hidden" name="tc_id" value={lc.tc.id} />
-            <div className="field"><label>Jugador 1</label><select name="player1" required defaultValue=""><option value="" disabled>Elegir…</option>{free.map(opt)}</select></div>
-            <div className="field"><label>Jugador 2</label><select name="player2" required defaultValue=""><option value="" disabled>Elegir…</option>{free.map(opt)}</select></div>
+            <PairPlayerSelects level={level} players={free.map((p) => ({ id: p.id, label: labelOf(p), category: p.category }))} />
             <div className="field"><label>Restricción horaria (opcional)</label>
               <div className="row"><span className="muted">Puede desde</span><input type="time" name="not_before" className="sm" /><span className="muted">hasta</span><input type="time" name="not_after" className="sm" /></div>
               <input name="restriction_note" placeholder="Nota (ej. no puede antes de las 20 los sábados)" maxLength={120} style={{ marginTop: 6 }} />
