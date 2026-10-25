@@ -509,3 +509,16 @@ test("corregir clasificados: poner una pareja no clasificada e intercambiar luga
   assert.equal((lc.view.bracket.find((m) => m.code === other.code)!.a as { entryId: string }).entryId, outside);
   assert.equal((lc.view.bracket.find((m) => m.code === spot.code)!.a as { entryId: string }).entryId, otherWho);
 });
+
+test("armar zonas a mano: respeta la elección y controla que estén todas", async () => {
+  const { tcId } = await makeTournament();
+  const players = await makePlayers(14);
+  const e = await register(tcId, players); // 7 parejas
+  const manual = [[e[6], e[0], e[3], e[5]], [e[1], e[2], e[4]]];
+  await assert.rejects(tx((x) => ops.generateZones(x, user, tcId, null, 0, [manual[0], [e[1], e[2]]])), /Faltan ubicar/);
+  await assert.rejects(tx((x) => ops.generateZones(x, user, tcId, null, 0, [manual[0], [e[1], e[2], e[0]]])), /dos zonas/);
+  await tx((x) => ops.generateZones(x, user, tcId, null, 0, manual));
+  const lc = await loadCategory(sql, tcId, orgId);
+  assert.deepEqual(lc.zones.map((z) => [...z.entry_ids].sort()), manual.map((g) => [...g].sort()));
+  assert.equal(lc.matches.filter((m) => m.phase === "ZONE").length, 6 + 3);
+});

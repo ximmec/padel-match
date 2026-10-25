@@ -308,7 +308,7 @@ async function createFixtures(tx: Tx, tcId: string, zoneId: string, entryIds: st
   }
 }
 
-export async function generateZones(tx: Tx, user: CurrentUser, tcId: string, sizes: number[] | null, randomSeed: number) {
+export async function generateZones(tx: Tx, user: CurrentUser, tcId: string, sizes: number[] | null, randomSeed: number, manual?: string[][]) {
   const lc = await loadCategory(tx, tcId, user.orgId, { lock: true });
   if (lc.rules.mode === "KNOCKOUT") throw new UserError("Esta categoría es de eliminación directa: no tiene zonas. Generá el cuadro directamente.");
   if (lc.matches.some((m) => m.phase === "ZONE" && m.status === "PLAYED")) {
@@ -317,9 +317,26 @@ export async function generateZones(tx: Tx, user: CurrentUser, tcId: string, siz
   if (lc.tc.bracket.length) throw new UserError("Ya hay un cuadro generado. Eliminá el cuadro antes de regenerar las zonas.");
   const active = lc.entries.filter((e) => e.status === "ACTIVE");
   if (active.length < 2) throw new UserError("Se necesitan al menos 2 parejas inscriptas.");
-  const plan = sizes ?? planZoneSizes(active.length, { preferredSize: lc.rules.preferredZoneSize });
-  validateZoneSizes(active.length, plan);
-  const groups = distributeEntries(active.map((e) => ({ id: e.id, seed: e.seed })), plan, randomSeed);
+  let plan: number[];
+  let groups: { id: string }[][];
+  if (manual) {
+    const ids = new Set(active.map((e) => e.id));
+    const seen = new Set<string>();
+    for (const g of manual) for (const id of g) {
+      if (!ids.has(id)) throw new UserError("Hay una pareja que no está inscripta (o fue retirada). Recargá la página.");
+      if (seen.has(id)) throw new UserError(`${entryLabel(lc.entryMap.get(id))} está en dos zonas.`);
+      seen.add(id);
+    }
+    const missing = active.filter((e) => !seen.has(e.id));
+    if (missing.length) throw new UserError(`Faltan ubicar: ${missing.map((e) => entryLabel(e)).join(", ")}.`);
+    plan = manual.map((g) => g.length);
+    validateZoneSizes(active.length, plan);
+    groups = manual.map((g) => g.map((id) => ({ id })));
+  } else {
+    plan = sizes ?? planZoneSizes(active.length, { preferredSize: lc.rules.preferredZoneSize });
+    validateZoneSizes(active.length, plan);
+    groups = distributeEntries(active.map((e) => ({ id: e.id, seed: e.seed })), plan, randomSeed);
+  }
 
   const before = lc.zones.map((z) => ({ name: z.name, entries: z.entry_ids }));
   await tx`DELETE FROM matches WHERE tc_id = ${tcId} AND phase = 'ZONE'`;
@@ -335,7 +352,7 @@ export async function generateZones(tx: Tx, user: CurrentUser, tcId: string, siz
   await tx`UPDATE tournament_categories SET status = 'ZONES', version = version + 1 WHERE id = ${tcId}`;
   await audit(tx, user, {
     entity: "zones", entityId: tcId, action: "generate_zones", tournamentId: lc.tc.tournament_id,
-    summary: `Zonas generadas para ${lc.tc.category_name}: ${plan.join(", ")} parejas (sorteo #${randomSeed})`,
+    summary: `Zonas ${manual ? "armadas a mano" : "generadas"} para ${lc.tc.category_name}: ${plan.join(", ")} parejas${manual ? "" : ` (sorteo #${randomSeed})`}`,
     before, after: groups.map((g, i) => ({ name: zoneName(i), entries: g.map((e) => e.id) })),
   });
 }

@@ -177,6 +177,18 @@ export async function generateZonesAction(_p: ActionState, fd: FormData): Promis
   }, REVAL);
 }
 
+export async function manualZonesAction(_p: ActionState, fd: FormData): Promise<ActionState> {
+  return runAction("tournaments.manage", async (user) => {
+    const tcId = uuid(fd, "tc_id");
+    let groups: unknown;
+    try { groups = JSON.parse(str(fd, "manual")); } catch { throw new UserError("Armá las zonas antes de guardar."); }
+    if (!Array.isArray(groups) || !groups.length || groups.some((g) => !Array.isArray(g) || g.some((x) => typeof x !== "string" || !x))) throw new UserError("Completá todos los lugares de cada zona.");
+    const clean = (groups as string[][]).map((g) => g.map((x) => uuid(x)));
+    await sql.begin((tx) => ops.generateZones(tx, user, tcId, null, 0, clean));
+    return { message: "Zonas armadas." };
+  }, REVAL);
+}
+
 export async function addZoneAction(_p: ActionState, fd: FormData): Promise<ActionState> {
   return runAction("tournaments.manage", async (user) => {
     await sql.begin((tx) => ops.addZone(tx, user, uuid(fd, "tc_id")));

@@ -97,6 +97,14 @@ test("torneo, inscripciones, zonas, cuadro y cronograma", async ({ page }) => {
   await expect(page.locator("button.pay.on")).toHaveCount(1);
   await shot(page, "07-inscripciones");
 
+  // Armar zonas a mano (solo la vista; las zonas se generan con sorteo abajo)
+  await page.goto(`${state.categoryUrl}?tab=zonas`);
+  await page.locator("summary", { hasText: "Armar zonas a mano" }).click();
+  await page.locator(".mz-zone select").first().selectOption({ index: 1 });
+  await page.getByRole("button", { name: "Completar el resto al azar" }).click();
+  await expect(page.getByText("Todas las parejas ubicadas")).toBeVisible();
+  await shot(page, "07b-zonas-a-mano");
+
   // Duplicado: el mismo jugador no aparece como disponible; probamos la validación de pareja repetida
   await page.goto(`${state.categoryUrl}?tab=zonas`);
   await page.getByRole("button", { name: /Generar zonas con 11 parejas/ }).click();

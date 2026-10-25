@@ -16,6 +16,7 @@ import { fmtDate, fmtDateTime } from "@/lib/format";
 import { fmtMoney } from "@/lib/cardBg";
 import { ResetForm } from "@/components/ResetForm";
 import { PairPlayerSelects } from "@/components/PairPlayerSelects";
+import { ManualZones } from "@/components/ManualZones";
 import { PLAYER_CATEGORIES } from "@/core/playerImport";
 
 const TABS: [string, string][] = [
@@ -325,6 +326,15 @@ function ZonesTab({ lc, u }: { lc: LoadedCategory; u: CurrentUser }) {
             <Submit className="btn primary">Generar zonas con {active.length} parejas</Submit>
           </ActionForm>
         </div>
+      )}
+      {manage && !hasResults && lc.tc.bracket.length === 0 && active.length >= 2 && (
+        <details className="card mz-card" open={false}>
+          <summary><h2>Armar zonas a mano</h2><span className="muted">Elegí vos qué pareja va en cada zona.</span></summary>
+          <ActionForm action={A.manualZonesAction} confirmText={lc.zones.length ? "Se reemplazarán las zonas actuales. ¿Continuar?" : undefined}>
+            <input type="hidden" name="tc_id" value={lc.tc.id} />
+            <ManualZones pairs={active.map((e) => ({ id: e.id, label: entryLabel(e), seed: e.seed }))} suggested={suggested ? suggested.split(", ").map(Number) : [active.length]} />
+          </ActionForm>
+        </details>
       )}
       {unzoned.length > 0 && lc.zones.length > 0 && (
         <div className="alert warn">Hay {unzoned.length} pareja(s) sin zona: {unzoned.map(entryLabel).join(", ")}. Asignalas con «Mover a» desde la lista de abajo.</div>

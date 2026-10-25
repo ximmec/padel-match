@@ -811,3 +811,18 @@ details[open] > summary::before { content: "▾ "; }
 .mcard-load > summary { cursor: pointer; font-size: 13px; font-weight: 700; color: var(--orange); }
 .mcard-form { margin-top: 10px; }
 .mcard-form .score { width: 46px; }
+
+/* ---------- Armar zonas a mano ---------- */
+.mz-card > summary { list-style: none; cursor: pointer; display: flex; flex-direction: column; gap: 2px; }
+.mz-card > summary::-webkit-details-marker { display: none; }
+.mz-card > summary h2 { margin: 0; }
+.mz-card > summary h2::after { content: " ▾"; color: var(--orange); font-size: .7em; }
+.mz-card[open] > summary { margin-bottom: 16px; }
+.mz-top { display: grid; grid-template-columns: minmax(220px, 1fr) auto; gap: 16px; align-items: start; margin-bottom: 16px; }
+.mz-status { display: flex; flex-direction: column; align-items: flex-end; gap: 8px; }
+.mz-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); gap: 12px; margin-bottom: 14px; }
+.mz-zone { border: 1px solid var(--line-2); border-radius: 16px; padding: 12px; display: flex; flex-direction: column; gap: 6px; background: rgba(255,255,255,.015); }
+.mz-zone-head { display: flex; justify-content: space-between; margin-bottom: 4px; }
+.mz-zone select.on { border-color: rgba(200, 230, 0, .45); color: #fff; }
+.mz-left { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; margin-bottom: 14px; }
+@media (max-width: 640px) { .mz-top { grid-template-columns: 1fr; } .mz-status { align-items: flex-start; } }
