@@ -341,6 +341,23 @@ function ZonesTab({ lc, u }: { lc: LoadedCategory; u: CurrentUser }) {
           </ActionForm>
         </details>
       )}
+      {manage && lc.zones.some((z) => z.entry_ids.length === 4) && (
+        <div className="card gvg-box">
+          <div>
+            <b>Zonas de 4 parejas ({lc.zones.filter((z) => z.entry_ids.length === 4).map((z) => z.name).join(", ")})</b>
+            <div className="muted" style={{ fontSize: 14, marginTop: 4 }}>
+              {lc.rules.fourZone === "GVG"
+                ? "Se juegan ganador vs ganador y perdedor vs perdedor: 1ª ronda (1° vs 4° y 2° vs 3°) y después cruce de ganadores y de perdedores. Cada pareja juega 2 partidos."
+                : "Se juegan todos contra todos (3 partidos por pareja). Podés pasarlas a ganador vs ganador / perdedor vs perdedor: se respetan los partidos ya jugados."}
+            </div>
+          </div>
+          <ActionForm action={A.setFourZoneFormatAction}>
+            <input type="hidden" name="tc_id" value={lc.tc.id} />
+            <input type="hidden" name="to" value={lc.rules.fourZone === "GVG" ? "RR" : "GVG"} />
+            <Submit className={`btn ${lc.rules.fourZone === "GVG" ? "ghost" : "primary"}`}>{lc.rules.fourZone === "GVG" ? "Volver a todos contra todos" : "Pasar a ganador vs ganador / perdedor vs perdedor"}</Submit>
+          </ActionForm>
+        </div>
+      )}
       {unzoned.length > 0 && lc.zones.length > 0 && (
         <div className="alert warn">Hay {unzoned.length} pareja(s) sin zona: {unzoned.map(entryLabel).join(", ")}. Asignalas con «Mover a» desde la lista de abajo.</div>
       )}

@@ -827,3 +827,5 @@ details[open] > summary::before { content: "▾ "; }
 .mz-left { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; margin-bottom: 14px; }
 @media (max-width: 640px) { .mz-top { grid-template-columns: 1fr; } .mz-status { align-items: flex-start; } }
 .mz-card > summary::before { display: none !important; }
+.gvg-box { display: flex; justify-content: space-between; align-items: center; gap: 16px; flex-wrap: wrap; border-color: rgba(255, 115, 0, .35); }
+.gvg-box > div:first-child { flex: 1 1 360px; }

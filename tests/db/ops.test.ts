@@ -540,3 +540,35 @@ test("reemplazo escribiendo el nombre: crea el jugador una sola vez y conserva r
   assert.equal(lc.matches.find((x) => x.id === m.id)!.status, "PLAYED");
   await assert.rejects(tx((x) => ops.quickPlayer(x, user, "J", "", "MALE")), /nombre y apellido/);
 });
+
+test("zona de 4 ya empezada: pasar a GvG/PvP respetando lo jugado, y volver", async () => {
+  const { tcId } = await makeTournament();
+  const players = await makePlayers(26);
+  const entries = await register(tcId, players); // 13 parejas
+  await tx((x) => ops.generateZones(x, user, tcId, [4, 3, 3, 3], 5));
+  let lc = await loadCategory(sql, tcId, orgId);
+  const z4 = lc.zones.find((z) => z.entry_ids.length === 4)!;
+  const [a, b, c, d] = z4.entry_ids;
+  // se jugó 2° vs 1° (no es el cruce por defecto 1°-4°)
+  const m1 = lc.matches.find((m) => m.zone_id === z4.id && [m.entry_a, m.entry_b].includes(a) && [m.entry_a, m.entry_b].includes(b))!;
+  await result(m1.id, [[6, 2], [6, 2]]);
+  await assert.rejects(tx((x) => ops.setFourZoneFormat(x, user, tcId, "GVG", false)), NeedsConfirmation);
+  await tx((x) => ops.setFourZoneFormat(x, user, tcId, "GVG", true));
+  lc = await loadCategory(sql, tcId, orgId);
+  const zm = () => lc.matches.filter((m) => m.zone_id === z4.id && m.status !== "ANNULLED");
+  assert.equal(lc.zones.find((z) => z.id === z4.id)!.format, "GVG");
+  assert.equal(zm().length, 4, "2 de 1ª ronda + ganadores + perdedores");
+  assert.equal(lc.matches.find((m) => m.id === m1.id)!.status, "PLAYED", "el jugado se conserva como 1ª ronda");
+  const other = zm().find((m) => m.round === 1 && m.id !== m1.id)!;
+  assert.deepEqual([other.entry_a, other.entry_b].sort(), [c, d].sort());
+  await result(other.id, [[6, 1], [6, 1]]);
+  lc = await loadCategory(sql, tcId, orgId);
+  const gvg = zm().find((m) => m.slot === "GVG")!;
+  assert.ok(gvg.entry_a && gvg.entry_b, "ganador vs ganador definido");
+  // Volver a todos contra todos: 6 partidos, los 2 jugados intactos
+  await tx((x) => ops.setFourZoneFormat(x, user, tcId, "RR", true));
+  lc = await loadCategory(sql, tcId, orgId);
+  assert.equal(zm().length, 6);
+  assert.equal(zm().filter((m) => m.status === "PLAYED").length, 2);
+  void entries;
+});

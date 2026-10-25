@@ -202,6 +202,14 @@ export async function manualZonesAction(_p: ActionState, fd: FormData): Promise<
   }, REVAL);
 }
 
+export async function setFourZoneFormatAction(_p: ActionState, fd: FormData): Promise<ActionState> {
+  return runAction("tournaments.manage", async (user) => {
+    const to = str(fd, "to") === "RR" ? "RR" : "GVG";
+    await sql.begin((tx) => ops.setFourZoneFormat(tx, user, uuid(fd, "tc_id"), to, isConfirmed(fd)));
+    return { message: to === "GVG" ? "Las zonas de 4 ahora se juegan ganador vs ganador y perdedor vs perdedor." : "Las zonas de 4 ahora se juegan todos contra todos." };
+  }, REVAL);
+}
+
 export async function addZoneAction(_p: ActionState, fd: FormData): Promise<ActionState> {
   return runAction("tournaments.manage", async (user) => {
     await sql.begin((tx) => ops.addZone(tx, user, uuid(fd, "tc_id")));
