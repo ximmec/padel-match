@@ -307,8 +307,8 @@ export async function setBracketSlotAction(_p: ActionState, fd: FormData): Promi
     else if (v.startsWith("WINNER:")) ref = { t: "WINNER", match: v.slice(7) };
     else throw new UserError("Elegí a quién ubicar.");
     masterOnly(user);
-    await sql.begin((tx) => ops.setBracketSlot(tx, user, uuid(fd, "tc_id"), str(fd, "code"), side, ref, isConfirmed(fd)));
-    return { message: "Clasificado corregido." };
+    const r = await sql.begin((tx) => ops.setBracketSlot(tx, user, uuid(fd, "tc_id"), str(fd, "code"), side, ref, isConfirmed(fd)));
+    return { message: r === "swap" ? "Parejas intercambiadas." : "Pareja cambiada." };
   }, REVAL);
 }
 

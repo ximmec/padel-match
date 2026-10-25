@@ -597,6 +597,8 @@ function BracketTab({ lc, u }: { lc: LoadedCategory; u: CurrentUser }) {
   const master = manage && (u.role === "ADMIN" || u.isSuperadmin);
   const canWin = can(u, "results.enter");
   const pairList = lc.entries.filter((e) => e.status === "ACTIVE").map((e) => ({ id: e.id, label: entryLabel(e) }));
+  const whereInRound = new Map<string, string>();
+  for (const m of lc.view.bracket) for (const [sd, r] of [["arriba", m.a], ["abajo", m.b]] as const) if (r.kind === "ENTRY") whereInRound.set(`${m.round}|${r.entryId}`, `${m.code} ${sd}`);
   const zoneNames = Object.fromEntries(lc.zones.map((z) => [z.id, z.name]));
   const hasResults = lc.matches.some((m) => m.phase === "BRACKET" && m.status === "PLAYED");
   const q = lc.rules.qualification;
@@ -646,7 +648,7 @@ function BracketTab({ lc, u }: { lc: LoadedCategory; u: CurrentUser }) {
           return (
             <BracketSlotMenu tcId={lc.tc.id} code={rm.code} side={side}
               canWin={canWin && !!row && me.kind === "ENTRY" && other.kind === "ENTRY"}
-              canChange={master} pairs={pairList} auto={autoOpts} current={me.kind === "ENTRY" ? me.entryId : null}
+              canChange={master} pairs={pairList.map((p) => { const w = whereInRound.get(`${rm.round}|${p.id}`); return w ? { ...p, label: `${p.label} · está en ${w} (se intercambian)` } : p; })} auto={autoOpts} current={me.kind === "ENTRY" ? me.entryId : null}
               isWinner={me.kind === "ENTRY" && rm.winner === me.entryId && !rm.staleResult && row?.status === "PLAYED"}>
               {slot}
             </BracketSlotMenu>

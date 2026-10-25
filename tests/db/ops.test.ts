@@ -493,15 +493,20 @@ test("corregir clasificados: poner una pareja no clasificada e intercambiar luga
   const inside = new Set(r1.flatMap((m) => [m.a, m.b]).filter((r) => r.kind === "ENTRY").map((r) => (r as { entryId: string }).entryId));
   const outside = entries.find((e) => !inside.has(e))!;
   const spot = r1.find((m) => m.a.kind === "ENTRY")!;
-  // Pide confirmación primero
-  await assert.rejects(tx((x) => ops.setBracketSlot(x, user, tcId, spot.code, "a", { t: "ENTRY", entryId: outside }, false)), NeedsConfirmation);
-  await tx((x) => ops.setBracketSlot(x, user, tcId, spot.code, "a", { t: "ENTRY", entryId: outside }, true));
+  // Sin resultados afectados se aplica directo, sin pedir confirmación
+  await tx((x) => ops.setBracketSlot(x, user, tcId, spot.code, "a", { t: "ENTRY", entryId: outside }, false));
   lc = await loadCategory(sql, tcId, orgId);
   const now = lc.view.bracket.find((m) => m.code === spot.code)!;
   assert.equal(now.a.kind === "ENTRY" && now.a.entryId, outside, "entra la pareja elegida");
-  // No se puede poner dos veces la misma pareja
+  // Elegir una pareja que ya está en el cuadro → intercambian lugares (sin duplicados)
   const other = r1.find((m) => m.code !== spot.code && m.a.kind === "ENTRY")!;
-  await assert.rejects(tx((x) => ops.setBracketSlot(x, user, tcId, other.code, "a", { t: "ENTRY", entryId: outside }, true)), /ya está en el cuadro/);
+  const otherWas = (other.a as { entryId: string }).entryId;
+  assert.equal(await tx((x) => ops.setBracketSlot(x, user, tcId, other.code, "a", { t: "ENTRY", entryId: outside }, true)), "swap");
+  lc = await loadCategory(sql, tcId, orgId);
+  assert.equal((lc.view.bracket.find((m) => m.code === other.code)!.a as { entryId: string }).entryId, outside);
+  assert.equal((lc.view.bracket.find((m) => m.code === spot.code)!.a as { entryId: string }).entryId, otherWas);
+  await tx((x) => ops.setBracketSlot(x, user, tcId, other.code, "a", { t: "ENTRY", entryId: otherWas }, true)); // vuelve como estaba
+  lc = await loadCategory(sql, tcId, orgId);
   // Intercambio de lugares
   const otherWho = (lc.view.bracket.find((m) => m.code === other.code)!.a as { entryId: string }).entryId;
   await tx((x) => ops.swapBracketSlots(x, user, tcId, { code: spot.code, side: "a" }, { code: other.code, side: "a" }, true));
@@ -629,6 +634,12 @@ test("cuadro: marcar ganadora sin resultado, corregirla, y poner a mano una pare
   await tx((x) => ops.setBracketSlot(x, user, tcId, "R2-1", "b", { t: "ENTRY", entryId: C }, true));
   lc = await loadCategory(sql, tcId, orgId);
   assert.equal((semi().b as { entryId: string }).entryId, C);
+  // Intercambio en una ronda posterior: C pasa a R2-2 arriba → se intercambia con quien estaba ahí
+  await tx((x) => ops.setBracketSlot(x, user, tcId, "R2-2", "a", { t: "ENTRY", entryId: B }, true));
+  lc = await loadCategory(sql, tcId, orgId);
+  assert.equal((lc.view.bracket.find((m) => m.code === "R2-2")!.a as { entryId: string }).entryId, B);
+  const semiIds = lc.view.bracket.filter((m) => m.round === 2).flatMap((m) => [m.a, m.b]).filter((r) => r.kind === "ENTRY").map((r) => (r as { entryId: string }).entryId);
+  assert.equal(new Set(semiIds).size, semiIds.length, "sin duplicados en la ronda");
   // Volver a automático
   await tx((x) => ops.setBracketSlot(x, user, tcId, "R2-1", "b", { t: "WINNER", match: "R1-2" }, true));
   lc = await loadCategory(sql, tcId, orgId);

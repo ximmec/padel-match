@@ -592,8 +592,10 @@ async function saveBracketEdit(tx: Tx, user: CurrentUser, lc: LoadedCategory, de
   const res = evaluateCategory(lc.rules, { ...lc.state, bracket: defs });
   const played = new Set(lc.matches.filter((m) => m.phase === "BRACKET" && m.status === "PLAYED").map((m) => m.bracket_code!));
   const impact = diffBracket(lc.view.bracket, res.bracket, played);
-  if (!confirmed) {
-    if (impact.some((i) => i.hadResult)) items.push("Hay partidos ya jugados cuyos participantes cambian: esos resultados quedarán invalidados.");
+  // Solo se pide confirmación cuando el cambio afecta partidos que ya tienen resultado.
+  if (!confirmed && impact.some((i) => i.hadResult)) {
+    const lbl = (id: string | null) => (id === "BYE" ? "Pase libre" : id ? entryLabel(lc.entryMap.get(id)) : "A definir");
+    for (const i of impact.filter((x) => x.hadResult)) items.push(`${i.code}: ${lbl(i.before.a)} vs ${lbl(i.before.b)} → ${lbl(i.after.a)} vs ${lbl(i.after.b)}. Su resultado quedará invalidado.`);
     throw new NeedsConfirmation(title, items);
   }
   await tx`UPDATE tournament_categories SET bracket = ${j(defs)}::text::jsonb, version = version + 1 WHERE id = ${lc.tc.id}`;
@@ -608,26 +610,35 @@ export async function setBracketSlot(tx: Tx, user: CurrentUser, tcId: string, co
   const defs: BracketMatchDef[] = structuredClone(lc.tc.bracket);
   const d = defs.find((x) => x.code === code);
   if (!d) throw new UserError("Partido del cuadro no encontrado.");
+  const zoneNames = Object.fromEntries(lc.zones.map((z) => [z.id, z.name]));
   if (ref.t === "ENTRY") {
     const e = lc.entryMap.get(ref.entryId);
     if (!e || e.status !== "ACTIVE") throw new UserError("Pareja inválida.");
-    // La misma pareja no puede estar dos veces en una misma ronda (en rondas siguientes sí: avanza).
+    // Si la pareja elegida ya está en otro lugar de la misma ronda, las dos parejas intercambian lugares.
     for (const x of defs.filter((y) => y.round === d.round)) for (const s of ["a", "b"] as const) {
       if (x.code === code && s === side) continue;
       const r = x[s];
-      if ((r.t === "ENTRY" && r.entryId === ref.entryId) || slotEntry(lc, x.code, s) === ref.entryId) {
-        throw new UserError(`${entryLabel(e)} ya está en el cuadro (${sideName(x.code, s)}). Usá «Intercambiar lugares» para cambiarlas de lugar.`);
-      }
+      if (!((r.t === "ENTRY" && r.entryId === ref.entryId) || slotEntry(lc, x.code, s) === ref.entryId)) continue;
+      const mine = d[side];
+      const curId = slotEntry(lc, code, side);
+      if (d.round === 1) { d[side] = r; x[s] = mine; }
+      else { d[side] = ref; x[s] = curId ? { t: "ENTRY", entryId: curId } : mine; }
+      const who = curId ? entryLabel(lc.entryMap.get(curId)) : refLabel(mine, zoneNames);
+      await saveBracketEdit(tx, user, lc, defs, "Intercambiar parejas del cuadro",
+        [`${entryLabel(e)} pasa a ${sideName(code, side)}`, `${who} pasa a ${sideName(x.code, s)}`],
+        `Cuadro: intercambio ${sideName(code, side)} (${who}) ↔ ${sideName(x.code, s)} (${entryLabel(e)})`,
+        { [code]: mine, [x.code]: r }, { [code]: d[side], [x.code]: x[s] }, confirmed);
+      return "swap" as const;
     }
   }
   const before = d[side];
   d[side] = ref;
-  const zoneNames = Object.fromEntries(lc.zones.map((z) => [z.id, z.name]));
   const cur = slotEntry(lc, code, side);
   const label = (r: SlotRef) => (r.t === "ENTRY" ? entryLabel(lc.entryMap.get(r.entryId)) : refLabel(r, zoneNames));
   await saveBracketEdit(tx, user, lc, defs, "Corregir clasificado",
     [`${sideName(code, side)}: sale ${cur ? entryLabel(lc.entryMap.get(cur)) : label(before)} → entra ${label(ref)}`],
     `Cuadro ${sideName(code, side)}: ${cur ? entryLabel(lc.entryMap.get(cur)) : label(before)} → ${label(ref)} (corrección manual)`, before, ref, confirmed);
+  return "replace" as const;
 }
 
 /** Marca la pareja ganadora de un partido del cuadro sin cargar el resultado (avanza sola a la ronda siguiente). */
