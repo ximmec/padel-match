@@ -611,7 +611,8 @@ export async function setBracketSlot(tx: Tx, user: CurrentUser, tcId: string, co
   if (ref.t === "ENTRY") {
     const e = lc.entryMap.get(ref.entryId);
     if (!e || e.status !== "ACTIVE") throw new UserError("Pareja inválida.");
-    for (const x of defs) for (const s of ["a", "b"] as const) {
+    // La misma pareja no puede estar dos veces en una misma ronda (en rondas siguientes sí: avanza).
+    for (const x of defs.filter((y) => y.round === d.round)) for (const s of ["a", "b"] as const) {
       if (x.code === code && s === side) continue;
       const r = x[s];
       if ((r.t === "ENTRY" && r.entryId === ref.entryId) || slotEntry(lc, x.code, s) === ref.entryId) {
@@ -627,6 +628,18 @@ export async function setBracketSlot(tx: Tx, user: CurrentUser, tcId: string, co
   await saveBracketEdit(tx, user, lc, defs, "Corregir clasificado",
     [`${sideName(code, side)}: sale ${cur ? entryLabel(lc.entryMap.get(cur)) : label(before)} → entra ${label(ref)}`],
     `Cuadro ${sideName(code, side)}: ${cur ? entryLabel(lc.entryMap.get(cur)) : label(before)} → ${label(ref)} (corrección manual)`, before, ref, confirmed);
+}
+
+/** Marca la pareja ganadora de un partido del cuadro sin cargar el resultado (avanza sola a la ronda siguiente). */
+export async function markBracketWinner(tx: Tx, user: CurrentUser, tcId: string, code: string, side: "a" | "b", confirmed: boolean) {
+  const lc = await loadCategory(tx, tcId, user.orgId);
+  const row = lc.matches.find((m) => m.phase === "BRACKET" && m.bracket_code === code);
+  if (!row) throw new UserError("Partido del cuadro no encontrado.");
+  const rm = lc.view.bracket.find((m) => m.code === code)!;
+  const pick = side === "a" ? rm.a : rm.b;
+  if (pick.kind !== "ENTRY") throw new UserError("Ese lugar todavía no tiene pareja.");
+  if (row.status === "PLAYED" && rm.winner === pick.entryId && !rm.staleResult) throw new UserError(`${entryLabel(lc.entryMap.get(pick.entryId))} ya figura como ganadora.`);
+  await recordResult(tx, user, row.id, { kind: "WINNER", winner: side === "a" ? "A" : "B" }, null, "Ganador marcado desde el cuadro", confirmed);
 }
 
 /** Intercambia dos lugares del cuadro (por ejemplo, dos clasificados). */

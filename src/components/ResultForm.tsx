@@ -22,7 +22,7 @@ export function ResultForm({
   const [mode, setMode] = useState<"PLAYED" | "WO_A" | "WO_B" | "RET_A" | "RET_B">(
     current?.kind === "WALKOVER" ? (current.winner === "A" ? "WO_A" : "WO_B") : current?.kind === "RETIRED" ? (current.winner === "A" ? "RET_A" : "RET_B") : "PLAYED",
   );
-  const sets = current && current.kind !== "WALKOVER" ? current.sets : [];
+  const sets = current && (current.kind === "PLAYED" || current.kind === "RETIRED") ? current.sets : [];
   const isWo = mode.startsWith("WO");
   const kind = isWo ? "WALKOVER" : mode.startsWith("RET") ? "RETIRED" : "PLAYED";
   const winner = mode.endsWith("_A") ? "A" : mode.endsWith("_B") ? "B" : "";

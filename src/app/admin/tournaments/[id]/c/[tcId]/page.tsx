@@ -17,6 +17,7 @@ import { fmtMoney } from "@/lib/cardBg";
 import { ResetForm } from "@/components/ResetForm";
 import { PairPlayerSelects } from "@/components/PairPlayerSelects";
 import { ManualZones } from "@/components/ManualZones";
+import { BracketSlotMenu } from "@/components/BracketSlotMenu";
 import { PLAYER_CATEGORIES } from "@/core/playerImport";
 
 const TABS: [string, string][] = [
@@ -594,6 +595,8 @@ function StandingsTab({ lc, u }: { lc: LoadedCategory; u: CurrentUser }) {
 function BracketTab({ lc, u }: { lc: LoadedCategory; u: CurrentUser }) {
   const manage = can(u, "tournaments.manage");
   const master = manage && (u.role === "ADMIN" || u.isSuperadmin);
+  const canWin = can(u, "results.enter");
+  const pairList = lc.entries.filter((e) => e.status === "ACTIVE").map((e) => ({ id: e.id, label: entryLabel(e) }));
   const zoneNames = Object.fromEntries(lc.zones.map((z) => [z.id, z.name]));
   const hasResults = lc.matches.some((m) => m.phase === "BRACKET" && m.status === "PLAYED");
   const q = lc.rules.qualification;
@@ -633,7 +636,21 @@ function BracketTab({ lc, u }: { lc: LoadedCategory; u: CurrentUser }) {
         </p>}
       </div>
       <div className="card">
-        <BracketView lc={lc} zoneNames={zoneNames} />
+        {(manage || canWin) && lc.tc.bracket.length > 0 && <p className="muted" style={{ fontSize: 13, marginTop: 0 }}>Tocá una pareja del cuadro para <b>marcarla como ganadora</b>{master ? <> o <b>cambiarla por otra</b></> : null}. ✋ = elegida a mano.</p>}
+        <BracketView lc={lc} zoneNames={zoneNames} renderSide={(rm, row, side, slot) => {
+          const other = side === "a" ? rm.b : rm.a;
+          const me = side === "a" ? rm.a : rm.b;
+          const autoOpts = rm.round === 1
+            ? options.filter((o) => !o.v.startsWith("ENTRY:"))
+            : [{ v: `WINNER:R${rm.round - 1}-${side === "a" ? 2 * rm.index - 1 : 2 * rm.index}`, l: `Ganador R${rm.round - 1}-${side === "a" ? 2 * rm.index - 1 : 2 * rm.index}` }];
+          return (
+            <BracketSlotMenu tcId={lc.tc.id} code={rm.code} side={side}
+              canWin={canWin && !!row && me.kind === "ENTRY" && other.kind === "ENTRY"}
+              canChange={master} pairs={pairList} auto={autoOpts} current={me.kind === "ENTRY" ? me.entryId : null}>
+              {slot}
+            </BracketSlotMenu>
+          );
+        }} />
       </div>
       {master && lc.tc.bracket.length > 0 && <BracketFix lc={lc} zoneNames={zoneNames} options={options} />}
     </div>

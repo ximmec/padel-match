@@ -606,3 +606,31 @@ test("clasifican todas: zonas de 3 normales y la de 4 con ganador vs ganador / p
   lc = await loadCategory(sql, tcId, orgId);
   assert.equal(lc.tc.bracket.flatMap((d) => [d.a, d.b]).filter((r) => r.t === "ZONE").length, 10);
 });
+
+test("cuadro: marcar ganadora sin resultado, corregirla, y poner a mano una pareja en una ronda posterior", async () => {
+  const { tcId } = await makeTournament({ ...DEFAULT_RULES, mode: "KNOCKOUT" });
+  const players = await makePlayers(16);
+  await register(tcId, players); // 8 parejas
+  await tx((x) => ops.generateBracket(x, user, tcId, 4));
+  let lc = await loadCategory(sql, tcId, orgId);
+  const r1 = lc.view.bracket.find((m) => m.code === "R1-1")!;
+  const A = (r1.a as { entryId: string }).entryId, B = (r1.b as { entryId: string }).entryId;
+  await tx((x) => ops.markBracketWinner(x, user, tcId, "R1-1", "a", false));
+  lc = await loadCategory(sql, tcId, orgId);
+  const semi = () => lc.view.bracket.find((m) => m.code === "R2-1")!;
+  assert.equal((semi().a as { entryId: string }).entryId, A, "la ganadora pasa a semifinal");
+  await assert.rejects(tx((x) => ops.markBracketWinner(x, user, tcId, "R1-1", "a", false)), /ya figura como ganadora/);
+  // Corrección: la ganadora era B
+  await tx((x) => ops.markBracketWinner(x, user, tcId, "R1-1", "b", true));
+  lc = await loadCategory(sql, tcId, orgId);
+  assert.equal((semi().a as { entryId: string }).entryId, B);
+  // A mano en la semifinal (aunque esa pareja esté en cuartos)
+  const C = (lc.view.bracket.find((m) => m.code === "R1-2")!.a as { entryId: string }).entryId;
+  await tx((x) => ops.setBracketSlot(x, user, tcId, "R2-1", "b", { t: "ENTRY", entryId: C }, true));
+  lc = await loadCategory(sql, tcId, orgId);
+  assert.equal((semi().b as { entryId: string }).entryId, C);
+  // Volver a automático
+  await tx((x) => ops.setBracketSlot(x, user, tcId, "R2-1", "b", { t: "WINNER", match: "R1-2" }, true));
+  lc = await loadCategory(sql, tcId, orgId);
+  assert.equal(semi().b.kind, "PENDING");
+});

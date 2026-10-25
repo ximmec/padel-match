@@ -30,6 +30,7 @@ export function StatusBadge({ status }: { status: string }) {
 export function SetScores({ outcome, side }: { outcome: MatchOutcome | null; side: "A" | "B" }) {
   if (!outcome) return null;
   if (outcome.kind === "WALKOVER") return <span className="sets"><span>{outcome.winner === side ? "W.O." : ""}</span></span>;
+  if (outcome.kind === "WINNER") return <span className="sets"><span>{outcome.winner === side ? "✓" : ""}</span></span>;
   return (
     <span className="sets">
       {outcome.sets.map((s, i) => <span key={i}>{side === "A" ? s[0] : s[1]}</span>)}
@@ -146,10 +147,16 @@ function slotScore(lc: LoadedCategory, rm: ResolvedMatch, side: "A" | "B") {
   const row = lc.matches.find((m) => m.phase === "BRACKET" && m.bracket_code === rm.code);
   if (!row || row.status !== "PLAYED" || !row.outcome || rm.staleResult) return null;
   if (row.outcome.kind === "WALKOVER") return row.outcome.winner === side ? "W.O." : "";
+  if (row.outcome.kind === "WINNER") return row.outcome.winner === side ? "🏆" : "";
   return row.outcome.sets.map((s) => (side === "A" ? s[0] : s[1])).join(" ");
 }
 
-export function BracketView({ lc, zoneNames, renderFoot }: { lc: LoadedCategory; zoneNames: Record<string, string>; renderFoot?: (rm: ResolvedMatch, row: MatchRow | undefined) => ReactNode }) {
+export function BracketView({ lc, zoneNames, renderFoot, renderSide }: {
+  lc: LoadedCategory; zoneNames: Record<string, string>;
+  renderFoot?: (rm: ResolvedMatch, row: MatchRow | undefined) => ReactNode;
+  /** Envuelve cada lado del partido (para el menú de acciones del organizador). */
+  renderSide?: (rm: ResolvedMatch, row: MatchRow | undefined, side: "a" | "b", slot: ReactNode) => ReactNode;
+}) {
   const rounds = [...new Set(lc.view.bracket.map((m) => m.round))].sort((a, b) => a - b);
   if (!rounds.length) return <div className="empty">El cuadro todavía no fue generado.</div>;
   const def = (code: string) => lc.tc.bracket.find((d) => d.code === code)!;
@@ -173,12 +180,15 @@ export function BracketView({ lc, zoneNames, renderFoot }: { lc: LoadedCategory;
               const sideEl = (s: "A" | "B") => {
                 const res = s === "A" ? m.a : m.b;
                 const isWin = m.winner && res.kind === "ENTRY" && res.entryId === m.winner;
-                return (
-                  <div className={`slot ${isWin ? "win" : ""} ${res.kind === "PENDING" ? "tbd" : ""}`}>
-                    <span>{res.kind === "ENTRY" ? entryLabel(lc.entryMap.get(res.entryId)) : res.kind === "BYE" ? "Pase libre" : pendingLabel(m.code, s === "A" ? "a" : "b")}</span>
+                const isLose = !!m.winner && res.kind === "ENTRY" && !isWin;
+                const manual = def(m.code)[s === "A" ? "a" : "b"].t === "ENTRY";
+                const el = (
+                  <div className={`slot ${isWin ? "win" : ""} ${isLose ? "lose" : ""} ${res.kind === "PENDING" ? "tbd" : ""}`}>
+                    <span>{res.kind === "ENTRY" ? entryLabel(lc.entryMap.get(res.entryId)) : res.kind === "BYE" ? "Pase libre" : pendingLabel(m.code, s === "A" ? "a" : "b")}{manual && renderSide && <span className="manual-tag" title="Elegida a mano: no la cambia el cálculo automático"> ✋</span>}</span>
                     <span className="sc">{slotScore(lc, m, s)}</span>
                   </div>
                 );
+                return renderSide ? renderSide(m, row, s === "A" ? "a" : "b", el) : el;
               };
               const isBye = m.byeAdvance || m.a.kind === "BYE" || m.b.kind === "BYE";
               return (

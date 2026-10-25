@@ -276,6 +276,15 @@ const slotOf = (v: string) => {
   return { code, side: side as "a" | "b" };
 };
 
+export async function markWinnerAction(_p: ActionState, fd: FormData): Promise<ActionState> {
+  return runAction("results.enter", async (user) => {
+    const side = str(fd, "side");
+    if (side !== "a" && side !== "b") throw new UserError("Lado inválido.");
+    await sql.begin((tx) => ops.markBracketWinner(tx, user, uuid(fd, "tc_id"), str(fd, "code"), side, isConfirmed(fd)));
+    return { message: "Ganadora marcada." };
+  }, REVAL);
+}
+
 export async function swapBracketSlotsAction(_p: ActionState, fd: FormData): Promise<ActionState> {
   return runAction("tournaments.manage", async (user) => {
     masterOnly(user);

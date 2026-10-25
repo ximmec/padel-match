@@ -57,7 +57,9 @@ export type MatchOutcome =
   /** Walkover: no se presentó/abandonó antes; gana `winner`. */
   | { kind: "WALKOVER"; winner: Side }
   /** Abandono durante el partido: se registran los sets jugados y gana `winner`. */
-  | { kind: "RETIRED"; winner: Side; sets: SetScore[] };
+  | { kind: "RETIRED"; winner: Side; sets: SetScore[] }
+  /** Ganador marcado desde el cuadro, sin cargar el resultado. */
+  | { kind: "WINNER"; winner: Side };
 
 export class ScoreError extends Error {}
 
@@ -166,6 +168,9 @@ export function summarize(f: MatchFormat, o: MatchOutcome): ScoreSummary {
     case "PLAYED": return summarizePlayed(f, o.sets);
     case "WALKOVER": return summarizeWalkover(f, o.winner);
     case "RETIRED": return summarizeRetired(f, o.winner, o.sets);
+    case "WINNER":
+      if (o.winner !== "A" && o.winner !== "B") throw new ScoreError("Ganador inválido.");
+      return { winner: o.winner, setsA: 0, setsB: 0, gamesA: 0, gamesB: 0 };
   }
 }
 
@@ -181,6 +186,7 @@ export function parseScoreText(text: string): SetScore[] {
 
 export function scoreText(o: MatchOutcome): string {
   if (o.kind === "WALKOVER") return `W.O. (gana ${o.winner})`;
+  if (o.kind === "WINNER") return `Ganador marcado (gana ${o.winner})`;
   const s = o.sets.map(([a, b]) => `${a}-${b}`).join(" ");
   return o.kind === "RETIRED" ? `${s} ret.` : s;
 }

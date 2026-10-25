@@ -149,6 +149,12 @@ test("carga de resultados hasta el campeón", async ({ page }) => {
   await shot(page, "12-posiciones");
   await page.goto(`${state.categoryUrl}?tab=cuadro`);
   await shot(page, "13-cuadro-final");
+  await page.locator(".slot-btn").first().click();
+  await expect(page.getByRole("button", { name: /Marcar como ganadora/ })).toBeVisible();
+  await shot(page, "13b-menu-pareja");
+  await page.getByRole("button", { name: /Cambiar pareja/ }).click();
+  await expect(page.getByPlaceholder("Buscar por nombre o apellido…")).toBeVisible();
+  await shot(page, "13c-cambiar-pareja");
   await page.goto("/admin/ranking");
   await expect(page.locator("td.num b", { hasText: "1000" }).first()).toBeVisible();
   await shot(page, "14-ranking");

@@ -829,3 +829,26 @@ details[open] > summary::before { content: "▾ "; }
 .mz-card > summary::before { display: none !important; }
 .gvg-box { display: flex; justify-content: space-between; align-items: center; gap: 16px; flex-wrap: wrap; border-color: rgba(255, 115, 0, .35); }
 .gvg-box > div:first-child { flex: 1 1 360px; }
+
+/* ---------- Menú de pareja en el cuadro ---------- */
+.bm .slot.lose { color: #7d8594; font-weight: 500; }
+.bm .slot.lose .sc { color: #7d8594; }
+.bm .manual-tag { font-size: 11px; opacity: .8; }
+.slot-wrap + .slot-wrap { border-top: 1px solid var(--line); }
+.slot-btn { all: unset; display: block; width: 100%; cursor: pointer; box-sizing: border-box; }
+.slot-btn:hover .slot { background-color: rgba(255, 255, 255, .05); }
+.slot-btn:focus-visible { outline: 2px solid var(--orange); outline-offset: -2px; }
+.slot-wrap.open .slot { background-color: rgba(255, 115, 0, .08); }
+.slot-menu { display: flex; flex-direction: column; gap: 6px; padding: 8px 10px 10px; background: rgba(0, 0, 0, .45); border-top: 1px solid var(--line); }
+.slot-opt { width: 100%; text-align: left; padding: 8px 10px; border-radius: 10px; border: 1px solid var(--line-2); background: var(--surface-3); color: #fff; font-weight: 700; font-size: 13px; cursor: pointer; }
+.slot-opt:hover { border-color: var(--orange); }
+.slot-opt.win { border-color: rgba(200, 230, 0, .45); color: var(--lime); background: rgba(200, 230, 0, .08); }
+.slot-search { width: 100%; box-sizing: border-box; }
+.slot-list { display: flex; flex-direction: column; max-height: 220px; overflow-y: auto; margin-top: 6px; border: 1px solid var(--line); border-radius: 10px; }
+.slot-item { all: unset; cursor: pointer; padding: 7px 10px; font-size: 13px; border-bottom: 1px solid var(--line); }
+.slot-item:hover { background: rgba(255, 115, 0, .12); }
+.slot-item.auto { color: #9aa0ab; font-style: italic; }
+.slot-sep { font-size: 10px; font-weight: 800; letter-spacing: .14em; text-transform: uppercase; color: #6f6f6f; padding: 8px 10px 4px; }
+.slot-close { all: unset; cursor: pointer; font-size: 12px; color: #9aa0ab; align-self: flex-end; padding: 2px 4px; }
+.slot-close:hover { color: #fff; }
+.bm .slot-wrap .slot + .slot { border-top: 0; }
