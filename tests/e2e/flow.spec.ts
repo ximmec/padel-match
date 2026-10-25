@@ -150,7 +150,7 @@ test("carga de resultados hasta el campeón", async ({ page }) => {
   await page.goto(`${state.categoryUrl}?tab=cuadro`);
   await shot(page, "13-cuadro-final");
   await page.locator(".slot-btn").first().click();
-  await expect(page.getByRole("button", { name: /Marcar como ganadora/ })).toBeVisible();
+  await expect(page.locator(".slot-menu").getByText(/ganadora/).first()).toBeVisible();
   await shot(page, "13b-menu-pareja");
   await page.getByRole("button", { name: /Cambiar pareja/ }).click();
   await expect(page.getByPlaceholder("Buscar por nombre o apellido…")).toBeVisible();
