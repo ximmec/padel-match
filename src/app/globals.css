@@ -826,3 +826,4 @@ details[open] > summary::before { content: "▾ "; }
 .mz-zone select.on { border-color: rgba(200, 230, 0, .45); color: #fff; }
 .mz-left { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; margin-bottom: 14px; }
 @media (max-width: 640px) { .mz-top { grid-template-columns: 1fr; } .mz-status { align-items: flex-start; } }
+.mz-card > summary::before { display: none !important; }
