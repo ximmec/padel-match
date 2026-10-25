@@ -394,6 +394,9 @@ function ZonesTab({ lc, u }: { lc: LoadedCategory; u: CurrentUser }) {
 
 /* ---------------------------------------------------------------- */
 
+/** Orden en la lista de partidos: en juego, después pendientes, al final los ya jugados. */
+const statusRank = (s: string) => (s === "IN_PLAY" ? 0 : s === "PENDING" ? 1 : 2);
+
 function MatchesTab({ lc, u }: { lc: LoadedCategory; u: CurrentUser }) {
   const canEnter = can(u, "results.enter");
   const maxSets = lc.rules.format.setsToWin * 2 - 1;
@@ -418,7 +421,9 @@ function MatchesTab({ lc, u }: { lc: LoadedCategory; u: CurrentUser }) {
           <div className="mgroup-head"><h3>{g.title}</h3><span className="muted">{played}/{ms.length} jugados</span></div>
           {ms.length === 0 && <div className="empty card">Sin partidos.</div>}
           <div className="mgrid">
-          {ms.map((m, i) => {
+          {ms.map((m, i) => ({ m, n: i + 1 }))
+            .sort((x, y) => statusRank(x.m.status) - statusRank(y.m.status) || x.n - y.n)
+            .map(({ m, n: i }) => {
             const rm = m.phase === "BRACKET" ? lc.view.bracket.find((b) => b.code === m.bracket_code) : null;
             const ready = m.phase === "ZONE" ? !!(m.entry_a && m.entry_b) : (rm && rm.a.kind === "ENTRY" && rm.b.kind === "ENTRY");
             const sideA = m.phase === "ZONE" ? zoneSideLabel(lc, m, "a") : rm?.a.kind === "ENTRY" ? entryLabel(lc.entryMap.get(rm.a.entryId)) : "A definir";
@@ -433,7 +438,7 @@ function MatchesTab({ lc, u }: { lc: LoadedCategory; u: CurrentUser }) {
             return (
               <article key={m.id} id={`m-${m.id}`} className={`mcard st-${m.status.toLowerCase()} ${errors.has(m.id) || rm?.staleResult ? "warn" : ""}`}>
                 <div className="mcard-top">
-                  <span className="mnum">{m.phase === "BRACKET" ? m.bracket_code : `Partido ${i + 1}`}</span>
+                  <span className="mnum">{m.phase === "BRACKET" ? m.bracket_code : `Partido ${i}`}</span>
                   <StatusBadge status={m.status} />
                 </div>
                 <div className="mteams">
