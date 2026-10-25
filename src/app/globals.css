@@ -852,3 +852,4 @@ details[open] > summary::before { content: "▾ "; }
 .slot-close { all: unset; cursor: pointer; font-size: 12px; color: #9aa0ab; align-self: flex-end; padding: 2px 4px; }
 .slot-close:hover { color: #fff; }
 .bm .slot-wrap .slot + .slot { border-top: 0; }
+.slot-opt.done { cursor: default; font-weight: 600; font-size: 12px; }

@@ -646,7 +646,8 @@ function BracketTab({ lc, u }: { lc: LoadedCategory; u: CurrentUser }) {
           return (
             <BracketSlotMenu tcId={lc.tc.id} code={rm.code} side={side}
               canWin={canWin && !!row && me.kind === "ENTRY" && other.kind === "ENTRY"}
-              canChange={master} pairs={pairList} auto={autoOpts} current={me.kind === "ENTRY" ? me.entryId : null}>
+              canChange={master} pairs={pairList} auto={autoOpts} current={me.kind === "ENTRY" ? me.entryId : null}
+              isWinner={me.kind === "ENTRY" && rm.winner === me.entryId && !rm.staleResult && row?.status === "PLAYED"}>
               {slot}
             </BracketSlotMenu>
           );

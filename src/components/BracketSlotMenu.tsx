@@ -12,7 +12,7 @@ const fold = (x: string) => x.normalize("NFD").replace(/[̀-ͯ]/g, "").toLowerCa
  * Un lado de un partido del cuadro: al tocarlo abre un menú con dos acciones separadas,
  * «Marcar como ganadora» y «Cambiar pareja» (con buscador).
  */
-export function BracketSlotMenu({ children, tcId, code, side, canWin, canChange, pairs, auto, current }: {
+export function BracketSlotMenu({ children, tcId, code, side, canWin, canChange, pairs, auto, current, isWinner = false }: {
   children: ReactNode;
   tcId: string;
   code: string;
@@ -25,6 +25,7 @@ export function BracketSlotMenu({ children, tcId, code, side, canWin, canChange,
   /** «Volver a automático» (ej. Ganador R1-1, 1° Zona A). */
   auto: SlotOption[];
   current: string | null;
+  isWinner?: boolean;
 }) {
   const [open, setOpen] = useState<null | "menu" | "change">(null);
   const [q, setQ] = useState("");
@@ -44,7 +45,8 @@ export function BracketSlotMenu({ children, tcId, code, side, canWin, canChange,
       </button>
       {open && (
         <div className="slot-menu">
-          {canWin && (
+          {canWin && isWinner && <div className="slot-opt win done">🏆 Ya es la ganadora · para corregir, marcá a la otra pareja</div>}
+          {canWin && !isWinner && (
             <ActionForm action={markWinnerAction} hideSuccess>
               <input type="hidden" name="tc_id" value={tcId} />
               <input type="hidden" name="code" value={code} />
