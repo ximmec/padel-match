@@ -572,3 +572,37 @@ test("zona de 4 ya empezada: pasar a GvG/PvP respetando lo jugado, y volver", as
   assert.equal(zm().filter((m) => m.status === "PLAYED").length, 2);
   void entries;
 });
+
+test("clasifican todas: zonas de 3 normales y la de 4 con ganador vs ganador / perdedor vs perdedor", async () => {
+  const { tcId } = await makeTournament({ ...DEFAULT_RULES, fourZone: "RR", qualification: { perZone: "ALL", bestNext: 0 } });
+  const players = await makePlayers(20);
+  const entries = await register(tcId, players); // 10 parejas → 4,3,3
+  await tx((x) => ops.generateZones(x, user, tcId, [4, 3, 3], 9));
+  let lc = await loadCategory(sql, tcId, orgId);
+  const z4 = lc.zones.find((z) => z.entry_ids.length === 4)!;
+  assert.equal(z4.format, "GVG", "la de 4 se arma GvG aunque la regla diga todos contra todos");
+  assert.ok(lc.zones.filter((z) => z.entry_ids.length === 3).every((z) => z.format === "RR"));
+  const [A, B, C, D] = z4.entry_ids;
+  const zm = () => lc.matches.filter((m) => m.zone_id === z4.id);
+  const r1 = zm().filter((m) => m.round === 1);
+  assert.deepEqual(r1.map((m) => [m.entry_a, m.entry_b]), [[A, B], [C, D]], "A vs B y C vs D");
+  // Ejemplo del pedido: gana A y gana D; después D le gana a A y B le gana a C
+  await result(r1[0].id, [[6, 2], [6, 2]]);
+  await result(r1[1].id, [[2, 6], [2, 6]]);
+  lc = await loadCategory(sql, tcId, orgId);
+  const g = zm().find((m) => m.slot === "GVG")!, p = zm().find((m) => m.slot === "PVP")!;
+  assert.deepEqual([g.entry_a, g.entry_b], [A, D]);
+  assert.deepEqual([p.entry_a, p.entry_b], [B, C]);
+  await result(g.id, [[2, 6], [2, 6]]);
+  await result(p.id, [[6, 0], [6, 0]]);
+  lc = await loadCategory(sql, tcId, orgId);
+  assert.deepEqual(lc.view.standings.get(z4.id)!.rows.map((r) => r.entryId), [D, A, B, C]);
+  for (const id of entries) assert.ok(lc.matches.filter((m) => m.phase === "ZONE" && (m.entry_a === id || m.entry_b === id)).length <= 2, "nadie juega más de 2");
+  // Corregir la 1ª ronda con la 2ª ya jugada pide confirmación
+  const [{ version }] = await sql<{ version: number }[]>`SELECT version FROM matches WHERE id = ${r1[0].id}`;
+  await assert.rejects(tx((x) => ops.recordResult(x, user, r1[0].id, { kind: "PLAYED", sets: [[2, 6], [2, 6]] }, version, "Error", false)), NeedsConfirmation);
+  // Todas al cuadro: 10 clasificados
+  await tx((x) => ops.generateBracket(x, user, tcId));
+  lc = await loadCategory(sql, tcId, orgId);
+  assert.equal(lc.tc.bracket.flatMap((d) => [d.a, d.b]).filter((r) => r.t === "ZONE").length, 10);
+});

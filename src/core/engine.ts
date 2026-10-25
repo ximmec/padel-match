@@ -118,6 +118,14 @@ export function zoneMatchInputs(rules: CategoryRules, matches: ZoneMatchData[], 
  * Posiciones de una zona GvG/PvP: 1° ganador de ganadores, 2° perdedor de ganadores,
  * 3° ganador de perdedores, 4° perdedor de perdedores. Las estadísticas (sets, games) se mantienen.
  */
+/**
+ * Formato efectivo de las zonas de 4: si clasifican TODAS, siempre ganador vs ganador / perdedor vs perdedor
+ * (así todas las parejas juegan 2 partidos, como en las zonas de 3). Si no, lo que diga la regla.
+ */
+export function fourZoneFormat(rules: Pick<CategoryRules, "fourZone" | "qualification">): "GVG" | "RR" {
+  return rules.qualification.perZone === "ALL" ? "GVG" : rules.fourZone;
+}
+
 export function gvgStandings(base: ZoneStandings, z: ZoneData, inputs: ZoneMatchInput[], all: ZoneMatchData[]): ZoneStandings {
   const meta = new Map(all.map((m) => [m.id, m]));
   const winnerOf = (m: ZoneMatchInput) => (m.summary ? (m.summary.winner === "A" ? m.a : m.b) : null);

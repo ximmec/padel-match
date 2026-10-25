@@ -161,12 +161,12 @@ export function buildState(tc: TcRow, zones: ZoneRow[], matches: MatchRow[], ent
 
 /** Etiqueta de un lado de un partido de 2ª ronda GvG que todavía no tiene parejas. */
 export function slotLabel(m: Pick<MatchRow, "slot">, side: "a" | "b"): string {
-  if (m.slot === "GVG") return side === "a" ? "Ganador 1° vs 4°" : "Ganador 2° vs 3°";
-  if (m.slot === "PVP") return side === "a" ? "Perdedor 1° vs 4°" : "Perdedor 2° vs 3°";
+  if (m.slot === "GVG") return side === "a" ? "Ganador del partido 1" : "Ganador del partido 2";
+  if (m.slot === "PVP") return side === "a" ? "Perdedor del partido 1" : "Perdedor del partido 2";
   return "A definir";
 }
 
-/** Nombre de un lado de un partido de zona (o «Ganador 1° vs 4°» si todavía no se sabe). */
+/** Nombre de un lado de un partido de zona (o «Ganador del partido 1» si todavía no se sabe). */
 export function zoneSideLabel(lc: { entryMap: Map<string, EntryRow> }, m: Pick<MatchRow, "slot" | "entry_a" | "entry_b">, side: "a" | "b"): string {
   const id = side === "a" ? m.entry_a : m.entry_b;
   return id ? entryLabel(lc.entryMap.get(id)) : slotLabel(m, side);

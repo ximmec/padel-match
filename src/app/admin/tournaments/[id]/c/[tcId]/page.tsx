@@ -341,23 +341,35 @@ function ZonesTab({ lc, u }: { lc: LoadedCategory; u: CurrentUser }) {
           </ActionForm>
         </details>
       )}
-      {manage && lc.zones.some((z) => z.entry_ids.length === 4) && (
-        <div className="card gvg-box">
-          <div>
-            <b>Zonas de 4 parejas ({lc.zones.filter((z) => z.entry_ids.length === 4).map((z) => z.name).join(", ")})</b>
-            <div className="muted" style={{ fontSize: 14, marginTop: 4 }}>
-              {lc.rules.fourZone === "GVG"
-                ? "Se juegan ganador vs ganador y perdedor vs perdedor: 1ª ronda (1° vs 4° y 2° vs 3°) y después cruce de ganadores y de perdedores. Cada pareja juega 2 partidos."
-                : "Se juegan todos contra todos (3 partidos por pareja). Podés pasarlas a ganador vs ganador / perdedor vs perdedor: se respetan los partidos ya jugados."}
+      {manage && lc.zones.some((z) => z.entry_ids.length === 4) && (() => {
+        const fours = lc.zones.filter((z) => z.entry_ids.length === 4);
+        const rr = fours.filter((z) => z.format !== "GVG");
+        const all = lc.rules.qualification.perZone === "ALL";
+        const to = rr.length ? "GVG" : "RR";
+        if (!rr.length && all) return (
+          <div className="card gvg-box"><div>
+            <b>Zonas de 4 ({fours.map((z) => z.name).join(", ")}): ganador vs ganador / perdedor vs perdedor</b>
+            <div className="muted" style={{ fontSize: 14, marginTop: 4 }}>Como clasifican todas, cada pareja juega 2 partidos: 1ª ronda A vs B y C vs D; después ganadores entre sí (1° y 2° puesto) y perdedores entre sí (3° y 4° puesto). Las posiciones salen directo de esos partidos.</div>
+          </div></div>
+        );
+        return (
+          <div className="card gvg-box">
+            <div>
+              <b>Zonas de 4 parejas ({(rr.length ? rr : fours).map((z) => z.name).join(", ")})</b>
+              <div className="muted" style={{ fontSize: 14, marginTop: 4 }}>
+                {rr.length
+                  ? <>Se están jugando todos contra todos (3 partidos por pareja).{all ? " Como clasifican todas, conviene pasarlas a ganador vs ganador / perdedor vs perdedor para que todas jueguen 2 partidos." : " Podés pasarlas a ganador vs ganador / perdedor vs perdedor."} Se respetan los partidos ya jugados.</>
+                  : "Se juegan ganador vs ganador y perdedor vs perdedor (2 partidos por pareja)."}
+              </div>
             </div>
+            <ActionForm action={A.setFourZoneFormatAction}>
+              <input type="hidden" name="tc_id" value={lc.tc.id} />
+              <input type="hidden" name="to" value={to} />
+              <Submit className={`btn ${to === "GVG" ? "primary" : "ghost"}`}>{to === "GVG" ? "Pasar a ganador vs ganador / perdedor vs perdedor" : "Volver a todos contra todos"}</Submit>
+            </ActionForm>
           </div>
-          <ActionForm action={A.setFourZoneFormatAction}>
-            <input type="hidden" name="tc_id" value={lc.tc.id} />
-            <input type="hidden" name="to" value={lc.rules.fourZone === "GVG" ? "RR" : "GVG"} />
-            <Submit className={`btn ${lc.rules.fourZone === "GVG" ? "ghost" : "primary"}`}>{lc.rules.fourZone === "GVG" ? "Volver a todos contra todos" : "Pasar a ganador vs ganador / perdedor vs perdedor"}</Submit>
-          </ActionForm>
-        </div>
-      )}
+        );
+      })()}
       {unzoned.length > 0 && lc.zones.length > 0 && (
         <div className="alert warn">Hay {unzoned.length} pareja(s) sin zona: {unzoned.map(entryLabel).join(", ")}. Asignalas con «Mover a» desde la lista de abajo.</div>
       )}
@@ -770,7 +782,7 @@ function RulesTab({ lc, u }: { lc: LoadedCategory; u: CurrentUser }) {
               <select name="perZone" defaultValue={String(r.qualification.perZone)}>
                 <option value="ALL">Todas</option>{[1, 2, 3, 4].map((n) => <option key={n} value={n}>{n}</option>)}
               </select></div>
-            <label className="checkbox" style={{ alignSelf: "center" }}><input type="checkbox" name="fourGvg" defaultChecked={r.fourZone === "GVG"} /> Zonas de 4: GvG/PvP (1° vs 4° y 2° vs 3°; después ganadores contra ganadores y perdedores contra perdedores)</label>
+            <label className="checkbox" style={{ alignSelf: "center" }}><input type="checkbox" name="fourGvg" defaultChecked={r.fourZone === "GVG"} /> Zonas de 4: GvG/PvP (A vs B y C vs D; después ganadores contra ganadores y perdedores contra perdedores). Si clasifican todas, se usa siempre.</label>
             <label className="checkbox" style={{ alignSelf: "center" }}><input type="checkbox" name="pass3of4" defaultChecked={!!r.qualification.perZoneOf4} /> En las zonas de 4 pasan 3 (las demás siguen con lo de arriba)</label>
             <label className="checkbox" style={{ alignSelf: "center" }}><input type="checkbox" name="autoBestNext" defaultChecked={!!r.qualification.autoBestNext} /> Mejores siguientes automático: se suman los que hagan falta para completar el cuadro (8, 16, 32…){r.qualification.autoBestNext ? ` — hoy: ${r.qualification.bestNext}` : ""}</label>
             <div className="field"><label>Más los mejores del puesto siguiente</label><input type="number" name="bestNext" min={0} max={16} defaultValue={r.qualification.autoBestNext ? 0 : r.qualification.bestNext} />

@@ -15,7 +15,7 @@ import {
 import {
   generateBracket as coreGenerateBracket, qualifierRefs, knockoutQualifiers, diffBracket, refLabel, type SlotRef, type BracketMatchDef,
 } from "@/core/bracket";
-import { evaluateCategory, normalizeRules, withdrawalChanges, type CategoryRules, type WithdrawalPolicy } from "@/core/engine";
+import { evaluateCategory, normalizeRules, withdrawalChanges, fourZoneFormat, type CategoryRules, type WithdrawalPolicy } from "@/core/engine";
 import { summarize, ScoreError, scoreText, type MatchOutcome } from "@/core/scoring";
 
 const j = (v: unknown) => JSON.stringify(v);
@@ -72,7 +72,7 @@ export async function updateRules(tx: Tx, user: CurrentUser, tcId: string, rules
     if (impact.some((i) => i.hadResult)) items.push("Algunos resultados del cuadro quedarán invalidados.");
     throw new NeedsConfirmation("Cambiar reglas de una categoría en juego", items);
   }
-  if (rules.fourZone !== lc.rules.fourZone) await convertFourZones(tx, user, lc, rules.fourZone === "GVG" ? "GVG" : "RR", confirmed);
+  if (fourZoneFormat(rules) !== fourZoneFormat(lc.rules)) await convertFourZones(tx, user, lc, fourZoneFormat(rules), confirmed);
   await tx`UPDATE tournament_categories SET rules = ${j(rules)}::text::jsonb, version = version + 1 WHERE id = ${tcId}`;
   await audit(tx, user, { entity: "tournament_category", entityId: tcId, action: "update", tournamentId: lc.tc.tournament_id, summary: `Reglas de ${lc.tc.category_name} modificadas`, before: lc.rules, after: rules });
   await afterChange(tx, user, tcId);
@@ -80,8 +80,11 @@ export async function updateRules(tx: Tx, user: CurrentUser, tcId: string, rules
 
 /** Atajo desde Zonas: cambia solo el formato de las zonas de 4 (GvG/PvP o todos contra todos). */
 export async function setFourZoneFormat(tx: Tx, user: CurrentUser, tcId: string, to: "GVG" | "RR", confirmed: boolean) {
-  const lc = await loadCategory(tx, tcId, user.orgId);
-  await updateRules(tx, user, tcId, { ...lc.rules, fourZone: to }, confirmed);
+  const lc = await loadCategory(tx, tcId, user.orgId, { lock: true });
+  if (to === "RR" && lc.rules.qualification.perZone === "ALL") throw new UserError("Cuando clasifican todas, las zonas de 4 se juegan ganador vs ganador / perdedor vs perdedor (así todas juegan 2 partidos).");
+  await convertFourZones(tx, user, lc, to, confirmed);
+  if (lc.rules.fourZone !== to) await updateRules(tx, user, tcId, { ...lc.rules, fourZone: to }, true);
+  else await afterChange(tx, user, tcId);
 }
 
 /* ------------------------------------------------------------------ */
@@ -291,10 +294,10 @@ export async function replacePlayer(tx: Tx, user: CurrentUser, entryId: string, 
 /* Zonas                                                               */
 /* ------------------------------------------------------------------ */
 
-/** Zona GvG/PvP: 1ª ronda 1° vs 4° y 2° vs 3°; la 2ª ronda (ganadores y perdedores) se completa sola. */
+/** Zona GvG/PvP: 1ª ronda A vs B y C vs D (orden de la zona); la 2ª ronda (ganadores y perdedores) se completa sola. */
 async function createGvgFixtures(tx: Tx, tcId: string, zoneId: string, entryIds: string[]) {
   const [e1, e2, e3, e4] = entryIds;
-  await tx`INSERT INTO matches (tc_id, phase, zone_id, round, entry_a, entry_b) VALUES (${tcId}, 'ZONE', ${zoneId}, 1, ${e1}, ${e4}), (${tcId}, 'ZONE', ${zoneId}, 1, ${e2}, ${e3})`;
+  await tx`INSERT INTO matches (tc_id, phase, zone_id, round, entry_a, entry_b) VALUES (${tcId}, 'ZONE', ${zoneId}, 1, ${e1}, ${e2}), (${tcId}, 'ZONE', ${zoneId}, 1, ${e3}, ${e4})`;
   await tx`INSERT INTO matches (tc_id, phase, zone_id, round, slot) VALUES (${tcId}, 'ZONE', ${zoneId}, 2, 'GVG'), (${tcId}, 'ZONE', ${zoneId}, 2, 'PVP')`;
 }
 
@@ -328,7 +331,7 @@ async function syncGvgZones(tx: Tx, user: CurrentUser, lc: LoadedCategory): Prom
 
 /**
  * Cambia el formato de las zonas de 4 ya armadas (con o sin partidos jugados):
- * - a GvG/PvP: la 1ª ronda se elige respetando los partidos ya jugados (1° vs 4° y 2° vs 3° si no hay ninguno);
+ * - a GvG/PvP: la 1ª ronda se elige respetando los partidos ya jugados (A vs B y C vs D si no hay ninguno);
  *   la 2ª ronda (ganadores vs ganadores y perdedores vs perdedores) se completa sola. Un partido jugado que no
  *   encaja queda anulado (visible en el historial).
  * - a todos contra todos: se agregan los partidos que falten; no se pierde ningún resultado.
@@ -343,7 +346,7 @@ async function convertFourZones(tx: Tx, user: CurrentUser, lc: LoadedCategory, t
     const played = ms.filter((m) => m.status === "PLAYED" || m.status === "IN_PLAY");
     if (to === "RR") return { z, ms, played, r1: [] as [string, string][], reuse: [] as { m: MatchRow; slot: "GVG" | "PVP" }[], annul: [] as MatchRow[] };
     const [e0, e1, e2, e3] = z.entry_ids;
-    const options: [string, string][][] = [[[e0, e3], [e1, e2]], [[e0, e1], [e2, e3]], [[e0, e2], [e1, e3]]];
+    const options: [string, string][][] = [[[e0, e1], [e2, e3]], [[e0, e3], [e1, e2]], [[e0, e2], [e1, e3]]];
     const score = (o: [string, string][]) => o.filter(([a, b]) => played.some((m) => same(m, a, b))).length;
     const r1 = options.reduce((best, o) => (score(o) > score(best) ? o : best), options[0]);
     const r1Played = r1.map(([a, b]) => played.find((m) => same(m, a, b) && m.status === "PLAYED" && lc.view.summaries.has(m.id)));
@@ -437,7 +440,7 @@ export async function generateZones(tx: Tx, user: CurrentUser, tcId: string, siz
   await tx`DELETE FROM zones WHERE tc_id = ${tcId}`;
   for (let i = 0; i < groups.length; i++) {
     const ids = groups[i].map((e) => e.id);
-    const gvg = ids.length === 4 && lc.rules.fourZone === "GVG";
+    const gvg = ids.length === 4 && fourZoneFormat(lc.rules) === "GVG";
     const [z] = await tx<{ id: string }[]>`INSERT INTO zones (tc_id, name, sort, format) VALUES (${tcId}, ${zoneName(i)}, ${i}, ${gvg ? "GVG" : "RR"}) RETURNING id`;
     for (let k = 0; k < ids.length; k++) await tx`INSERT INTO zone_entries (zone_id, entry_id, tc_id, sort) VALUES (${z.id}, ${ids[k]}, ${tcId}, ${k})`;
     if (gvg) await createGvgFixtures(tx, tcId, z.id, ids);
@@ -708,8 +711,18 @@ export async function recordResult(tx: Tx, user: CurrentUser, matchId: string, o
   const impact = diffBracket(lc.view.bracket, after.bracket, played).filter((i) => i.code !== m.bracket_code);
   const isCorrection = m.status === "PLAYED";
 
-  if (!confirmed && (impact.some((i) => i.hadResult) || (isCorrection && lc.tc.points_awarded_at))) {
-    const items: string[] = [];
+  const gvgItems: string[] = [];
+  const zone = m.phase === "ZONE" ? lc.zones.find((z) => z.id === m.zone_id) : null;
+  if (isCorrection && zone?.format === "GVG" && m.round === 1) {
+    const oldW = lc.view.summaries.get(m.id)?.winner, newW = after.summaries.get(m.id)?.winner;
+    if (oldW && newW && oldW !== newW) {
+      for (const x of lc.matches.filter((y) => y.zone_id === zone.id && y.slot && (y.status === "PLAYED" || y.status === "IN_PLAY"))) {
+        gvgItems.push(`Zona ${zone.name}: cambia quién juega el partido de ${x.slot === "GVG" ? "ganadores" : "perdedores"} (${entryLabel(lc.entryMap.get(x.entry_a ?? ""))} vs ${entryLabel(lc.entryMap.get(x.entry_b ?? ""))}). Su resultado quedará invalidado.`);
+      }
+    }
+  }
+  if (!confirmed && (gvgItems.length || impact.some((i) => i.hadResult) || (isCorrection && lc.tc.points_awarded_at))) {
+    const items: string[] = [...gvgItems];
     for (const i of impact.filter((x) => x.hadResult)) {
       const label = (id: string | null) => (id === "BYE" ? "Pase libre" : id ? entryLabel(lc.entryMap.get(id)) : "A definir");
       items.push(`${i.code}: ${label(i.before.a)} vs ${label(i.before.b)} → ${label(i.after.a)} vs ${label(i.after.b)}. Su resultado quedará invalidado.`);

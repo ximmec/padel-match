@@ -34,7 +34,7 @@ export function StructureFields({ children, cupo }: { children?: React.ReactNode
       const q = Math.min(target, zones.reduce((a, z) => a + qualifiersInZone(z, rule), 0) + (perZone === "ALL" ? 0 : rule.bestNext));
       let bracket = 1;
       while (bracket < q) bracket *= 2;
-      const minMatches = Math.min(...zones.map((z) => (z === 4 && gvg ? 2 : z - 1)));
+      const minMatches = Math.min(...zones.map((z) => (z === 4 && (gvg || perZone === "ALL") ? 2 : z - 1)));
       return { zones, q, bracket, byes: bracket - q, minMatches, best: rule.bestNext };
     } catch { return null; }
   }, [mode, target, size, perZone, bestNext, gvg, pass3]);
@@ -79,7 +79,7 @@ export function StructureFields({ children, cupo }: { children?: React.ReactNode
       </div>
       <div className="toggles">
         {mode === "ZONES" && <>
-          <Toggle name="four_gvg" checked={gvg} onChange={setGvg} title="Si hay zonas de 4, GvG/PvP" desc="1° vs 4° y 2° vs 3°; después ganadores contra ganadores y perdedores contra perdedores, en lugar de todos contra todos." />
+          <Toggle name="four_gvg" checked={gvg || perZone === "ALL"} onChange={setGvg} title="Si hay zonas de 4, GvG/PvP" desc={perZone === "ALL" ? "Como pasan todas, las zonas de 4 se juegan siempre así: A vs B y C vs D, después ganadores entre sí y perdedores entre sí. Todas las parejas juegan 2 partidos." : "A vs B y C vs D; después ganadores contra ganadores y perdedores contra perdedores, en lugar de todos contra todos."} />
           <Toggle name="four_pass3" checked={pass3} onChange={setPass3} title="En las zonas de 4 pasan 3" desc={`de la zona de 4 clasifican 3; las demás siguen pasando ${perZone === "ALL" ? "todas" : perZone}.`} />
         </>}
         <Toggle name="no_schedule" title="Sin horarios" desc="el organizador asigna los horarios desde la mesa (no se genera cronograma automático)." />
