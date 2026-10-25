@@ -13,7 +13,10 @@ export type TiebreakCriterion =
   | "WIN_RATIO"     // % de partidos ganados (útil con zonas de distinto tamaño)
   | "MANUAL";       // sorteo / decisión manual registrada
 
-export const DEFAULT_TIEBREAKS: TiebreakCriterion[] = ["WINS", "HEAD_TO_HEAD", "SET_DIFF", "GAME_DIFF", "MANUAL"];
+/** Orden por defecto: partidos ganados → dif. de sets → dif. de games → resultado entre sí (si jugaron) → sorteo. */
+export const DEFAULT_TIEBREAKS: TiebreakCriterion[] = ["WINS", "SET_DIFF", "GAME_DIFF", "HEAD_TO_HEAD", "MANUAL"];
+/** Orden por defecto anterior (se conserva en torneos ya terminados). */
+export const LEGACY_TIEBREAKS: TiebreakCriterion[] = ["WINS", "HEAD_TO_HEAD", "SET_DIFF", "GAME_DIFF", "MANUAL"];
 
 export const TIEBREAK_LABELS: Record<TiebreakCriterion, string> = {
   WINS: "Partidos ganados",
@@ -117,6 +120,17 @@ export function computeStandings(
   /** Ordena un grupo empatado aplicando criterios desde `ci`. Devuelve grupos ordenados. */
   const rank = (group: StandingRow[], ci: number): { rows: StandingRow[]; tied: boolean; by: TiebreakCriterion | null }[] => {
     if (group.length === 1) return [{ rows: group, tied: false, by: ci > 0 ? criteria[ci - 1] ?? null : null }];
+    // Si un empate de 3 o más se redujo a 2 parejas y el «resultado entre sí» ya quedó atrás en la lista,
+    // se vuelve a aplicar: entre dos parejas que jugaron entre sí, manda el partido directo.
+    const h2hAt = criteria.indexOf("HEAD_TO_HEAD");
+    if (group.length === 2 && h2hAt !== -1 && h2hAt < ci) {
+      const w = h2hWinner(group[0].entryId, group[1].entryId);
+      if (w) {
+        const first = group.find((r) => r.entryId === w)!;
+        const second = group.find((r) => r.entryId !== w)!;
+        return [{ rows: [first], tied: false, by: "HEAD_TO_HEAD" }, { rows: [second], tied: false, by: "HEAD_TO_HEAD" }];
+      }
+    }
     if (ci >= criteria.length) return [{ rows: group, tied: true, by: null }];
     const c = criteria[ci];
     if (c === "HEAD_TO_HEAD") {

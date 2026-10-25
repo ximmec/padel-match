@@ -79,3 +79,25 @@ test("mejores segundos entre zonas de distinto tamaño usan promedios", () => {
   const r2 = rankAcrossZones([row("p", 2, 1, 3, 2, 20, 20), row("q", 3, 1, 3, 4, 30, 30), row("s", 4, 2, 5, 4, 40, 40)]);
   assert.deepEqual(r2.ordered.map((r) => r.entryId), ["p", "s", "q"]);
 });
+
+test("triple empate que se reduce a dos: entre esas dos manda el partido entre sí", () => {
+  const one = (id: string, a: string, b: string, sets: SetScore[]): ZoneMatchInput => ({ id, a, b, summary: summarizePlayed(FORMATS.ONE_SET, sets) });
+  // M, C y A ganan 2 cada una (sets 2-1). Games: M +4, C +4, A +2 → A 3°; M y C empatan en sets y games; M le ganó a C.
+  const s = computeStandings(["W", "C", "A", "M"], [
+    one("1", "M", "C", [[6, 4]]),
+    one("2", "A", "M", [[6, 2]]),
+    one("3", "M", "W", [[6, 0]]),
+    one("4", "C", "A", [[6, 2]]),
+    one("5", "C", "W", [[6, 4]]),
+    one("6", "A", "W", [[6, 4]]),
+  ]);
+  assert.deepEqual(s.rows.map((r) => r.entryId), ["M", "C", "A", "W"]);
+  assert.equal(s.rows[0].decidedBy, "HEAD_TO_HEAD");
+  assert.equal(s.final, true);
+});
+
+test("dos empatadas que no jugaron entre sí: sigue el criterio siguiente", () => {
+  const s = computeStandings(["a", "b"], [], ["WINS", "SET_DIFF", "GAME_DIFF", "HEAD_TO_HEAD", "MANUAL"], ["b", "a"]);
+  assert.deepEqual(s.rows.map((r) => r.entryId), ["b", "a"]);
+  assert.equal(s.rows[0].decidedBy, "MANUAL");
+});
