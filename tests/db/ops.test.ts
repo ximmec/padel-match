@@ -522,3 +522,21 @@ test("armar zonas a mano: respeta la elección y controla que estén todas", asy
   assert.deepEqual(lc.zones.map((z) => [...z.entry_ids].sort()), manual.map((g) => [...g].sort()));
   assert.equal(lc.matches.filter((m) => m.phase === "ZONE").length, 6 + 3);
 });
+
+test("reemplazo escribiendo el nombre: crea el jugador una sola vez y conserva resultados", async () => {
+  const { tcId } = await makeTournament();
+  const players = await makePlayers(8);
+  const entries = await register(tcId, players);
+  await tx((x) => ops.generateZones(x, user, tcId, null, 1));
+  let lc = await loadCategory(sql, tcId, orgId);
+  const m = lc.matches.find((x) => x.phase === "ZONE" && x.entry_a === entries[0] || x.entry_b === entries[0])!;
+  await result(m.id, [[6, 3], [6, 3]]);
+  const id1 = await tx((x) => ops.quickPlayer(x, user, "  Juan ", "Reemplazo", "MALE"));
+  const id2 = await tx((x) => ops.quickPlayer(x, user, "juan", "reemplazo", "MALE"));
+  assert.equal(id1, id2, "no duplica si ya existe");
+  await tx((x) => ops.replacePlayer(x, user, entries[0], 1, id1));
+  lc = await loadCategory(sql, tcId, orgId);
+  assert.ok(lc.entryMap.get(entries[0])!.players.some((p) => p.id === id1));
+  assert.equal(lc.matches.find((x) => x.id === m.id)!.status, "PLAYED");
+  await assert.rejects(tx((x) => ops.quickPlayer(x, user, "J", "", "MALE")), /nombre y apellido/);
+});

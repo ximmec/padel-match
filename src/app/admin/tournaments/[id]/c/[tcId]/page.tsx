@@ -234,10 +234,15 @@ async function EntriesTab({ lc, u, focus }: { lc: LoadedCategory; u: CurrentUser
                       <label>Reemplazar jugador</label>
                       <div className="row">
                         <select name="slot" className="sm">{e.players.map((p) => <option key={p.slot} value={p.slot}>Sale {p.first_name} {p.last_name}</option>)}</select>
-                        <select name="player_id" className="sm" required defaultValue=""><option value="" disabled>Entra…</option>{optGroups(free)}</select>
+                        <select name="player_id" className="sm" defaultValue=""><option value="">Entra (de la lista)…</option>{optGroups(free)}</select>
+                      </div>
+                      <div className="muted" style={{ fontSize: 12, margin: "6px 0 4px" }}>…o si no está cargado, escribí su nombre:</div>
+                      <div className="row">
+                        <input name="new_first" className="sm" placeholder="Nombre" maxLength={60} style={{ flex: 1, minWidth: 110 }} />
+                        <input name="new_last" className="sm" placeholder="Apellido" maxLength={60} style={{ flex: 1, minWidth: 110 }} />
                         <Submit className="btn sm">Reemplazar</Submit>
                       </div>
-                      <div className="muted" style={{ fontSize: 12 }}>La pareja conserva sus resultados.</div>
+                      <div className="muted" style={{ fontSize: 12 }}>La pareja conserva sus resultados. Si escribís un nombre nuevo, el jugador se crea solo (después podés completar sus datos en Jugadores).</div>
                     </ActionForm>
                     <ActionForm action={A.swapPlayersAction}>
                       <input type="hidden" name="entry_id" value={e.id} />

@@ -242,6 +242,26 @@ export async function withdrawEntry(tx: Tx, user: CurrentUser, entryId: string, 
   await afterChange(tx, user, lc.tc.id);
 }
 
+/**
+ * Jugador cargado al vuelo (por ejemplo, un reemplazo con el torneo en juego): si ya existe uno
+ * con el mismo nombre se reutiliza; si no, se crea con lo mínimo y se completa después en Jugadores.
+ */
+export async function quickPlayer(tx: Tx, user: CurrentUser, firstName: string, lastName: string, genderRule: string): Promise<string> {
+  const first = firstName.trim().replace(/\s+/g, " "), last = lastName.trim().replace(/\s+/g, " ");
+  if (first.length < 2 || last.length < 2) throw new UserError("Escribí nombre y apellido del jugador nuevo.");
+  if (first.length > 60 || last.length > 60) throw new UserError("Nombre demasiado largo.");
+  const [dup] = await tx<{ id: string }[]>`SELECT id FROM players WHERE org_id = ${user.orgId} AND deleted_at IS NULL
+    AND lower(first_name) = lower(${first}) AND lower(last_name) = lower(${last}) ORDER BY created_at LIMIT 1`;
+  if (dup) return dup.id;
+  const gender = genderRule === "MALE" ? "M" : genderRule === "FEMALE" ? "F" : "X";
+  const [{ n }] = await tx<{ n: string }[]>`SELECT nextval('player_code_seq')::text AS n`;
+  const code = `PM-${n.padStart(5, "0")}`;
+  const [p] = await tx<{ id: string }[]>`INSERT INTO players (org_id, code, first_name, last_name, gender, notes)
+    VALUES (${user.orgId}, ${code}, ${first}, ${last}, ${gender}, ${"Cargado como reemplazo durante un torneo"}) RETURNING id`;
+  await audit(tx, user, { entity: "player", entityId: p.id, action: "create", summary: `Jugador ${first} ${last} (${code}) creado como reemplazo` });
+  return p.id;
+}
+
 export async function replacePlayer(tx: Tx, user: CurrentUser, entryId: string, slot: 1 | 2, newPlayerId: string) {
   const { lc, entry } = await entryContext(tx, user, entryId);
   const old = entry.players.find((p) => p.slot === slot);

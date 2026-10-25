@@ -87,7 +87,20 @@ export async function replacePlayerAction(_p: ActionState, fd: FormData): Promis
   return runAction("players.manage", async (user) => {
     const slot = int(fd, "slot");
     if (slot !== 1 && slot !== 2) throw new UserError("Elegí a qué jugador reemplazar.");
-    await sql.begin((tx) => ops.replacePlayer(tx, user, uuid(fd, "entry_id"), slot, uuid(fd, "player_id")));
+    const first = str(fd, "new_first"), last = str(fd, "new_last");
+    const picked = str(fd, "player_id");
+    if (!picked && !first && !last) throw new UserError("Elegí quién entra o escribí el nombre del jugador nuevo.");
+    if (picked && (first || last)) throw new UserError("Elegí un jugador de la lista o escribí uno nuevo, no las dos cosas.");
+    const entryId = uuid(fd, "entry_id");
+    await sql.begin(async (tx) => {
+      let pid = picked ? uuid(picked) : null;
+      if (!pid) {
+        const [e] = await tx<{ gender_rule: string }[]>`SELECT c.gender_rule FROM entries e JOIN tournament_categories tc ON tc.id = e.tc_id JOIN categories c ON c.id = tc.category_id WHERE e.id = ${entryId}`;
+        if (!e) throw new UserError("Inscripción no encontrada.");
+        pid = await ops.quickPlayer(tx, user, first, last, e.gender_rule);
+      }
+      await ops.replacePlayer(tx, user, entryId, slot, pid);
+    });
     return { message: "Jugador reemplazado. Los resultados de la pareja se conservan." };
   }, REVAL);
 }
