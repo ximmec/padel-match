@@ -366,7 +366,7 @@ test("circuitos: crear un circuito y un torneo dentro de él", async ({ page }) 
 test("finalizar y reabrir un torneo", async ({ page }) => {
   await login(page);
   page.on("dialog", (d) => d.accept());
-  await page.goto(state.tournamentUrl);
+  await page.goto(state.tournamentUrl!);
   await page.getByRole("button", { name: /Finalizar torneo/ }).click();
   const confirm = page.getByRole("button", { name: "Confirmar y aplicar" });
   if (await confirm.isVisible().catch(() => false)) await confirm.click();
