@@ -3,6 +3,8 @@ import { requireUser, can } from "@/server/auth";
 import { sql } from "@/server/db";
 import { StatusBadge } from "@/components/views";
 import { Icon } from "@/components/Icon";
+import { ActionForm } from "@/components/ActionForm";
+import { setTournamentStatusAction } from "@/server/actions/admin";
 import { fmtDate } from "@/lib/format";
 import { cardBgUrl, fmtMoney } from "@/lib/cardBg";
 
@@ -123,6 +125,13 @@ export default async function TournamentsPage({ searchParams }: { searchParams: 
                     <Link href={`/admin/tournaments/${t.id}/schedule`}><Icon name="calendar" size={18} /> Cronograma</Link>
                     {can(u, "results.enter") && <Link href={`/admin/results?t=${t.id}`}><Icon name="bolt" size={18} /> Cargar resultados</Link>}
                     <a href={`/t/${t.slug}`} target="_blank" rel="noreferrer"><Icon name="external" size={18} /> Vista pública</a>
+                    {manage && (
+                      <ActionForm action={setTournamentStatusAction} hideSuccess className="tmenu-form">
+                        <input type="hidden" name="id" value={t.id} />
+                        <input type="hidden" name="status" value={t.status === "FINISHED" ? "IN_PROGRESS" : "FINISHED"} />
+                        <button type="submit">{t.status === "FINISHED" ? <><Icon name="calendar" size={18} /> Reabrir torneo</> : <><Icon name="trophy" size={18} /> Finalizar torneo</>}</button>
+                      </ActionForm>
+                    )}
                     {manage && <Link href={`/admin/tournaments/${t.id}?eliminar=1#eliminar`} className="danger"><Icon name="x" size={18} /> Eliminar torneo</Link>}
                   </div>
                 </details>

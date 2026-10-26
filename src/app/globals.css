@@ -853,3 +853,9 @@ details[open] > summary::before { content: "▾ "; }
 .slot-close:hover { color: #fff; }
 .bm .slot-wrap .slot + .slot { border-top: 0; }
 .slot-opt.done { cursor: default; font-weight: 600; font-size: 12px; }
+.tmenu-form button[type="submit"] { all: unset; box-sizing: border-box; width: 100%; cursor: pointer; display: flex; align-items: center; gap: 10px; padding: 12px 16px; color: #d6d6d6; font-weight: 600; }
+.tmenu-form button[type="submit"] .icon { color: var(--orange); }
+.tmenu-form button[type="submit"]:hover { background: var(--surface-3); color: #fff; }
+.tmenu-form .alert, .tmenu-form .confirm-box { margin: 6px 10px; font-size: 13px; }
+.btn.finish { background: rgba(200, 230, 0, .1); color: var(--lime); border-color: rgba(200, 230, 0, .45); }
+.btn.finish:hover { background: rgba(200, 230, 0, .2); }

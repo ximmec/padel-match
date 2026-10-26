@@ -5,7 +5,7 @@ import { sql } from "@/server/db";
 import { isUuid } from "@/server/action";
 import { ActionForm, Submit } from "@/components/ActionForm";
 import { StatusBadge } from "@/components/views";
-import { addCategoryAction, removeCategoryAction, addAvailabilityAction, removeAvailabilityAction } from "@/server/actions/admin";
+import { addCategoryAction, removeCategoryAction, addAvailabilityAction, removeAvailabilityAction, setTournamentStatusAction } from "@/server/actions/admin";
 import { fmtDate, fmtDateTime, toLocalInput } from "@/lib/format";
 import { ResetForm } from "@/components/ResetForm";
 import { DeleteTournament } from "@/components/DeleteTournament";
@@ -47,6 +47,13 @@ export default async function TournamentPage({ params, searchParams }: { params:
           <div className="row"><StatusBadge status={t.status} /><span className="muted">{fmtDate(t.start_date)}{t.end_date !== t.start_date ? ` al ${fmtDate(t.end_date)}` : ""} · {t.venue ?? "Sin sede"}</span></div>
         </div>
         <div className="row">
+          {can(u, "tournaments.manage") && (
+            <ActionForm action={setTournamentStatusAction} hideSuccess>
+              <input type="hidden" name="id" value={id} />
+              <input type="hidden" name="status" value={t.status === "FINISHED" ? "IN_PROGRESS" : "FINISHED"} />
+              <Submit className={`btn ${t.status === "FINISHED" ? "ghost" : "finish"}`}>{t.status === "FINISHED" ? "↩ Reabrir torneo" : "🏁 Finalizar torneo"}</Submit>
+            </ActionForm>
+          )}
           {can(u, "tournaments.manage") && <Link className="btn" href={`/admin/tournaments/${id}/edit`}>✏️ Editar torneo</Link>}
           <Link className="btn" href={`/admin/tournaments/${id}/schedule`}>🗓 Cronograma</Link>
           {can(u, "results.enter") && <Link className="btn primary" href={`/admin/results?t=${id}`}>⚡ Resultados</Link>}

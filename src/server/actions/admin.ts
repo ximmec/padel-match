@@ -678,3 +678,27 @@ export async function importPlayersAction(_p: ActionState, fd: FormData): Promis
     return { message: `¡Listo! Se cargaron ${r.created} jugador(es).${r.updated ? ` Se actualizó la categoría de ${r.updated}.` : ""}${r.skipped ? ` ${r.skipped} ya existían sin cambios.` : ""}${r.issues ? ` ${r.issues} fila(s) tenían problemas y no se cargaron.` : ""}` };
   }, ["/admin/players"]);
 }
+
+const STATUS_LABEL: Record<string, string> = { DRAFT: "Borrador", OPEN: "Inscripción abierta", IN_PROGRESS: "En curso", FINISHED: "Finalizado", CANCELLED: "Cancelado" };
+
+/** Cambio rápido de estado del torneo (por ejemplo «Finalizar torneo»). */
+export async function setTournamentStatusAction(_p: ActionState, fd: FormData): Promise<ActionState> {
+  return runAction("tournaments.manage", async (user) => {
+    const id = uuid(fd, "id");
+    const status = str(fd, "status");
+    if (!STATUS_LABEL[status]) throw new UserError("Estado inválido.");
+    await sql.begin(async (tx) => {
+      const [t] = await tx<{ name: string; status: string }[]>`SELECT name, status FROM tournaments WHERE id = ${id} AND org_id = ${user.orgId} FOR UPDATE`;
+      if (!t) throw new UserError("Torneo no encontrado.");
+      if (t.status === status) return;
+      if (status === "FINISHED" && !isConfirmed(fd)) {
+        const [p] = await tx<{ n: number }[]>`SELECT count(*)::int AS n FROM matches m JOIN tournament_categories tc ON tc.id = m.tc_id
+          WHERE tc.tournament_id = ${id} AND m.status IN ('PENDING','IN_PLAY') AND (m.entry_a IS NOT NULL OR m.phase = 'BRACKET')`;
+        if (p.n > 0) throw new NeedsConfirmation("Finalizar el torneo", [`Todavía hay ${p.n} partido(s) sin resultado. El torneo igual se marca como finalizado (podés reabrirlo cuando quieras).`]);
+      }
+      await tx`UPDATE tournaments SET status = ${status}, updated_at = now() WHERE id = ${id}`;
+      await audit(tx, user, { entity: "tournament", entityId: id, action: "update", tournamentId: id, summary: `Torneo ${t.name}: ${STATUS_LABEL[t.status] ?? t.status} → ${STATUS_LABEL[status]}`, before: { status: t.status }, after: { status } });
+    });
+    return { message: status === "FINISHED" ? "Torneo finalizado." : `Estado: ${STATUS_LABEL[status]}.` };
+  }, ["/admin", "/t", "/"]);
+}

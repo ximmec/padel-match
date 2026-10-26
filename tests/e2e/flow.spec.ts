@@ -362,3 +362,17 @@ test("circuitos: crear un circuito y un torneo dentro de él", async ({ page }) 
   await expect(page.locator(".circuit-section h2", { hasText: "BLOKO PADEL TOUR" })).toBeVisible();
   await shot(page, "40-circuitos");
 });
+
+test("finalizar y reabrir un torneo", async ({ page }) => {
+  await login(page);
+  page.on("dialog", (d) => d.accept());
+  await page.goto(state.tournamentUrl);
+  await page.getByRole("button", { name: /Finalizar torneo/ }).click();
+  const confirm = page.getByRole("button", { name: "Confirmar y aplicar" });
+  if (await confirm.isVisible().catch(() => false)) await confirm.click();
+  await expect(page.getByRole("button", { name: /Reabrir torneo/ })).toBeVisible();
+  await expect(page.locator(".badge", { hasText: "Finalizado" }).first()).toBeVisible();
+  await shot(page, "40-torneo-finalizado");
+  await page.getByRole("button", { name: /Reabrir torneo/ }).click();
+  await expect(page.getByRole("button", { name: /Finalizar torneo/ })).toBeVisible();
+});
