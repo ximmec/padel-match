@@ -70,6 +70,25 @@ export interface QualificationRule {
   autoBestNext?: boolean;
   /** Cuántas parejas extra clasifican como mejores de la posición siguiente (ej. 2 mejores terceros). */
   bestNext: number;
+  /**
+   * «Siempre N al playoff» (ej. 16): se ignoran perZone/bestNext y se llenan los N lugares por escalones:
+   * todos los 1°, después los 2°, después los mejores 3°… Cada escalón se ordena por rendimiento entre zonas.
+   */
+  fixedTotal?: number | null;
+}
+
+/** Escalones de «Siempre N»: cuántas parejas entran de cada puesto (1°, 2°, 3°…). */
+export function fixedTiers(sizes: number[], total: number): { pos: number; zones: number; take: number }[] {
+  const out: { pos: number; zones: number; take: number }[] = [];
+  let left = Math.min(total, sizes.reduce((a, b) => a + b, 0));
+  for (let pos = 1; left > 0; pos++) {
+    const zones = sizes.filter((s) => s >= pos).length;
+    if (!zones) break;
+    const take = Math.min(zones, left);
+    out.push({ pos, zones, take });
+    left -= take;
+  }
+  return out;
 }
 
 export interface ZoneInfo { id: string; size: number }
@@ -94,11 +113,18 @@ export function autoBestNext(sizes: number[], rule: QualificationRule): number {
 
 /** Regla con los mejores siguientes ya calculados (si está en automático). */
 export function resolveQualification(rule: QualificationRule, sizes: number[]): QualificationRule {
+  if (rule.fixedTotal) return rule;
   return rule.autoBestNext ? { ...rule, bestNext: autoBestNext(sizes, rule) } : rule;
 }
 
 export function qualifierRefs(zones: ZoneInfo[], rule: QualificationRule): { ref: SlotRef; zone: string | null }[] {
   if (zones.length === 0) throw new BracketError("No hay zonas.");
+  if (rule.fixedTotal) {
+    const out = fixedTiers(zones.map((z) => z.size), rule.fixedTotal)
+      .flatMap((t) => Array.from({ length: t.take }, (_, k) => ({ ref: { t: "CROSS", pos: t.pos, rank: k + 1 } as SlotRef, zone: null as string | null })));
+    if (out.length < 2) throw new BracketError("Se necesitan al menos 2 clasificados para armar un cuadro.");
+    return out;
+  }
   if (rule.perZone !== "ALL" && (!Number.isInteger(rule.perZone) || rule.perZone < 1)) throw new BracketError("Cantidad de clasificados por zona inválida.");
   const perOf = new Map(zones.map((z) => [z.id, qualifiersInZone(z.size, rule)]));
   const maxPer = Math.max(...perOf.values());
@@ -134,7 +160,7 @@ export function generateBracket(qualifiers: { ref: SlotRef; zone: string | null 
   positions.forEach((s, i) => lineOfSeed.set(s, i));
 
   const lines: ({ ref: SlotRef; zone: string | null } | null)[] = Array(size).fill(null);
-  const numZoneFirsts = qualifiers.filter((x) => x.ref.t === "ZONE" && x.ref.pos === 1).length;
+  const numZoneFirsts = qualifiers.filter((x) => (x.ref.t === "ZONE" || x.ref.t === "CROSS") && x.ref.pos === 1).length;
   const top = Math.max(1, Math.min(numZoneFirsts, q));
 
   // 1) cabezas de serie fijas
@@ -179,6 +205,12 @@ export function generateBracket(qualifiers: { ref: SlotRef; zone: string | null 
       if (size >= 4 && half(i, 2) === half(j, 2)) c += 10;
       if (size >= 8 && half(i, 4) === half(j, 4)) c += 1;
     }
+    // A igualdad de choques, respetar el orden de siembra (el mejor contra el peor).
+    for (let l = 0; l < size; l++) {
+      const x = lines[l];
+      if (!x || x.ref.t === "BYE") continue;
+      c += 0.001 * Math.abs(qualifiers.indexOf(x) - (positions[l] - 1));
+    }
     return c;
   };
   const movable = positions
@@ -186,7 +218,7 @@ export function generateBracket(qualifiers: { ref: SlotRef; zone: string | null 
     .filter(({ s }) => s > top && s <= q)
     .map(({ line }) => line);
   let current = cost();
-  for (let iter = 0; iter < 50 && current > 0; iter++) {
+  for (let iter = 0; iter < 200 && current > 1e-9; iter++) {
     let improved = false;
     for (let i = 0; i < movable.length; i++) for (let j = i + 1; j < movable.length; j++) {
       const li = movable[i], lj = movable[j];
@@ -244,6 +276,8 @@ export interface CrossResult {
   final: boolean;
   /** entryIds ordenados (mejor primero). */
   order: string[];
+  /** Cuántos de este puesto clasifican. */
+  take?: number;
 }
 
 export interface BracketResultInput {

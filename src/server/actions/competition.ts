@@ -163,7 +163,7 @@ export async function updateRulesAction(_p: ActionState, fd: FormData): Promise<
       mode: str(fd, "mode") === "KNOCKOUT" ? "KNOCKOUT" : "ZONES",
       format,
       tiebreaks: unique.length ? unique : DEFAULT_TIEBREAKS,
-      qualification: { perZone, bestNext, perZoneOf4: fd.get("pass3of4") === "on" ? 3 : null, autoBestNext: fd.get("autoBestNext") === "on" },
+      qualification: { perZone, bestNext, perZoneOf4: fd.get("pass3of4") === "on" ? 3 : null, autoBestNext: fd.get("autoBestNext") === "on", fixedTotal: fd.get("fixed16") === "on" ? 16 : null },
       fourZone: fd.get("fourGvg") === "on" ? "GVG" : "RR",
       maxEntries: (() => { const n = int(fd, "maxEntries"); if (n !== null && (n < 2 || n > 512)) throw new UserError("El cupo debe estar entre 2 y 512 parejas."); return n; })(),
       crossZoneMode: crossZoneMode === "DROP_VS_LAST" ? "DROP_VS_LAST" : "AVERAGES",

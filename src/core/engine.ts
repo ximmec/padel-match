@@ -5,7 +5,7 @@
  */
 import { summarize, type MatchFormat, type MatchOutcome, type ScoreSummary, FORMATS } from "./scoring";
 import { computeStandings, rankAcrossZones, dropMatchesVsLast, DEFAULT_TIEBREAKS, type TiebreakCriterion, type ZoneStandings, type ZoneMatchInput } from "./standings";
-import { resolveBracket, qualifiersInZone, type BracketMatchDef, type ResolvedMatch, type CrossResult, type QualificationRule, stagesReached } from "./bracket";
+import { resolveBracket, qualifiersInZone, fixedTiers, type BracketMatchDef, type ResolvedMatch, type CrossResult, type QualificationRule, stagesReached } from "./bracket";
 import { DEFAULT_POINTS, type PointsTable } from "./ranking";
 
 export type CrossZoneMode = "AVERAGES" | "DROP_VS_LAST";
@@ -178,25 +178,38 @@ export function evaluateCategory(rules: CategoryRules, st: CategoryState): Categ
   const cross: CrossResult[] = [];
   const crossTies: Record<number, string[][]> = {};
   const per = rules.qualification.perZone;
-  if (rules.qualification.bestNext > 0 && per !== "ALL") {
+  const sizeOf = (z: (typeof st.zones)[number]) => z.entryIds.length - (z.withdrawn?.length ?? 0);
+  const minSize = Math.min(...st.zones.map((z) => z.entryIds.length));
+  const rowFor = (z: (typeof st.zones)[number], pos: number) => {
+    const s = standings.get(z.id)!;
+    const row = s.rows.find((r) => r.position === pos && !r.unresolvedTie) ?? s.rows[pos - 1];
+    if (!row) return [];
+    let useRow = row;
+    if (rules.crossZoneMode === "DROP_VS_LAST" && z.entryIds.length > minSize) {
+      const filtered = dropMatchesVsLast(s, inputsByZone.get(z.id)!, z.entryIds.length - minSize);
+      const re = computeStandings(z.entryIds, filtered, rules.tiebreaks, z.manualOrder);
+      useRow = re.rows.find((r) => r.entryId === row.entryId) ?? row;
+    }
+    return [{ entryId: row.entryId, zoneId: z.id, row: useRow }];
+  };
+  const allFinal = st.zones.every((z) => standings.get(z.id)!.final);
+  if (rules.qualification.fixedTotal && st.zones.length) {
+    // «Siempre N»: cada escalón (1°, 2°, 3°…) se ordena por rendimiento entre zonas.
+    for (const t of fixedTiers(st.zones.map(sizeOf).filter((n) => n > 0), rules.qualification.fixedTotal)) {
+      const rows = st.zones.filter((z) => sizeOf(z) >= t.pos).flatMap((z) => rowFor(z, t.pos));
+      const { ordered, ties } = rankAcrossZones(rows, st.crossManualOrder[t.pos] ?? []);
+      const idx = new Map(ordered.map((r, i) => [r.entryId, i]));
+      // Solo bloquea un empate que decide quién entra y quién queda afuera; los demás se ordenan por zona.
+      const blocking = ties.filter((g) => g.some((e) => idx.get(e)! < t.take) && g.some((e) => idx.get(e)! >= t.take));
+      crossTies[t.pos] = blocking;
+      cross.push({ pos: t.pos, final: allFinal && blocking.length === 0, order: ordered.map((r) => r.entryId), take: t.take });
+    }
+  } else if (rules.qualification.bestNext > 0 && per !== "ALL") {
     const pos = per + 1;
-    const minSize = Math.min(...st.zones.map((z) => z.entryIds.length));
-    const rows = st.zones.filter((z) => qualifiersInZone(z.entryIds.length, rules.qualification) < pos).flatMap((z) => {
-      const s = standings.get(z.id)!;
-      const row = s.rows.find((r) => r.position === pos && !r.unresolvedTie) ?? s.rows[pos - 1];
-      if (!row) return [];
-      let useRow = row;
-      if (rules.crossZoneMode === "DROP_VS_LAST" && z.entryIds.length > minSize) {
-        const filtered = dropMatchesVsLast(s, inputsByZone.get(z.id)!, z.entryIds.length - minSize);
-        const re = computeStandings(z.entryIds, filtered, rules.tiebreaks, z.manualOrder);
-        useRow = re.rows.find((r) => r.entryId === row.entryId) ?? row;
-      }
-      return [{ entryId: row.entryId, zoneId: z.id, row: useRow }];
-    });
-    const allFinal = st.zones.every((z) => standings.get(z.id)!.final);
+    const rows = st.zones.filter((z) => qualifiersInZone(z.entryIds.length, rules.qualification) < pos).flatMap((z) => rowFor(z, pos));
     const { ordered, ties } = rankAcrossZones(rows, st.crossManualOrder[pos] ?? []);
     crossTies[pos] = ties;
-    cross.push({ pos, final: allFinal && ties.length === 0, order: ordered.map((r) => r.entryId) });
+    cross.push({ pos, final: allFinal && ties.length === 0, order: ordered.map((r) => r.entryId), take: rules.qualification.bestNext });
   }
 
   const zoneResults = st.zones.map((z) => {

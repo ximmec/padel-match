@@ -645,3 +645,28 @@ test("cuadro: marcar ganadora sin resultado, corregirla, y poner a mano una pare
   lc = await loadCategory(sql, tcId, orgId);
   assert.equal(semi().b.kind, "PENDING");
 });
+
+test("siempre 16 al playoff: 21 parejas → 7 primeros, 7 segundos y 2 mejores terceros", async () => {
+  const { tcId } = await makeTournament({ ...DEFAULT_RULES, qualification: { perZone: 2, bestNext: 0, fixedTotal: 16 } });
+  const players = await makePlayers(42);
+  const entries = await register(tcId, players);
+  await tx((x) => ops.generateZones(x, user, tcId, Array(7).fill(3), 21));
+  await assert.rejects(tx((x) => ops.generateBracket(x, user, tcId)), /cuando terminan todas las zonas/);
+  await playZones(tcId, entries);
+  await tx((x) => ops.generateBracket(x, user, tcId));
+  const lc = await loadCategory(sql, tcId, orgId);
+  const r1 = lc.view.bracket.filter((m) => m.round === 1);
+  assert.equal(r1.length, 8, "octavos completos, sin pases libres");
+  const ids = r1.flatMap((m) => [m.a, m.b]).map((r) => (r.kind === "ENTRY" ? r.entryId : null));
+  assert.ok(ids.every(Boolean));
+  assert.equal(new Set(ids).size, 16);
+  const zoneOf = new Map(lc.zones.flatMap((z) => z.entry_ids.map((e) => [e, z.id] as const)));
+  const pos = new Map(lc.zones.flatMap((z) => lc.view.standings.get(z.id)!.rows.map((r) => [r.entryId, r.position] as const)));
+  assert.equal(ids.filter((e) => pos.get(e!) === 1).length, 7);
+  assert.equal(ids.filter((e) => pos.get(e!) === 2).length, 7);
+  assert.equal(ids.filter((e) => pos.get(e!) === 3).length, 2);
+  for (const m of r1) assert.notEqual(zoneOf.get((m.a as { entryId: string }).entryId), zoneOf.get((m.b as { entryId: string }).entryId), "sin cruces de la misma zona en octavos");
+  // el mejor primero es cabeza 1 (R1-1 arriba)
+  const firsts = lc.view.cross.find((c) => c.pos === 1)!;
+  assert.equal((r1.find((m) => m.code === "R1-1")!.a as { entryId: string }).entryId, firsts.order[0]);
+});

@@ -1,7 +1,7 @@
 "use client";
 import { useMemo, useState } from "react";
 import { planZoneSizes } from "@/core/zones";
-import { qualifiersInZone, resolveQualification } from "@/core/bracket";
+import { qualifiersInZone, resolveQualification, fixedTiers } from "@/core/bracket";
 import { Toggle } from "@/components/Toggle";
 
 const FORMAT_OPTS: [string, string][] = [
@@ -20,6 +20,7 @@ export function StructureFields({ children, cupo }: { children?: React.ReactNode
   const [bestNext, setBestNext] = useState<number | "AUTO">("AUTO");
   const [gvg, setGvg] = useState(false);
   const [pass3, setPass3] = useState(false);
+  const [fixed16, setFixed16] = useState(false);
 
   const summary = useMemo(() => {
     if (mode === "KNOCKOUT") {
@@ -29,6 +30,14 @@ export function StructureFields({ children, cupo }: { children?: React.ReactNode
     }
     try {
       const zones = planZoneSizes(target, { preferredSize: size });
+      if (fixed16) {
+        const tiers = fixedTiers(zones, 16);
+        const q = tiers.reduce((a, t) => a + t.take, 0);
+        let bracket = 1;
+        while (bracket < q) bracket *= 2;
+        const minMatches = Math.min(...zones.map((z) => (z === 4 && (gvg || perZone === "ALL") ? 2 : z - 1)));
+        return { zones, q, bracket, byes: bracket - q, minMatches, tiers };
+      }
       const base = { perZone: perZone === "ALL" ? ("ALL" as const) : Number(perZone), bestNext: bestNext === "AUTO" ? 0 : bestNext, perZoneOf4: pass3 ? 3 : null };
       const rule = bestNext === "AUTO" ? resolveQualification({ ...base, autoBestNext: true }, zones) : base;
       const q = Math.min(target, zones.reduce((a, z) => a + qualifiersInZone(z, rule), 0) + (perZone === "ALL" ? 0 : rule.bestNext));
@@ -37,7 +46,7 @@ export function StructureFields({ children, cupo }: { children?: React.ReactNode
       const minMatches = Math.min(...zones.map((z) => (z === 4 && (gvg || perZone === "ALL") ? 2 : z - 1)));
       return { zones, q, bracket, byes: bracket - q, minMatches, best: rule.bestNext };
     } catch { return null; }
-  }, [mode, target, size, perZone, bestNext, gvg, pass3]);
+  }, [mode, target, size, perZone, bestNext, gvg, pass3, fixed16]);
 
   return (
     <>
@@ -65,12 +74,12 @@ export function StructureFields({ children, cupo }: { children?: React.ReactNode
             {[3, 4, 5, 6].map((n) => <option key={n} value={n}>{n} parejas · {n - 1} partidos</option>)}
           </select></div>
         <div className="field"><label htmlFor="s-per">Pasan al playoff por zona</label>
-          <select id="s-per" name="per_zone" value={perZone} onChange={(e) => setPerZone(e.target.value)}>
+          <select id="s-per" name="per_zone" value={perZone} onChange={(e) => setPerZone(e.target.value)} style={fixed16 ? { opacity: .45 } : undefined}>
             {[1, 2, 3, 4].map((n) => <option key={n} value={n}>{n} pareja{n > 1 ? "s" : ""}</option>)}
             <option value="ALL">Todas</option>
           </select></div>
         <div className="field"><label htmlFor="s-best">Mejores siguientes</label>
-          <select id="s-best" name="best_next" value={bestNext} onChange={(e) => setBestNext(e.target.value === "AUTO" ? "AUTO" : Number(e.target.value))} disabled={perZone === "ALL"}>
+          <select id="s-best" name="best_next" value={bestNext} onChange={(e) => setBestNext(e.target.value === "AUTO" ? "AUTO" : Number(e.target.value))} disabled={perZone === "ALL" || fixed16}>
             <option value="AUTO">Automático (los que hagan falta)</option>
             {[0, 1, 2, 3, 4, 5, 6].map((n) => <option key={n} value={n}>{n === 0 ? "Ninguno" : `${n} mejor${n > 1 ? "es" : ""} ${perZone === "ALL" ? "" : `${Number(perZone) + 1}°`}`}</option>)}
           </select></div>
@@ -79,6 +88,7 @@ export function StructureFields({ children, cupo }: { children?: React.ReactNode
       </div>
       <div className="toggles">
         {mode === "ZONES" && <>
+          <Toggle name="fixed16" checked={fixed16} onChange={setFixed16} title="Siempre 16 al playoff" desc="pasan todos los 1°, después los 2° y después los mejores 3° (comparando entre zonas) hasta completar 16. Los primeros se siembran por rendimiento. El cuadro se arma al terminar las zonas." />
           <Toggle name="four_gvg" checked={gvg || perZone === "ALL"} onChange={setGvg} title="Si hay zonas de 4, GvG/PvP" desc={perZone === "ALL" ? "Como pasan todas, las zonas de 4 se juegan siempre así: A vs B y C vs D, después ganadores entre sí y perdedores entre sí. Todas las parejas juegan 2 partidos." : "A vs B y C vs D; después ganadores contra ganadores y perdedores contra perdedores, en lugar de todos contra todos."} />
           <Toggle name="four_pass3" checked={pass3} onChange={setPass3} title="En las zonas de 4 pasan 3" desc={`de la zona de 4 clasifican 3; las demás siguen pasando ${perZone === "ALL" ? "todas" : perZone}.`} />
         </>}
@@ -95,7 +105,7 @@ export function StructureFields({ children, cupo }: { children?: React.ReactNode
         ) : summary ? (
           <>
             <span><b>{summary.zones.length}</b> zona{summary.zones.length > 1 ? "s" : ""} <small>({summary.zones.join(", ")})</small></span>
-            <span><b>{summary.q}</b> clasificados{"best" in summary && summary.best ? <small> (incluye {summary.best} mejor{summary.best > 1 ? "es" : ""} {Number(perZone) + 1}°)</small> : null}</span>
+            <span><b>{summary.q}</b> clasificados{"tiers" in summary && summary.tiers ? <small> ({summary.tiers.map((t) => t.take === t.zones ? `${t.take} de ${t.pos}°` : `${t.take} mejores ${t.pos}°`).join(" + ")})</small> : "best" in summary && summary.best ? <small> (incluye {summary.best} mejor{summary.best > 1 ? "es" : ""} {Number(perZone) + 1}°)</small> : null}</span>
             <span>cuadro de <b>{summary.bracket}</b>{summary.byes ? <small> ({summary.byes} bye{summary.byes > 1 ? "s" : ""})</small> : null}</span>
             <span>mínimo <b>{summary.minMatches}</b> partido{summary.minMatches !== 1 ? "s" : ""} por pareja</span>
           </>

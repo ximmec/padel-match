@@ -59,6 +59,9 @@ export async function updateRules(tx: Tx, user: CurrentUser, tcId: string, rules
   if (rules.mode !== lc.rules.mode && (lc.zones.length || lc.tc.bracket.length)) {
     throw new UserError("Para cambiar entre «Zonas + playoffs» y «Eliminación directa», primero eliminá las zonas y el cuadro (o usá «Reiniciar categoría → Empezar de cero»).");
   }
+  if ((rules.qualification.fixedTotal ?? null) !== (lc.rules.qualification.fixedTotal ?? null) && lc.tc.bracket.length) {
+    throw new UserError("Para activar o desactivar «Siempre 16 al playoff» primero eliminá el cuadro (pestaña Cuadro) y después volvé a generarlo.");
+  }
   const playedCount = lc.matches.filter((m) => m.status === "PLAYED").length;
   // Validar que los resultados existentes sigan siendo válidos con el nuevo formato
   const probe = evaluateCategory(rules, lc.state);
@@ -561,7 +564,23 @@ export async function generateBracket(tx: Tx, user: CurrentUser, tcId: string, r
   } else {
     if (!lc.zones.length) throw new UserError("Primero generá las zonas.");
     const zoneInfos = lc.state.zones.map((z) => ({ id: z.id, size: z.entryIds.length - (z.withdrawn?.length ?? 0) })).filter((z) => z.size > 0);
-    defs = coreGenerateBracket(qualifierRefs(zoneInfos, lc.rules.qualification));
+    let qs = qualifierRefs(zoneInfos, lc.rules.qualification);
+    if (lc.rules.qualification.fixedTotal) {
+      // «Siempre N»: el cuadro se arma con las zonas terminadas, así se siembra por rendimiento
+      // y se evita que dos parejas de la misma zona se crucen en la primera ronda.
+      const pendingZones = lc.zones.filter((z) => !lc.view.standings.get(z.id)?.final).map((z) => z.name);
+      if (pendingZones.length) throw new UserError(`Con «Siempre ${lc.rules.qualification.fixedTotal} al playoff», el cuadro se arma cuando terminan todas las zonas. Falta definir: Zona ${pendingZones.join(", ")}.`);
+      const tie = lc.view.cross.find((c) => !c.final);
+      if (tie) throw new UserError(`Hay un empate exacto entre ${tie.pos}° puestos de distintas zonas que decide quién clasifica. Resolvelo en Posiciones.`);
+      const zoneOf = new Map(lc.zones.flatMap((z) => z.entry_ids.map((e) => [e, z.id] as const)));
+      qs = qs.map((q) => {
+        if (q.ref.t !== "CROSS") return q;
+        const { pos, rank } = q.ref;
+        const e = lc.view.cross.find((c) => c.pos === pos)?.order[rank - 1];
+        return { ...q, zone: e ? zoneOf.get(e) ?? null : null };
+      });
+    }
+    defs = coreGenerateBracket(qs);
   }
   await tx`DELETE FROM matches WHERE tc_id = ${tcId} AND phase = 'BRACKET'`;
   for (const d of defs) {

@@ -94,10 +94,11 @@ export function StandingsTable({ lc, zoneId, compact = false }: { lc: LoadedCate
   const zone = lc.zones.find((z) => z.id === zoneId);
   if (!s || !zone) return null;
   const per = lc.rules.qualification.perZone;
-  const qualifies = (pos: number) => per === "ALL" || pos <= per;
-  const crossPos = per === "ALL" ? null : per + 1;
+  const fixed = !!lc.rules.qualification.fixedTotal;
+  const qualifies = (pos: number) => !fixed && (per === "ALL" || pos <= per);
+  const crossPos = fixed ? null : per === "ALL" ? null : per + 1;
   const crossQualified = new Set(
-    lc.view.cross.flatMap((c) => (c.final ? c.order.slice(0, lc.rules.qualification.bestNext) : [])),
+    lc.view.cross.flatMap((c) => (c.final ? c.order.slice(0, c.take ?? lc.rules.qualification.bestNext) : [])),
   );
   const withdrawn = new Set(lc.entries.filter((e) => e.status === "WITHDRAWN").map((e) => e.id));
   return (
@@ -122,7 +123,7 @@ export function StandingsTable({ lc, zoneId, compact = false }: { lc: LoadedCate
           </thead>
           <tbody>
             {s.rows.map((r) => {
-              const q = !withdrawn.has(r.entryId) && s.final && (qualifies(r.position) || (crossPos === r.position && crossQualified.has(r.entryId)));
+              const q = !withdrawn.has(r.entryId) && s.final && (qualifies(r.position) || ((fixed || crossPos === r.position) && crossQualified.has(r.entryId)));
               return (
                 <tr key={r.entryId} className={`${q ? "q" : ""} ${withdrawn.has(r.entryId) ? "out" : ""}`}>
                   <td className="num">{r.unresolvedTie ? `${r.position}=` : r.position}</td>

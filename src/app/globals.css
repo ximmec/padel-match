@@ -859,3 +859,4 @@ details[open] > summary::before { content: "▾ "; }
 .tmenu-form .alert, .tmenu-form .confirm-box { margin: 6px 10px; font-size: 13px; }
 .btn.finish { background: rgba(200, 230, 0, .1); color: var(--lime); border-color: rgba(200, 230, 0, .45); }
 .btn.finish:hover { background: rgba(200, 230, 0, .2); }
+.fixed16 { align-items: flex-start; gap: 8px; padding: 10px 12px; border: 1px solid rgba(255,115,0,.35); border-radius: 12px; }

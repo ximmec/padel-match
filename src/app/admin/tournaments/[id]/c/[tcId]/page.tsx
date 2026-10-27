@@ -559,15 +559,17 @@ function StandingsTab({ lc, u }: { lc: LoadedCategory; u: CurrentUser }) {
       {lc.view.cross.map((c) => (
         <div key={c.pos} className="card flush">
           <div className="card-head">
-            <h3>Comparación de {c.pos}° puestos entre zonas</h3>
+            <h3>{lc.rules.qualification.fixedTotal ? `${c.pos}° puestos (${Math.min(c.take ?? 0, c.order.length)} de ${c.order.length} pasan)` : `Comparación de ${c.pos}° puestos entre zonas`}</h3>
             {c.final ? <span className="badge ok">Definida</span> : <span className="badge">Pendiente</span>}
           </div>
           <p className="muted" style={{ padding: "8px 16px 0", fontSize: 13 }}>
-            Clasifican los {lc.rules.qualification.bestNext} mejores. Criterio: {lc.rules.crossZoneMode === "AVERAGES" ? "promedios por partido (% ganados, dif. de sets y de games por partido)" : "se descuentan los partidos contra el último en las zonas más grandes"}.
+            {lc.rules.qualification.fixedTotal
+              ? (c.take ?? 0) >= c.order.length ? <>Pasan todos ({c.order.length}); este orden define la siembra del cuadro.</> : <>Pasan los {c.take} mejores para completar {lc.rules.qualification.fixedTotal}.</>
+              : <>Clasifican los {c.take ?? lc.rules.qualification.bestNext} mejores.</>} Criterio: {lc.rules.crossZoneMode === "AVERAGES" ? "promedios por partido (% ganados, dif. de sets y de games por partido)" : "se descuentan los partidos contra el último en las zonas más grandes"}.
           </p>
           <div className="table-wrap"><table>
             <thead><tr><th className="num">#</th><th>Pareja</th></tr></thead>
-            <tbody>{c.order.map((e, i) => <tr key={e} className={i < lc.rules.qualification.bestNext ? "q" : ""}><td className="num">{i + 1}</td><td>{entryLabel(lc.entryMap.get(e))}</td></tr>)}</tbody>
+            <tbody>{c.order.map((e, i) => <tr key={e} className={i < (c.take ?? lc.rules.qualification.bestNext) ? "q" : ""}><td className="num">{i + 1}</td><td>{entryLabel(lc.entryMap.get(e))}</td></tr>)}</tbody>
           </table></div>
           {manage && (lc.view.crossTies[c.pos]?.length ?? 0) > 0 && (
             <div style={{ padding: 12 }}>
@@ -604,7 +606,9 @@ function BracketTab({ lc, u }: { lc: LoadedCategory; u: CurrentUser }) {
   const q = lc.rules.qualification;
   const options: { v: string; l: string }[] = [
     ...lc.zones.flatMap((z) => Array.from({ length: z.entry_ids.length }, (_, i) => ({ v: `ZONE:${z.id}:${i + 1}`, l: `${i + 1}° Zona ${z.name}` }))),
-    ...(q.bestNext > 0 && q.perZone !== "ALL" ? Array.from({ length: q.bestNext }, (_, i) => ({ v: `CROSS:${(q.perZone as number) + 1}:${i + 1}`, l: `${i + 1}° mejor ${(q.perZone as number) + 1}°` })) : []),
+    ...(q.fixedTotal
+      ? lc.view.cross.flatMap((c) => Array.from({ length: Math.min(c.take ?? 0, c.order.length) }, (_, i) => ({ v: `CROSS:${c.pos}:${i + 1}`, l: `${i + 1}° mejor ${c.pos}°` })))
+      : q.bestNext > 0 && q.perZone !== "ALL" ? Array.from({ length: q.bestNext }, (_, i) => ({ v: `CROSS:${(q.perZone as number) + 1}:${i + 1}`, l: `${i + 1}° mejor ${(q.perZone as number) + 1}°` })) : []),
     ...lc.entries.filter((e) => e.status === "ACTIVE").map((e) => ({ v: `ENTRY:${e.id}`, l: `Pareja fija: ${entryLabel(e)}` })),
     { v: "BYE", l: "Pase libre" },
   ];
@@ -616,7 +620,9 @@ function BracketTab({ lc, u }: { lc: LoadedCategory; u: CurrentUser }) {
             <h2 style={{ marginBottom: 4 }}>Cuadro eliminatorio</h2>
             <span className="muted">{lc.rules.mode === "KNOCKOUT"
               ? `Eliminación directa: entran las ${lc.entries.filter((e) => e.status === "ACTIVE").length} parejas inscriptas. Los sembrados reciben los pases libres.`
-              : <>Clasifican {q.perZone === "ALL" ? "todas las parejas" : `${q.perZone} por zona`}{q.bestNext ? ` + ${q.bestNext} mejores ${(q.perZone as number) + 1}°` : ""}. Se cambia en «Reglas».</>}</span>
+              : q.fixedTotal
+                ? <>Siempre {q.fixedTotal} al playoff: {lc.view.cross.map((c) => `${Math.min(c.take ?? 0, c.order.length)} de ${c.pos}°`).join(" + ") || "se calcula con las zonas"}. El cuadro se arma cuando terminan las zonas. Se cambia en «Reglas».</>
+                : <>Clasifican {q.perZone === "ALL" ? "todas las parejas" : `${q.perZone} por zona`}{q.bestNext ? ` + ${q.bestNext} mejores ${(q.perZone as number) + 1}°` : ""}. Se cambia en «Reglas».</>}</span>
           </div>
           {manage && (
             <div className="row">
@@ -797,6 +803,7 @@ function RulesTab({ lc, u }: { lc: LoadedCategory; u: CurrentUser }) {
         <fieldset disabled={disabled}>
           <legend>Zonas y clasificación</legend>
           <div className="grid grid-2" style={{ gap: 12 }}>
+<label className="checkbox span-2 fixed16"><input type="checkbox" name="fixed16" defaultChecked={!!r.qualification.fixedTotal} /> <span><b>Siempre 16 al playoff</b> — pasan todos los 1°, después los 2° y después los mejores 3° (comparando entre zonas) hasta completar 16. Los primeros se siembran por rendimiento. Si está activado, no se usan «Clasifican por zona» ni «Mejores del puesto siguiente».</span></label>
             <div className="field"><label>Tamaño de zona preferido</label><input type="number" name="preferredZoneSize" min={2} max={8} defaultValue={r.preferredZoneSize} /></div>
             <div className="field"><label>Clasifican por zona</label>
               <select name="perZone" defaultValue={String(r.qualification.perZone)}>

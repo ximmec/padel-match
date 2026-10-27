@@ -267,7 +267,7 @@ function structureRules(fd: FormData): CategoryRules {
   return {
     ...DEFAULT_RULES, mode: str(fd, "mode") === "KNOCKOUT" ? "KNOCKOUT" : "ZONES", format: fmt, preferredZoneSize: size,
     fourZone: fd.get("four_gvg") === "on" ? "GVG" : "RR",
-    qualification: { perZone, bestNext, perZoneOf4: fd.get("four_pass3") === "on" ? 3 : null, autoBestNext: autoBest },
+    qualification: { perZone, bestNext, perZoneOf4: fd.get("four_pass3") === "on" ? 3 : null, autoBestNext: autoBest, fixedTotal: fd.get("fixed16") === "on" ? 16 : null },
   };
 }
 
