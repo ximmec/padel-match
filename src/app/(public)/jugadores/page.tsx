@@ -3,15 +3,17 @@ import { sql } from "@/server/db";
 import { getCurrentPlayer } from "@/server/playerAuth";
 import { vapidKeys } from "@/server/notify";
 import { ActionForm, Submit } from "@/components/ActionForm";
-import { PushSetup, InstallHelp } from "@/components/PushSetup";
+import { PushSetup } from "@/components/PushSetup";
+import { InstallApp } from "@/components/InstallApp";
 import { playerLinkRequestAction, playerLogoutAction, markAllReadAction, playerProfileAction, playerDeleteSelfAction } from "@/server/actions/jugadores";
 import { fmtDateTime } from "@/lib/format";
 
 export const metadata = { title: "Mi Padel Match" };
 
-export default async function PlayerHome() {
+export default async function PlayerHome({ searchParams }: { searchParams: Promise<{ instalar?: string }> }) {
+  const { instalar } = await searchParams;
   const p = await getCurrentPlayer();
-  if (!p) return <Landing />;
+  if (!p) return <Landing install={instalar === "1"} />;
 
   const { publicKey } = await vapidKeys();
   const inbox = await sql<{ id: string; title: string; body: string; url: string | null; created_at: Date; read_at: Date | null }[]>`
@@ -134,11 +136,11 @@ export default async function PlayerHome() {
   );
 }
 
-function Landing() {
+function Landing({ install }: { install: boolean }) {
   return (
     <main className="container narrow stack me-page">
       <section className="me-landing">
-        <div className="part-kicker">Para jugadores</div>
+        <div className="part-kicker">Para jugadores · Bloko Padel Tour</div>
         <h1 className="me-title">Mi Padel Match</h1>
         <p className="muted" style={{ fontSize: 17 }}>Tus partidos, horarios y canchas en un solo lugar, y <b>avisos en tu celular</b>: cuándo jugás, en qué cancha, si cambió el horario y cuándo clasificás.</p>
         <div className="row" style={{ marginTop: 14 }}>
@@ -146,7 +148,7 @@ function Landing() {
           <Link className="btn ghost pill lg" href="/jugadores/ingresar">Ya tengo cuenta</Link>
         </div>
       </section>
-      <section className="card me-card"><InstallHelp /></section>
+      <InstallApp variant="card" autoOpen={install} />
     </main>
   );
 }

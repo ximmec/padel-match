@@ -427,3 +427,33 @@ test("jugadores: registro, vínculo y notificación desde el panel", async ({ pa
   await shot(pp, "55-bandeja-jugador");
   await ctx.close();
 });
+
+test("instalar la app: botón y guía en iPhone, Android y navegador de Instagram", async ({ browser, request }) => {
+  const man = await (await request.get("/manifest.webmanifest")).json();
+  expect(man.short_name).toBe("BlokoPadel");
+  const iphone = "Mozilla/5.0 (iPhone; CPU iPhone OS 17_5 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.5 Mobile/15E148 Safari/604.1";
+  const android = "Mozilla/5.0 (Linux; Android 14; Pixel 8) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/129.0.0.0 Mobile Safari/537.36";
+  const insta = iphone + " Instagram 350.0.0.0";
+  const phone = async (ua: string) => browser.newContext({ viewport: { width: 390, height: 844 }, userAgent: ua, isMobile: true, hasTouch: true });
+
+  const c1 = await phone(iphone); const p1 = await c1.newPage();
+  await p1.goto("/");
+  await expect(p1.getByRole("button", { name: /Instalar Padel-Match/ })).toBeVisible();
+  await p1.screenshot({ path: "e2e-shots/60-inicio-iphone.png" });
+  await p1.getByRole("button", { name: /Instalar Padel-Match/ }).click();
+  await expect(p1.getByText("Agregar a pantalla de inicio").first()).toBeVisible();
+  await p1.screenshot({ path: "e2e-shots/61-guia-iphone.png" });
+  await c1.close();
+
+  const c2 = await phone(android); const p2 = await c2.newPage();
+  await p2.goto("/app");
+  await expect(p2.getByText("Instalar app").first()).toBeVisible();
+  await p2.screenshot({ path: "e2e-shots/62-guia-android.png" });
+  await c2.close();
+
+  const c3 = await phone(insta); const p3 = await c3.newPage();
+  await p3.goto("/app");
+  await expect(p3.getByText(/no se puede instalar/)).toBeVisible();
+  await p3.screenshot({ path: "e2e-shots/63-guia-instagram.png" });
+  await c3.close();
+});

@@ -14,7 +14,7 @@ export const metadata: Metadata = {
   title: { default: "PADEL MATCH", template: "%s · PADEL MATCH" },
   description: "Torneos de pádel: zonas, resultados, cuadros, horarios y ranking en tiempo real.",
   applicationName: "PADEL MATCH",
-  appleWebApp: { capable: true, title: "Padel Match", statusBarStyle: "black-translucent" },
+  appleWebApp: { capable: true, title: "BlokoPadel", statusBarStyle: "black-translucent" },
 };
 
 export const viewport: Viewport = {

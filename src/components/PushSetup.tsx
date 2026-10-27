@@ -1,6 +1,7 @@
 "use client";
 import { useEffect, useState } from "react";
 import { savePushSubscription, removePushSubscription, sendTestToMe } from "@/server/actions/jugadores";
+import { InstallApp } from "@/components/InstallApp";
 
 type State = "loading" | "unsupported" | "ios-install" | "denied" | "off" | "on";
 
@@ -77,7 +78,7 @@ export function PushSetup({ vapidKey }: { vapidKey: string }) {
       <div className="push-head">
         <span className="push-ico">🔔</span>
         <div>
-          <b>Notificaciones en este dispositivo</b>
+          <b>Notificaciones en este dispositivo {state === "on" ? <span className="push-pill on">🔔 Activadas</span> : state !== "loading" ? <span className="push-pill">🔕 Desactivadas</span> : null}</b>
           <small>
             {state === "on" ? "Activadas: te llegan los avisos de la organización y de tus partidos."
               : state === "off" ? "Activalas para recibir avisos aunque no tengas la app abierta."
@@ -96,41 +97,7 @@ export function PushSetup({ vapidKey }: { vapidKey: string }) {
         </>}
       </div>
       {msg && <div className={`alert ${msg.ok ? "ok" : "err"}`} style={{ marginTop: 10 }}>{msg.text}</div>}
-      <InstallHelp />
-    </div>
-  );
-}
-
-/** Cómo instalar la app en el celular (si todavía no está instalada). */
-export function InstallHelp() {
-  const [show, setShow] = useState<"ios" | "android" | null>(null);
-  const [prompt, setPrompt] = useState<(Event & { prompt: () => Promise<void> }) | null>(null);
-  useEffect(() => {
-    if (isStandalone()) return;
-    setShow(isIos() ? "ios" : "android");
-    const h = (e: Event) => { e.preventDefault(); setPrompt(e as Event & { prompt: () => Promise<void> }); };
-    window.addEventListener("beforeinstallprompt", h);
-    return () => window.removeEventListener("beforeinstallprompt", h);
-  }, []);
-  if (!show) return null;
-  return (
-    <div className="install-help">
-      <b>📲 Instalá Padel Match en tu celular</b>
-      {show === "ios" ? (
-        <ol>
-          <li>Abrí esta página en <b>Safari</b>.</li>
-          <li>Tocá el botón <b>Compartir</b> (el cuadrado con la flecha hacia arriba).</li>
-          <li>Elegí <b>«Agregar a pantalla de inicio»</b> y después <b>Agregar</b>.</li>
-          <li>Abrí Padel Match desde el ícono nuevo y tocá <b>Activar notificaciones</b>.</li>
-        </ol>
-      ) : prompt ? (
-        <button className="btn sm" onClick={() => prompt.prompt()}>Instalar la app</button>
-      ) : (
-        <ol>
-          <li>En Chrome, tocá el menú <b>⋮</b> (arriba a la derecha).</li>
-          <li>Elegí <b>«Instalar app»</b> o <b>«Agregar a pantalla principal»</b>.</li>
-        </ol>
-      )}
+      <InstallApp variant="card" />
     </div>
   );
 }

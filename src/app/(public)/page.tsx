@@ -2,6 +2,7 @@ import { TournamentCard, type Row } from "@/components/PublicTournamentCard";
 import Link from "next/link";
 import { sql } from "@/server/db";
 import { Icon } from "@/components/Icon";
+import { InstallApp } from "@/components/InstallApp";
 
 export default async function Home() {
   const rows = await sql<Row[]>`
@@ -41,6 +42,7 @@ export default async function Home() {
             <input name="q" placeholder="Buscá tu nombre o apellido…" aria-label="Buscar jugador" />
             <button className="btn primary pill">Buscar <span aria-hidden>→</span></button>
           </form>
+          <InstallApp variant="hero" />
           <div className="hero-links">
             <Link href="#torneos"><Icon name="trophy" size={24} /> Torneos</Link>
             <Link href="/buscar"><Icon name="calendar" size={24} /> ¿Cuándo juego?</Link>

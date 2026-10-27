@@ -889,3 +889,36 @@ details[open] > summary::before { content: "▾ "; }
 .send-to select { max-width: 360px; margin-left: 26px; }
 .link-row { display: grid; grid-template-columns: minmax(200px, 1fr) minmax(220px, 1fr) auto; gap: 10px; align-items: center; padding: 10px 0; border-top: 1px solid var(--line); }
 @media (max-width: 760px) { .link-row { grid-template-columns: 1fr; } }
+
+/* ---------- Instalar la app ---------- */
+.install-btn { display: flex; align-items: center; gap: 14px; width: 100%; text-align: left; cursor: pointer; border: 0; border-radius: 18px; padding: 14px 18px; background: linear-gradient(135deg, #e4f52a, #c8e600); color: #0b0b0b; box-shadow: 0 10px 30px rgba(200, 230, 0, .25); font: inherit; }
+.install-btn b { display: block; font-family: var(--font-hero); font-size: 19px; font-weight: 800; }
+.install-btn small { display: block; font-size: 13px; color: #2b2f12; font-weight: 600; }
+.install-btn:active { transform: scale(.99); }
+.install-ico { font-size: 28px; line-height: 1; }
+.install-btn.hero { margin: 4px 0 14px; max-width: 520px; }
+@media (min-width: 900px) { .install-btn.hero { display: none; } }
+.install-ok, .install-desk { font-size: 14px; color: #c9ccd3; padding: 4px 0; }
+.install-modal { position: fixed; inset: 0; z-index: 100; background: rgba(0, 0, 0, .72); display: flex; align-items: flex-end; justify-content: center; padding: 12px; }
+.install-sheet { width: 100%; max-width: 480px; max-height: 92vh; overflow-y: auto; background: #141414; border: 1px solid var(--line-2); border-radius: 22px; padding: 18px; color: #eee; }
+@media (min-width: 700px) { .install-modal { align-items: center; } }
+.install-sheet-head { display: flex; gap: 12px; align-items: center; margin-bottom: 14px; }
+.install-sheet-head img { border-radius: 14px; }
+.install-sheet-head b { display: block; font-family: var(--font-hero); font-size: 20px; }
+.install-sheet-head small { color: #a8abb3; font-size: 13px; }
+.install-x { margin-left: auto; background: transparent; border: 0; color: #aaa; font-size: 20px; cursor: pointer; align-self: flex-start; }
+.g-steps { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 14px; }
+.g-steps li { display: flex; gap: 12px; align-items: flex-start; font-size: 15px; line-height: 1.4; }
+.g-steps small { display: block; color: #9aa0ab; font-size: 12.5px; margin-top: 4px; }
+.g-n { flex: 0 0 28px; height: 28px; border-radius: 50%; background: var(--lime); color: #111; font-weight: 900; display: grid; place-items: center; font-size: 14px; }
+.g-key { display: inline-grid; place-items: center; width: 34px; height: 30px; border-radius: 8px; background: #2a2a2a; vertical-align: middle; margin-left: 4px; }
+.g-dots { font-size: 20px; font-weight: 900; color: #fff; }
+.g-mock { display: flex; justify-content: space-between; align-items: center; gap: 10px; margin-top: 8px; padding: 10px 14px; border-radius: 12px; background: #2a2a2a; color: #fff; font-size: 14px; max-width: 300px; }
+.g-mock-add { justify-content: flex-start; }
+.g-mock-add img { border-radius: 8px; }
+.g-mock-add b { margin-left: auto; color: #3b82f6; }
+.g-arrow { text-align: center; color: var(--lime); font-weight: 800; font-size: 13px; animation: g-bounce 1.2s infinite; }
+@keyframes g-bounce { 50% { transform: translateY(4px); } }
+.g-link { padding: 10px 14px; border-radius: 12px; background: #222; font-weight: 800; text-align: center; }
+.push-pill { display: inline-block; margin-left: 6px; padding: 2px 8px; border-radius: 999px; font-size: 11px; font-weight: 800; background: #2a2a2a; color: #c9ccd3; vertical-align: 2px; }
+.push-pill.on { background: rgba(200, 230, 0, .15); color: var(--lime); }
