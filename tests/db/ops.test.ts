@@ -653,6 +653,15 @@ test("siempre 16 al playoff: 21 parejas → 7 primeros, 7 segundos y 2 mejores t
   await tx((x) => ops.generateZones(x, user, tcId, Array(7).fill(3), 21));
   await assert.rejects(tx((x) => ops.generateBracket(x, user, tcId)), /cuando terminan todas las zonas/);
   await playZones(tcId, entries);
+  // Con resultados idénticos, los terceros empatan exacto y deciden quién entra: hay que sortear
+  let lc0 = await loadCategory(sql, tcId, orgId);
+  const thirds = lc0.view.cross.find((c) => c.pos === 3)!;
+  assert.equal(thirds.final, false);
+  await assert.rejects(tx((x) => ops.generateBracket(x, user, tcId)), /empate exacto/);
+  await tx((x) => ops.setCrossManualOrder(x, user, tcId, 3, thirds.order));
+  for (const c of (await loadCategory(sql, tcId, orgId)).view.cross.filter((c) => !c.final)) await tx((x) => ops.setCrossManualOrder(x, user, tcId, c.pos, c.order));
+  lc0 = await loadCategory(sql, tcId, orgId);
+  assert.ok(lc0.view.cross.every((c) => c.final));
   await tx((x) => ops.generateBracket(x, user, tcId));
   const lc = await loadCategory(sql, tcId, orgId);
   const r1 = lc.view.bracket.filter((m) => m.round === 1);
