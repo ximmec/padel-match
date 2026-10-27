@@ -163,7 +163,9 @@ test("carga de resultados hasta el campeón", async ({ page }) => {
 test("corrección con confirmación e historial", async ({ page }) => {
   await login(page);
   await page.goto(`${state.categoryUrl}?tab=partidos`);
-  const first = page.locator("details", { hasText: "Corregir resultado" }).first();
+  // Se fija el partido por su id: al guardar, la lista se reordena y «el primero» puede cambiar.
+  const cardId = await page.locator("article.mcard", { has: page.locator("summary", { hasText: "Corregir resultado" }) }).first().getAttribute("id");
+  const first = page.locator(`#${cardId}`);
   await first.locator("summary").click();
   // 5-7 / 5-7: siempre distinto de los resultados cargados antes (6-x), así la corrección queda en el historial
   await first.locator('input[name="s1a"]').fill("5");
@@ -179,8 +181,10 @@ test("corrección con confirmación e historial", async ({ page }) => {
     await confirm.click();
     await expect(first.getByText(/Resultado guardado/)).toBeVisible();
   }
-  await page.goto(`${state.categoryUrl}?tab=historial`);
-  await expect(page.getByText("Error de carga").first()).toBeVisible();
+  await expect.poll(async () => {
+    await page.goto(`${state.categoryUrl}?tab=historial`);
+    return page.getByText("Error de carga").count();
+  }, { timeout: 15000 }).toBeGreaterThan(0);
   await shot(page, "16-historial");
   await page.goto("/admin/audit");
   await expect(page.getByText("Corrección de resultado").first()).toBeVisible();
