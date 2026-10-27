@@ -403,7 +403,7 @@ test("jugadores: registro, vínculo y notificación desde el panel", async ({ pa
   await expect(page.getByText("Pedidos de vínculo")).toBeVisible();
   await page.locator(".link-row select").first().selectOption({ index: 1 });
   await page.locator(".link-row").first().getByRole("button", { name: /Vincular/ }).click();
-  await expect(page.getByText("Vínculo aprobado.")).toBeVisible();
+  await expect(page.getByText("Pedidos de vínculo")).toHaveCount(0);
   await shot(page, "52-notificaciones-jugadores");
   await page.goto("/admin/notificaciones");
   await page.locator('input[name="title"]').fill("Cambio de cancha");
