@@ -3,7 +3,7 @@ import { requireUser, can } from "@/server/auth";
 import { sql } from "@/server/db";
 import { ActionForm, Submit } from "@/components/ActionForm";
 import { Forbidden } from "@/components/views";
-import { sendNotificationAction, setAccountLinkAction, deleteAccountAction } from "@/server/actions/jugadores";
+import { sendNotificationAction, setAccountLinkAction, deleteAccountAction, resetPlayerPasswordAction } from "@/server/actions/jugadores";
 import { fmtDateTime } from "@/lib/format";
 
 export const metadata = { title: "Notificaciones" };
@@ -142,6 +142,10 @@ async function Accounts({ orgId, accounts: list, pending, q }: { orgId: string; 
                         <input type="hidden" name="account_id" value={a.id} />
                         {a.link_status === "APPROVED" && <button className="btn ghost sm" type="submit" name="op" value="UNLINK">Desvincular</button>}
                         <button className="btn ghost sm" type="submit" name="op" value={a.active ? "DISABLE" : "ENABLE"}>{a.active ? "Bloquear" : "Habilitar"}</button>
+                      </ActionForm>
+                      <ActionForm action={resetPlayerPasswordAction}>
+                        <input type="hidden" name="account_id" value={a.id} />
+                        <Submit className="btn ghost sm">Darle una contraseña nueva</Submit>
                       </ActionForm>
                       <ActionForm action={deleteAccountAction}>
                         <input type="hidden" name="account_id" value={a.id} />

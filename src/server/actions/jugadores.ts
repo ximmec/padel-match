@@ -11,6 +11,8 @@ import { NeedsConfirmation } from "../errors";
 import type { CurrentUser } from "../auth";
 import { getCurrentPlayer, loginPlayer, logoutPlayer, registerPlayer, suggestLink, type CurrentPlayer } from "../playerAuth";
 import { createNotification, deliverPendingSafe, deliverPending } from "../notify";
+import { hashPassword } from "../password";
+import { randomInt } from "node:crypto";
 
 /* ------------------------------ Jugador ------------------------------ */
 
@@ -192,6 +194,22 @@ export async function setAccountLinkAction(_p: ActionState, fd: FormData): Promi
     }
     throw new UserError("Acción inválida.");
   }, ["/admin/notificaciones"]);
+}
+
+/** Contraseña temporal para un jugador que se olvidó la suya (se muestra una sola vez). */
+export async function resetPlayerPasswordAction(_p: ActionState, fd: FormData): Promise<ActionState> {
+  return runAction("tournaments.manage", async (user) => {
+    masterOnly(user);
+    const id = uuid(fd, "account_id");
+    const [a] = await sql<{ name: string }[]>`SELECT name FROM player_accounts WHERE id = ${id} AND org_id = ${user.orgId}`;
+    if (!a) throw new UserError("Cuenta no encontrada.");
+    const abc = "abcdefghjkmnpqrstuvwxyz", num = "23456789";
+    const pw = Array.from({ length: 5 }, () => abc[randomInt(abc.length)]).join("") + Array.from({ length: 3 }, () => num[randomInt(num.length)]).join("");
+    await sql`UPDATE player_accounts SET password_hash = ${await hashPassword(pw)} WHERE id = ${id}`;
+    await sql`DELETE FROM player_sessions WHERE account_id = ${id}`;
+    await audit(sql, user, { entity: "player_account", entityId: id, action: "update", summary: `Contraseña de ${a.name} restablecida` });
+    return { message: `Nueva contraseña de ${a.name}: ${pw}  — pasásela al jugador; después la puede usar para ingresar.` };
+  }, []);
 }
 
 export async function deleteAccountAction(_p: ActionState, fd: FormData): Promise<ActionState> {

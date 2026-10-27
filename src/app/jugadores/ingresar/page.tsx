@@ -25,7 +25,7 @@ export default async function PlayerLoginPage() {
       </ActionForm>
       <div className="auth-divider" />
       <p className="auth-foot">¿No tenés cuenta? <Link href="/jugadores/registro">Creala acá</Link> (es gratis).</p>
-      <p className="muted auth-foot" style={{ fontSize: 13 }}>¿Olvidaste tu contraseña? Pedile a la organización que te la restablezca.</p>
+      <p className="muted auth-foot" style={{ fontSize: 13 }}>¿Olvidaste tu contraseña? Pedile a la organización una nueva.</p>
       <p className="muted auth-foot" style={{ fontSize: 13 }}>¿Organizás torneos? <Link href="/login">Ingresá al panel</Link>.</p>
     </AuthShell>
   );
