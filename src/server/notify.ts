@@ -97,14 +97,14 @@ export async function deliverPending(limit = 300): Promise<{ sent: number; noDev
     SELECT id, account_id, endpoint, p256dh, auth FROM push_subscriptions WHERE account_id = ANY(${accountIds}::uuid[])`;
   for (const b of batch) {
     const mine = subs.filter((s) => s.account_id === b.account_id);
-    let status: "SENT" | "NO_DEVICE" | "FAILED" = mine.length ? "FAILED" : "NO_DEVICE";
+    let delivered = false;
     const payload = JSON.stringify({ title: b.title, body: b.body, url: b.url || "/jugadores", tag: b.notification_id });
     await Promise.all(mine.map(async (s) => {
       try {
         await webpush.sendNotification({ endpoint: s.endpoint, keys: { p256dh: s.p256dh, auth: s.auth } }, payload, {
           TTL: 60 * 60 * 6, urgency: "high", vapidDetails: { subject, publicKey: keys.publicKey, privateKey: keys.privateKey },
         });
-        status = "SENT";
+        delivered = true;
         await sql`UPDATE push_subscriptions SET last_ok_at = now(), failures = 0 WHERE id = ${s.id}`;
       } catch (e) {
         const code = (e as { statusCode?: number }).statusCode;
@@ -113,6 +113,7 @@ export async function deliverPending(limit = 300): Promise<{ sent: number; noDev
         else await sql`UPDATE push_subscriptions SET failures = failures + 1 WHERE id = ${s.id}`;
       }
     }));
+    const status = delivered ? "SENT" : mine.length ? "FAILED" : "NO_DEVICE";
     await sql`UPDATE notification_recipients SET push_status = ${status} WHERE notification_id = ${b.notification_id} AND account_id = ${b.account_id}`;
     if (status === "SENT") out.sent++; else if (status === "NO_DEVICE") out.noDevice++; else out.failed++;
   }
