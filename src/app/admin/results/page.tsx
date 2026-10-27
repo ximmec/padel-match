@@ -24,6 +24,16 @@ export default async function ResultsPage({ searchParams }: { searchParams: Prom
   const filter = sp.f ?? "pending";
   const cat = sp.c && isUuid(sp.c) ? sp.c : null;
 
+  const lcBy = new Map(s.categories.map((c) => [c.tc.id, c]));
+  // Agrupar por categoría y zona (Zona A, Zona B…; después las rondas del cuadro)
+  const catOrder = new Map(s.categories.map((c, i) => [c.tc.id, i]));
+  const groupOf = (i: (typeof s.items)[number]) => {
+    const lc = lcBy.get(i.tcId)!;
+    const m = lc.matches.find((x) => x.id === i.matchId)!;
+    const z = m.zone_id ? lc.zones.find((x) => x.id === m.zone_id) : null;
+    const key = z ? z.sort : 1000 + m.round;
+    return { id: `${i.tcId}|${z ? z.id : `R${m.round}`}`, rank: (catOrder.get(i.tcId) ?? 0) * 100000 + key, title: z ? `Zona ${z.name}` : i.stage, cat: i.categoryName };
+  };
   const items = s.items
     .filter((i) => (cat ? i.tcId === cat : true))
     .filter((i) => {
@@ -34,12 +44,21 @@ export default async function ResultsPage({ searchParams }: { searchParams: Prom
       return true;
     })
     .sort((a, b) => {
-      if (filter === "done") return 0;
+      const ga = groupOf(a).rank, gb = groupOf(b).rank;
+      if (ga !== gb) return ga - gb;
       const live = (x: typeof a) => (x.status === "IN_PLAY" ? 0 : 1);
       return live(a) - live(b) || (a.start?.getTime() ?? Infinity) - (b.start?.getTime() ?? Infinity) || a.priority - b.priority;
     });
+  const groups: { id: string; title: string; cat: string; items: typeof items }[] = [];
+  for (const i of items) {
+    const g = groupOf(i);
+    const last = groups[groups.length - 1];
+    if (last && last.id === g.id) last.items.push(i);
+    else groups.push({ id: g.id, title: g.title, cat: g.cat, items: [i] });
+  }
+  const manyCats = new Set(items.map((i) => i.tcId)).size > 1;
 
-  const lcBy = new Map(s.categories.map((c) => [c.tc.id, c]));
+
   const href = (f: string, c: string | null = cat) => `?${new URLSearchParams({ t: tId, f, ...(c ? { c } : {}) })}`;
 
   return (
@@ -59,8 +78,11 @@ export default async function ResultsPage({ searchParams }: { searchParams: Prom
         <Link href={href(filter, null)} className={!cat ? "active" : ""}>Todas</Link>
         {s.categories.map((c) => <Link key={c.tc.id} href={href(filter, c.tc.id)} className={cat === c.tc.id ? "active" : ""}>{c.tc.category_name}</Link>)}
       </div>
+      {groups.map((g) => (
+      <section key={g.id} className="rgroup">
+        <div className="mgroup-head"><h3>{manyCats ? `${g.cat} · ` : ""}{g.title}</h3><span className="muted">{g.items.length} partido{g.items.length > 1 ? "s" : ""}</span></div>
       <div className="grid grid-2">
-        {items.map((i) => {
+        {g.items.map((i) => {
           const lc = lcBy.get(i.tcId)!;
           const m = lc.matches.find((x) => x.id === i.matchId)!;
           return (
@@ -86,6 +108,8 @@ export default async function ResultsPage({ searchParams }: { searchParams: Prom
           );
         })}
       </div>
+      </section>
+      ))}
       {items.length === 0 && <div className="card empty">No hay partidos en esta lista.</div>}
     </div>
   );
