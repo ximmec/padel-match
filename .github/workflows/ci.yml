@@ -43,7 +43,7 @@ jobs:
       - name: Migraciones de base de datos
         run: npm run migrate 2>&1 | tee -a ci-output.txt; exit ${PIPESTATUS[0]}
       - name: Pruebas de integración con PostgreSQL
-        run: npm run test:db 2>&1 | tee -a ci-output.txt; exit ${PIPESTATUS[0]}
+        run: NOTIFY_STRICT=1 npm run test:db 2>&1 | tee -a ci-output.txt; exit ${PIPESTATUS[0]}
       - name: Compilar la aplicación (Next.js)
         run: npm run build:app 2>&1 | tee -a ci-output.txt; exit ${PIPESTATUS[0]}
       - name: Base limpia para la prueba con navegador

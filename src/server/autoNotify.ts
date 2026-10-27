@@ -9,7 +9,10 @@ import { roundName, type ResolvedMatch } from "@/core/bracket";
 import { fmtDateTime } from "@/lib/format";
 
 async function safe(tx: Tx, fn: (sp: Tx) => Promise<void>) {
-  try { await tx.savepoint((sp) => fn(sp as unknown as Tx)); } catch (e) { console.error("aviso automático", e); }
+  try { await tx.savepoint((sp) => fn(sp as unknown as Tx)); } catch (e) {
+    console.error("aviso automático", e);
+    if (process.env.NOTIFY_STRICT === "1") throw e;
+  }
 }
 
 const url = (lc: LoadedCategory) => `/t/${lc.tc.tournament_slug}/c/${lc.tc.id}`;

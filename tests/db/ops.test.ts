@@ -700,7 +700,9 @@ test("notificaciones: avisos automáticos a jugadores con cuenta vinculada (cuad
   const mine = lc.view.bracket.find((m) => m.round === 1 && [m.a, m.b].some((r) => r.kind === "ENTRY" && r.entryId === entries[0]))!;
   const side = mine.a.kind === "ENTRY" && mine.a.entryId === entries[0] ? "a" : "b";
   await tx((x) => ops.markBracketWinner(x, user, tcId, mine.code, side, true));
-  assert.ok((await inbox()).some((n) => /Pasaste a semifinal/.test(n.title)), "aviso al avanzar de ronda");
+  const after1 = await loadCategory(sql, tcId, orgId);
+  const dbg = JSON.stringify({ inbox: await inbox(), mine: mine.code, side, r2: after1.view.bracket.filter((m) => m.round === 2).map((m) => ({ c: m.code, a: m.a, b: m.b })), r1: after1.view.bracket.find((m) => m.code === mine.code) });
+  assert.ok((await inbox()).some((n) => /Pasaste a semifinal/.test(n.title)), "aviso al avanzar de ronda " + dbg);
   // Cambio de horario de su próximo partido
   const lc2 = await loadCategory(sql, tcId, orgId);
   const semi = lc2.matches.find((m) => m.phase === "BRACKET" && m.round === 2 && lc2.view.bracket.find((b) => b.code === m.bracket_code)!.a.kind === "ENTRY")!;
