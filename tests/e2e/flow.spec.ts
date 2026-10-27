@@ -383,6 +383,11 @@ test("finalizar y reabrir un torneo", async ({ page }) => {
 });
 
 test("jugadores: registro, vínculo y notificación desde el panel", async ({ page, browser }) => {
+  // Ficha de jugador para vincular (la prueba anterior borró todos los jugadores)
+  const db = postgres(process.env.DATABASE_URL!, { max: 1 });
+  const [org] = await db<{ id: string }[]>`SELECT id FROM organizations LIMIT 1`;
+  await db`INSERT INTO players (org_id, code, first_name, last_name, gender) VALUES (${org.id}, ${"PM-J" + Date.now()}, 'Jugador', 'Prueba', 'M')`;
+  await db.end();
   const ctx = await browser.newContext({ viewport: { width: 390, height: 844 } });
   const pp = await ctx.newPage();
   await pp.goto("/jugadores");
@@ -401,7 +406,8 @@ test("jugadores: registro, vínculo y notificación desde el panel", async ({ pa
   await login(page);
   await page.goto("/admin/notificaciones?tab=jugadores");
   await expect(page.getByText("Pedidos de vínculo")).toBeVisible();
-  await page.locator(".link-row select").first().selectOption({ index: 1 });
+  // Se registró como «Jugador Prueba»: la ficha con ese nombre ya viene sugerida
+  await expect(page.locator(".link-row select").first()).not.toHaveValue("");
   await page.locator(".link-row").first().getByRole("button", { name: /Vincular/ }).click();
   await expect(page.getByText("Pedidos de vínculo")).toHaveCount(0);
   await shot(page, "52-notificaciones-jugadores");
