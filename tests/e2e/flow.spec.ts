@@ -369,7 +369,8 @@ test("finalizar y reabrir un torneo", async ({ page }) => {
   await page.goto(state.tournamentUrl!);
   await page.getByRole("button", { name: /Finalizar torneo/ }).click();
   const confirm = page.getByRole("button", { name: "Confirmar y aplicar" });
-  if (await confirm.isVisible().catch(() => false)) await confirm.click();
+  await expect(page.getByRole("button", { name: /Reabrir torneo|Confirmar y aplicar/ }).first()).toBeVisible();
+  if (await confirm.isVisible()) await confirm.click();
   await expect(page.getByRole("button", { name: /Reabrir torneo/ })).toBeVisible();
   await expect(page.locator(".badge", { hasText: "Finalizado" }).first()).toBeVisible();
   await shot(page, "40-torneo-finalizado");
