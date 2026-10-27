@@ -18,6 +18,7 @@ export default async function AdminLayout({ children }: { children: React.ReactN
     { href: "/admin/ranking", label: "Ranking", icon: "chart", show: true },
   ];
   const org = [
+    { href: "/admin/notificaciones", label: "Notificaciones", icon: "bell", show: can(u, "tournaments.manage") && (u.role === "ADMIN" || u.isSuperadmin) },
     { href: "/admin/audit", label: "Auditoría", icon: "list", show: can(u, "audit.view") },
     { href: "/admin/settings", label: "Configuración", icon: "gear", show: can(u, "settings.manage") || can(u, "users.manage") },
   ];

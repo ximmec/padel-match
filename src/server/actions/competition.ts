@@ -1,6 +1,8 @@
 "use server";
 
+import { after } from "next/server";
 import { sql, UserError } from "../db";
+import { deliverPendingSafe } from "../notify";
 import { runAction, str, optStr, int, uuid, isConfirmed, type ActionState } from "../action";
 import * as ops from "../ops";
 import { generateTournamentSchedule, moveMatchSchedule, setCourtsInUse } from "../schedule";
@@ -254,6 +256,7 @@ export async function crossTiebreakAction(_p: ActionState, fd: FormData): Promis
 
 export async function generateBracketAction(_p: ActionState, fd: FormData): Promise<ActionState> {
   return runAction("tournaments.manage", async (user) => {
+    after(deliverPendingSafe);
     await sql.begin((tx) => ops.generateBracket(tx, user, uuid(fd, "tc_id")));
     return { message: "Cuadro generado." };
   }, REVAL);
@@ -278,6 +281,7 @@ const slotOf = (v: string) => {
 
 export async function markWinnerAction(_p: ActionState, fd: FormData): Promise<ActionState> {
   return runAction("results.enter", async (user) => {
+    after(deliverPendingSafe);
     const side = str(fd, "side");
     if (side !== "a" && side !== "b") throw new UserError("Lado inválido.");
     await sql.begin((tx) => ops.markBracketWinner(tx, user, uuid(fd, "tc_id"), str(fd, "code"), side, isConfirmed(fd)));
@@ -349,6 +353,7 @@ function parseOutcome(fd: FormData): MatchOutcome {
 
 export async function recordResultAction(_p: ActionState, fd: FormData): Promise<ActionState> {
   return runAction("results.enter", async (user) => {
+    after(deliverPendingSafe);
     const outcome = parseOutcome(fd);
     const version = int(fd, "version");
     await sql.begin((tx) => ops.recordResult(tx, user, uuid(fd, "match_id"), outcome, version, optStr(fd, "reason"), isConfirmed(fd)));
@@ -390,6 +395,7 @@ export async function setCourtsInUseAction(_p: ActionState, fd: FormData): Promi
 
 export async function moveMatchAction(_p: ActionState, fd: FormData): Promise<ActionState> {
   return runAction("schedule.manage", async (user) => {
+    after(deliverPendingSafe);
     const courtId = optStr(fd, "court_id");
     const start = fromLocalInput(str(fd, "start"));
     if ((courtId && !start) || (!courtId && start)) throw new UserError("Elegí cancha y horario, o dejá ambos vacíos para desprogramar.");

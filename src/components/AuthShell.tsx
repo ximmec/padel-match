@@ -42,6 +42,7 @@ const icons = {
   key: <><circle cx="8" cy="15" r="4" /><path d="m11 12 8-8m-3 3 2 2" /></>,
   home: <path d="M4 20V10l8-6 8 6v10h-5v-6H9v6Z" />,
   id: <><circle cx="12" cy="8" r="4" /><path d="M4 21c1-4 4-6 8-6s7 2 8 6" /></>,
+  mail: <><rect x="3" y="5" width="18" height="14" rx="2" /><path d="m3 7 9 6 9-6" /></>,
 };
 
 export function FieldIcon({ name }: { name: keyof typeof icons }) {

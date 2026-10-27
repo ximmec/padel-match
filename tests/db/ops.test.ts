@@ -11,6 +11,7 @@ import { loadCategory } from "../../src/server/category";
 import { generateTournamentSchedule, moveMatchSchedule, loadTournamentSchedule, scheduleConflicts, setCourtsInUse } from "../../src/server/schedule";
 import { getRanking, manualAdjustment } from "../../src/server/ranking";
 import { effectivePermissions } from "../../src/server/permissions";
+import { createNotification, deliverPending, accountsOfEntries } from "../../src/server/notify";
 import type { CurrentUser } from "../../src/server/auth";
 import { DEFAULT_RULES, type CategoryRules } from "../../src/core/engine";
 import type { SetScore } from "../../src/core/scoring";
@@ -678,4 +679,40 @@ test("siempre 16 al playoff: 21 parejas → 7 primeros, 7 segundos y 2 mejores t
   // el mejor primero es cabeza 1 (R1-1 arriba)
   const firsts = lc.view.cross.find((c) => c.pos === 1)!;
   assert.equal((r1.find((m) => m.code === "R1-1")!.a as { entryId: string }).entryId, firsts.order[0]);
+});
+
+
+test("notificaciones: avisos automáticos a jugadores con cuenta vinculada (cuadro y horario) y envío sin celular", async () => {
+  const { tcId } = await makeTournament({ ...DEFAULT_RULES, mode: "KNOCKOUT" });
+  const players = await makePlayers(8);
+  const entries = await register(tcId, players);
+  const mk = async (pid: string | null, status: string) => (await sql<{ id: string }[]>`
+    INSERT INTO player_accounts (org_id, email, name, password_hash, player_id, link_status)
+    VALUES (${orgId}, ${`j${Math.random()}@x.com`}, 'Jugador', 'x', ${pid}, ${status}) RETURNING id`)[0].id;
+  const acc = await mk(players[0], "APPROVED");       // juega en la pareja entries[0]
+  await mk(players[2], "PENDING");                     // pendiente: no recibe avisos de partidos
+  assert.deepEqual(await accountsOfEntries(sql, [entries[0], entries[1]]), [acc]);
+  await tx((x) => ops.generateBracket(x, user, tcId, 4));
+  const inbox = async () => sql<{ title: string; body: string }[]>`SELECT n.title, n.body FROM notification_recipients r JOIN notifications n ON n.id = r.notification_id WHERE r.account_id = ${acc} ORDER BY n.created_at`;
+  assert.ok((await inbox()).some((n) => /Clasificaste/.test(n.title)), "aviso de clasificación al armar el cuadro");
+  // Gana su partido de primera ronda → «Pasaste a semifinal»
+  const lc = await loadCategory(sql, tcId, orgId);
+  const mine = lc.view.bracket.find((m) => m.round === 1 && [m.a, m.b].some((r) => r.kind === "ENTRY" && r.entryId === entries[0]))!;
+  const side = mine.a.kind === "ENTRY" && mine.a.entryId === entries[0] ? "a" : "b";
+  await tx((x) => ops.markBracketWinner(x, user, tcId, mine.code, side, true));
+  assert.ok((await inbox()).some((n) => /Pasaste a semifinal/.test(n.title)), "aviso al avanzar de ronda");
+  // Cambio de horario de su próximo partido
+  const lc2 = await loadCategory(sql, tcId, orgId);
+  const semi = lc2.matches.find((m) => m.phase === "BRACKET" && m.round === 2 && lc2.view.bracket.find((b) => b.code === m.bracket_code)!.a.kind === "ENTRY")!;
+  const [court] = await sql<{ id: string }[]>`SELECT id FROM courts WHERE venue_id = ${venueId} LIMIT 1`;
+  const [{ tournament_id }] = await sql<{ tournament_id: string }[]>`SELECT tournament_id FROM tournament_categories WHERE id = ${tcId}`;
+  await sql`INSERT INTO court_availability (tournament_id, court_id, starts_at, ends_at) VALUES (${tournament_id}, ${court.id}, now(), now() + interval '1 day')`;
+  await tx((x) => moveMatchSchedule(x, user, semi.id, court.id, new Date(Date.now() + 3600_000), true, true));
+  assert.ok((await inbox()).some((n) => /horario|Cambio/.test(n.title)), "aviso de horario");
+  // Manual: sin celular registrado queda «NO_DEVICE» y en la bandeja
+  await createNotification(sql, { orgId, title: "Hola", body: "Prueba", accountIds: [acc] });
+  const d = await deliverPending();
+  assert.ok(d.noDevice >= 1);
+  const [{ n }] = await sql<{ n: number }[]>`SELECT count(*)::int AS n FROM notification_recipients WHERE account_id = ${acc} AND push_status IN ('PENDING','SENDING')`;
+  assert.equal(n, 0, "no quedan pendientes");
 });

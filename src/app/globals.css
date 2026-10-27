@@ -861,3 +861,31 @@ details[open] > summary::before { content: "▾ "; }
 .btn.finish:hover { background: rgba(200, 230, 0, .2); }
 .fixed16 { align-items: flex-start; gap: 8px; padding: 10px 12px; border: 1px solid rgba(255,115,0,.35); border-radius: 12px; }
 .rgroup + .rgroup { margin-top: 10px; }
+
+/* ---------- Mi Padel Match (jugadores) ---------- */
+.me-page { gap: 16px; }
+.me-head { display: flex; justify-content: space-between; align-items: flex-start; gap: 12px; }
+.me-title { font-family: var(--font-hero); font-weight: 800; font-style: normal; text-transform: none; font-size: clamp(30px, 6vw, 44px); margin: 4px 0 6px; letter-spacing: -.01em; }
+.me-landing { padding: 28px 4px 8px; }
+.me-card h2 { font-family: var(--font-hero); font-style: normal; text-transform: none; font-size: 20px; }
+.me-card h2::before { display: none; }
+.me-card > summary { cursor: pointer; }
+.me-list { display: flex; flex-direction: column; gap: 8px; margin-top: 10px; }
+.me-item { display: flex; flex-direction: column; gap: 2px; padding: 12px 14px; border: 1px solid var(--line-2); border-radius: 14px; color: #e6e6e6; background: rgba(255,255,255,.02); }
+.me-item:hover { border-color: var(--orange); text-decoration: none; }
+.me-item span { color: #b9bdc5; font-size: 14px; }
+.me-item small { color: #7d8594; font-size: 12px; }
+.me-item.unread { border-color: rgba(255, 115, 0, .5); background: rgba(255, 115, 0, .06); }
+.me-item.live { border-color: rgba(255, 60, 60, .6); }
+.push-box { border: 1px solid rgba(200, 230, 0, .35); background: rgba(200, 230, 0, .05); border-radius: 18px; padding: 16px 18px; display: flex; flex-direction: column; gap: 12px; }
+.push-head { display: flex; gap: 12px; align-items: flex-start; }
+.push-head b { display: block; font-size: 16px; }
+.push-head small { color: #b9bdc5; font-size: 14px; }
+.push-ico { font-size: 26px; line-height: 1; }
+.install-help { border-top: 1px solid var(--line); padding-top: 12px; font-size: 14px; color: #d6d9df; }
+.install-help ol { margin: 8px 0 0 18px; padding: 0; display: flex; flex-direction: column; gap: 4px; }
+.push-box .install-help:first-child, .me-card .install-help { border-top: 0; padding-top: 0; }
+.send-to { display: flex; flex-direction: column; gap: 8px; }
+.send-to select { max-width: 360px; margin-left: 26px; }
+.link-row { display: grid; grid-template-columns: minmax(200px, 1fr) minmax(220px, 1fr) auto; gap: 10px; align-items: center; padding: 10px 0; border-top: 1px solid var(--line); }
+@media (max-width: 760px) { .link-row { grid-template-columns: 1fr; } }

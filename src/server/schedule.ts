@@ -5,6 +5,7 @@ import type { Db, Tx } from "./db";
 import { UserError } from "./db";
 import type { CurrentUser } from "./auth";
 import { audit } from "./audit";
+import { notifyScheduleChange } from "./autoNotify";
 import { NeedsConfirmation } from "./errors";
 import { loadCategory, entryLabel, type LoadedCategory, type MatchRow, zoneSideLabel } from "./category";
 import { generateSchedule, rescheduleFrom, validateSchedule, type CourtInput, type SchedMatch, type Assignment } from "@/core/scheduling";
@@ -191,6 +192,7 @@ export async function moveMatchSchedule(tx: Tx, user: CurrentUser, matchId: stri
     summary: `${item.label}: ${item.sideA} vs ${item.sideB} → ${courtName(courtId)} ${start ? start.toISOString() : "sin horario"}${conflicts.length ? ` (con ${conflicts.length} conflicto/s aceptados)` : ""}`,
     before: { courtId: item.courtId, start: item.start }, after: { courtId, start, lock },
   });
+  await notifyScheduleChange(tx, user.orgId, item.tcId, matchId, { courtId: item.courtId, start: item.start }, { courtId, courtName: courtId ? courtName(courtId) : null, start });
 }
 
 export function scheduleConflicts(s: TournamentSchedule) {

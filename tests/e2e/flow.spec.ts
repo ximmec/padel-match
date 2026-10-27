@@ -381,3 +381,43 @@ test("finalizar y reabrir un torneo", async ({ page }) => {
   await page.getByRole("button", { name: /Reabrir torneo/ }).click();
   await expect(page.getByRole("button", { name: /Finalizar torneo/ })).toBeVisible();
 });
+
+test("jugadores: registro, vínculo y notificación desde el panel", async ({ page, browser }) => {
+  const ctx = await browser.newContext({ viewport: { width: 390, height: 844 } });
+  const pp = await ctx.newPage();
+  await pp.goto("/jugadores");
+  await expect(pp.getByRole("link", { name: "Crear cuenta gratis" })).toBeVisible();
+  await shot(pp, "50-jugadores-inicio");
+  await pp.goto("/jugadores/registro");
+  await pp.locator('input[name="name"]').fill("Jugador Prueba");
+  await pp.locator('input[name="email"]').fill(`jugador${Date.now()}@ejemplo.com`);
+  await pp.locator('input[name="password"]').fill("clave1234");
+  await pp.locator('input[name="password2"]').fill("clave1234");
+  await pp.getByRole("button", { name: /Crear cuenta/ }).click();
+  await pp.waitForURL(/\/jugadores$/);
+  await expect(pp.getByText("Hola, Jugador")).toBeVisible();
+  await shot(pp, "51-mi-padel-match");
+
+  await login(page);
+  await page.goto("/admin/notificaciones?tab=jugadores");
+  await expect(page.getByText("Pedidos de vínculo")).toBeVisible();
+  await page.locator(".link-row select").first().selectOption({ index: 1 });
+  await page.locator(".link-row").first().getByRole("button", { name: /Vincular/ }).click();
+  await expect(page.getByText("Vínculo aprobado.")).toBeVisible();
+  await shot(page, "52-notificaciones-jugadores");
+  await page.goto("/admin/notificaciones");
+  await page.locator('input[name="title"]').fill("Cambio de cancha");
+  await page.locator('textarea[name="body"]').fill("Tu partido de las 18 pasa a la cancha 3.");
+  await page.getByRole("button", { name: /Enviar notificación/ }).click();
+  await expect(page.getByText(/Notificación enviada a 1 jugador/)).toBeVisible();
+  await shot(page, "53-notificaciones-enviar");
+  await page.goto("/admin/notificaciones?tab=historial");
+  await expect(page.getByText("Cambio de cancha").first()).toBeVisible();
+  await shot(page, "54-notificaciones-historial");
+
+  await pp.reload();
+  await expect(pp.getByText("Cambio de cancha")).toBeVisible();
+  await expect(pp.getByText(/Ficha vinculada/)).toBeVisible();
+  await shot(pp, "55-bandeja-jugador");
+  await ctx.close();
+});

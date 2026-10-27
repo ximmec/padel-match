@@ -14,6 +14,7 @@ export default function PublicLayout({ children }: { children: React.ReactNode }
               { href: "/", label: "Torneos" },
               { href: "/buscar", label: "¿Cuándo juego?" },
               { href: "/ranking", label: "Ranking" },
+              { href: "/jugadores", label: "Mi Padel Match" },
             ]}
           />
           <div className="top-cta">
@@ -36,6 +37,7 @@ export default function PublicLayout({ children }: { children: React.ReactNode }
               <div><Link href="/">Torneos en curso</Link></div>
               <div><Link href="/buscar">¿Cuándo juego?</Link></div>
               <div><Link href="/ranking">Ranking</Link></div>
+              <div><Link href="/jugadores">Mi Padel Match (avisos en tu celular)</Link></div>
             </div>
           </div>
           <div>

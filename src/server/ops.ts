@@ -9,6 +9,7 @@ import { audit } from "./audit";
 import { NeedsConfirmation } from "./errors";
 import { loadCategory, categoryCap, entryLabel, type LoadedCategory, type MatchRow, zoneSideLabel } from "./category";
 import { recalcRanking } from "./ranking";
+import { notifyBracketProgress } from "./autoNotify";
 import {
   planZoneSizes, validateZoneSizes, distributeEntries, roundRobin, zoneName,
 } from "@/core/zones";
@@ -589,6 +590,8 @@ export async function generateBracket(tx: Tx, user: CurrentUser, tcId: string, r
   await tx`UPDATE tournament_categories SET bracket = ${j(defs)}::text::jsonb, status = 'PLAYOFFS', version = version + 1 WHERE id = ${tcId}`;
   await audit(tx, user, { entity: "bracket", entityId: tcId, action: "generate_bracket", tournamentId: lc.tc.tournament_id, summary: `Cuadro generado para ${lc.tc.category_name}: ${defs.filter((d) => d.round === 1).length * 2} lugares`, before: lc.tc.bracket, after: defs });
   await afterChange(tx, user, tcId);
+  const fresh = await loadCategory(tx, tcId, user.orgId);
+  await notifyBracketProgress(tx, user.orgId, fresh, [], fresh.view.bracket);
 }
 
 export async function deleteBracket(tx: Tx, user: CurrentUser, tcId: string) {
@@ -784,6 +787,8 @@ export async function recordResult(tx: Tx, user: CurrentUser, matchId: string, o
     after: { status: "PLAYED", outcome },
   });
   await afterChange(tx, user, lc.tc.id);
+  const now = await loadCategory(tx, lc.tc.id, user.orgId);
+  await notifyBracketProgress(tx, user.orgId, now, lc.view.bracket, now.view.bracket);
 }
 
 export async function annulResult(tx: Tx, user: CurrentUser, matchId: string, reason: string) {
