@@ -7,9 +7,9 @@ import { getT } from "@/i18n/server";
 
 const FEATURES = [
   { href: "#torneos", icon: "trophy", img: "/cancha-atardecer.webp", pos: "64% 50%" },
-  { href: "/buscar", icon: "calendar", img: "/hero-mapa.webp", pos: "30% 40%" },
+  { href: "/buscar", icon: "calendar", img: "/mapamundi.webp", pos: "27% 70%" },
   { href: "/ranking", icon: "chart", img: "/login-cancha.webp", pos: "50% 40%" },
-  { href: "/jugadores", icon: "bell", img: "/hero-mapa.webp", pos: "80% 30%" },
+  { href: "/jugadores", icon: "bell", img: "/mapamundi.webp", pos: "55% 30%" },
 ];
 const HOW_ICONS = ["edit", "grid", "trophy", "chart"];
 
@@ -38,8 +38,12 @@ export default async function Home() {
     <>
       <section className="hero-split">
         <div className="hero-split-bg" aria-hidden>
-          {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img src="/cancha-atardecer.webp" alt="" width={1704} height={923} fetchPriority="high" />
+          <picture>
+            {/* En el celular se ve el mapamundi; en la compu, la cancha al atardecer */}
+            <source media="(max-width: 860px)" srcSet="/mapamundi.webp" />
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img src="/cancha-atardecer.webp" alt="" width={1704} height={923} fetchPriority="high" />
+          </picture>
         </div>
         <div className="hero-split-inner">
           <span className="hero-pill"><Icon name="bolt" size={16} /> {T.home.kicker}</span>

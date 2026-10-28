@@ -556,6 +556,7 @@ details[open] > summary::before { content: "▾ "; }
 /* ----- Portada (imagen al costado, oscurecida) ----- */
 .hero-split { position: relative; overflow: hidden; background: #050505; min-height: clamp(560px, 46vw, 800px); display: flex; align-items: center; border-bottom: 1px solid var(--line); }
 .hero-split-bg { position: absolute; top: 0; right: 0; bottom: 0; width: 64%; }
+.hero-split-bg picture { display: contents; }
 .hero-split-bg img { width: 100%; height: 100%; object-fit: cover; object-position: 60% 50%; filter: brightness(.85); }
 .hero-split-bg::after { content: ""; position: absolute; inset: 0; background:
   linear-gradient(90deg, #050505 0%, rgba(5, 5, 5, .85) 18%, rgba(5, 5, 5, .35) 50%, rgba(5, 5, 5, .15) 100%),
@@ -581,7 +582,7 @@ details[open] > summary::before { content: "▾ "; }
 @media (max-width: 860px) {
   .hero-split { min-height: 0; align-items: flex-end; }
   .hero-split-bg { width: 100%; }
-  .hero-split-bg img { object-position: 64% 50%; filter: brightness(.72); }
+  .hero-split-bg img { object-position: 29% 50%; filter: brightness(.85); }
   .hero-split-bg::after { background: linear-gradient(180deg, rgba(5, 5, 5, .15) 0%, rgba(5, 5, 5, .45) 40%, rgba(5, 5, 5, .7) 70%, #050505 100%); }
   .hero-split-inner { padding: 120px 18px 34px; }
   .hero-search { flex-direction: column; border-radius: 18px; background: transparent; border: 0; padding: 0; backdrop-filter: none; -webkit-backdrop-filter: none; }
@@ -716,7 +717,7 @@ details[open] > summary::before { content: "▾ "; }
 .back-link { display: inline-flex; align-items: center; gap: 6px; padding: 9px 16px; border-radius: 999px; border: 1px solid var(--line-2); background: var(--surface-2); color: #d6d6d6; font-weight: 600; font-size: 14px; margin-bottom: 12px; }
 .back-link b { color: var(--orange-hi); }
 .back-link:hover { text-decoration: none; border-color: var(--orange); color: #fff; }
-.circuit-card { border: 1px solid rgba(255, 115, 0, .3); border-radius: 22px; padding: 24px; background: linear-gradient(90deg, rgba(8,8,10,.95), rgba(8,8,10,.8)), url(/hero-mapa.webp) center / cover; }
+.circuit-card { border: 1px solid rgba(255, 115, 0, .3); border-radius: 22px; padding: 24px; background: linear-gradient(90deg, rgba(8,8,10,.95), rgba(8,8,10,.8)), url(/mapamundi.webp) center / cover; }
 .circuit-section { display: flex; align-items: center; gap: 12px; margin-top: 18px; }
 .circuit-section img, .circuit-section .ini { width: 40px; height: 40px; border-radius: 50%; border: 2px solid rgba(255,115,0,.5); object-fit: cover; }
 .circuit-section .ini { display: grid; place-items: center; color: var(--orange); font-weight: 900; background: rgba(255,115,0,.1); }
