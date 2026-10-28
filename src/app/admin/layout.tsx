@@ -4,6 +4,8 @@ import { Brand } from "@/components/Brand";
 import { AdminShell } from "@/components/AdminShell";
 import { Icon } from "@/components/Icon";
 import { ROLE_LABELS } from "@/server/permissions";
+import { AdminBell } from "@/components/AdminBell";
+import { getAdminAlerts } from "@/server/adminAlerts";
 
 export const metadata = { title: "Administración", robots: { index: false } };
 
@@ -48,8 +50,11 @@ export default async function AdminLayout({ children }: { children: React.ReactN
     </details>
   );
 
+  const master = u.role === "ADMIN" || u.isSuperadmin;
+  const alerts = master ? await getAdminAlerts(u.id, u.orgId).catch(() => null) : null;
+  const top = <>{alerts && <AdminBell initial={alerts} />}{userMenu}</>;
   return (
-    <AdminShell brand={<Brand href="/admin" tld={false} />} userMenu={userMenu} sections={sections}>
+    <AdminShell brand={<Brand href="/admin" tld={false} />} userMenu={top} sections={sections}>
       <div className="container">{children}</div>
     </AdminShell>
   );

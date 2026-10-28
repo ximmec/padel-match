@@ -9,6 +9,7 @@ import { sql, UserError } from "./db";
 import { clientIp, isLoginBlocked } from "./auth";
 import { hashPassword, newToken, sha256, verifyPassword } from "./password";
 import { getT } from "@/i18n/server";
+import { recordAdminEvent } from "./adminAlerts";
 
 export const PLAYER_COOKIE = "pm_player";
 const SESSION_DAYS = 180; // la sesión queda iniciada ~6 meses
@@ -69,6 +70,11 @@ export async function registerPlayer(input: { name: string; email: string; passw
     ON CONFLICT (org_id, email) DO NOTHING RETURNING id`;
   if (!rows.length) throw new UserError(E.exists);
   await suggestLink(rows[0].id);
+  const [acc] = await sql<{ player_id: string | null; who: string | null }[]>`
+    SELECT a.player_id, CASE WHEN p.id IS NULL THEN NULL ELSE p.last_name || ', ' || p.first_name END AS who
+    FROM player_accounts a LEFT JOIN players p ON p.id = a.player_id WHERE a.id = ${rows[0].id}`;
+  await recordAdminEvent(sql, { orgId: org.id, kind: "REGISTER", accountId: rows[0].id, title: `${name} se registró en Mi Padel Match`,
+    detail: acc?.who ? `Ficha sugerida: ${acc.who} · falta aprobar el vínculo` : `${email}${lang === "en" ? " · 🇬🇧 inglés" : ""} · falta vincular su ficha` });
   await startSession(rows[0].id);
 }
 

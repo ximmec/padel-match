@@ -931,3 +931,25 @@ details[open] > summary::before { content: "▾ "; }
 @media (max-width: 560px) { .top-cta .btn.primary { display: none; } .lang-switch button { padding: 5px 8px; } }
 .auth-top .lang-switch { margin-left: auto; margin-right: 10px; }
 .en-box { border: 1px dashed var(--line-2); border-radius: 12px; padding: 10px 14px; } .en-box > summary { cursor: pointer; font-weight: 700; }
+
+/* ---------- Campanita del panel ---------- */
+.bell { position: relative; }
+.bell-btn { position: relative; width: 46px; height: 46px; border-radius: 50%; border: 1px solid var(--line-2); background: var(--surface); color: #ddd; display: grid; place-items: center; cursor: pointer; }
+.bell-btn:hover { border-color: #444; color: #fff; }
+.bell-n { position: absolute; top: -4px; right: -4px; min-width: 20px; height: 20px; padding: 0 5px; border-radius: 999px; background: #ff3b3b; color: #fff; font-size: 11px; font-weight: 900; display: grid; place-items: center; border: 2px solid #050505; }
+.bell-pop { position: absolute; right: 0; top: calc(100% + 10px); width: min(380px, calc(100vw - 24px)); background: var(--surface-2); border: 1px solid var(--line-2); border-radius: 16px; box-shadow: 0 18px 50px rgba(0,0,0,.7); z-index: 40; overflow: hidden; }
+.bell-head { padding: 14px 16px 10px; border-bottom: 1px solid var(--line); }
+.bell-head b { display: block; font-size: 16px; }
+.bell-head small { color: #8a909b; font-size: 12px; }
+.bell-list { max-height: 360px; overflow-y: auto; }
+.bell-item { display: flex; gap: 10px; padding: 12px 16px; border-bottom: 1px solid var(--line); color: #ddd; }
+.bell-item:hover { background: var(--surface-3); text-decoration: none; }
+.bell-item.new { background: rgba(255, 115, 0, .08); box-shadow: inset 3px 0 0 var(--orange); }
+.bell-item span:last-child { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.bell-item b { font-size: 14px; color: #fff; }
+.bell-item small { color: #a8abb3; font-size: 12px; }
+.bell-item em { color: #7d8594; font-size: 11px; font-style: normal; }
+.bell-ico { font-size: 18px; line-height: 1.2; }
+.bell-empty { padding: 18px 16px; color: #9aa0ab; font-size: 13px; }
+.bell-all { display: block; padding: 12px 16px; font-size: 13px; font-weight: 700; color: var(--orange); }
+.admin-top .bell { margin-right: 4px; }

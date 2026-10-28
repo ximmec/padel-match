@@ -404,6 +404,12 @@ test("jugadores: registro, vínculo y notificación desde el panel", async ({ pa
   await shot(pp, "51-mi-padel-match");
 
   await login(page);
+  await page.goto("/admin");
+  await expect(page.locator(".bell-n")).toBeVisible();
+  await page.locator(".bell-btn").click();
+  await expect(page.getByText("Jugador Prueba se registró en Mi Padel Match").first()).toBeVisible();
+  await page.screenshot({ path: "e2e-shots/56-campanita.png" });
+  await expect(page.locator(".bell-n")).toHaveCount(0);
   await page.goto("/admin/notificaciones?tab=jugadores");
   await expect(page.getByText("Pedidos de vínculo")).toBeVisible();
   // Se registró como «Jugador Prueba»: la ficha con ese nombre ya viene sugerida

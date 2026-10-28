@@ -14,6 +14,7 @@ import { createNotification, deliverPendingSafe, deliverPending } from "../notif
 import { hashPassword } from "../password";
 import { randomInt } from "node:crypto";
 import { getT } from "@/i18n/server";
+import { recordAdminEvent, markAdminAlertsSeen } from "../adminAlerts";
 import { dict } from "@/i18n";
 
 /* ------------------------------ Jugador ------------------------------ */
@@ -68,6 +69,7 @@ export async function playerLinkRequestAction(_p: ActionState, fd: FormData): Pr
     const name = str(fd, "as_name");
     if (name.length < 3) throw new UserError(t.err.linkName);
     await suggestLink(p.id, name, optStr(fd, "as_document"));
+    await recordAdminEvent(sql, { orgId: p.orgId, kind: "LINK", accountId: p.id, title: `${p.name} pidió vincularse con su ficha`, detail: `Como: ${name}${optStr(fd, "as_document") ? ` · doc. ${optStr(fd, "as_document")}` : ""}` });
     return { message: t.ok.linkAsked };
   });
 }
@@ -246,4 +248,12 @@ export async function playerDeleteSelfAction(_p: ActionState, fd: FormData): Pro
     await logoutPlayer();
     return { message: t.ok.deleted, redirectTo: "/jugadores" };
   });
+}
+
+/** Campanita del panel: al abrirla, los avisos quedan como vistos. */
+export async function markAdminAlertsSeenAction(): Promise<void> {
+  const { getCurrentUser } = await import("../auth");
+  const u = await getCurrentUser();
+  if (!u || (u.role !== "ADMIN" && !u.isSuperadmin)) return;
+  await markAdminAlertsSeen(u.id, u.orgId);
 }
