@@ -591,8 +591,8 @@ details[open] > summary::before { content: "▾ "; }
   .hero-links a { font-size: 16px; }
 }
 /* ----- Portada: etiqueta, tarjetas de números, «Todo lo que necesitás» y «Cómo funciona» ----- */
-.hero-kicker { display: inline-flex; align-items: center; gap: 8px; padding: 7px 14px; margin-bottom: 22px; border-radius: 999px; background: rgba(255, 115, 0, .12); border: 1px solid rgba(255, 115, 0, .35); color: #ffb27a; font-size: 13px; font-weight: 700; letter-spacing: .04em; text-transform: uppercase; }
-.hero-kicker .icon { color: var(--orange); }
+.hero-pill { display: inline-flex; align-items: center; gap: 8px; padding: 7px 14px; margin-bottom: 22px; border-radius: 999px; background: rgba(255, 115, 0, .12); border: 1px solid rgba(255, 115, 0, .35); color: #ffb27a; font-size: 13px; font-weight: 700; letter-spacing: .04em; text-transform: uppercase; }
+.hero-pill .icon { color: var(--orange); }
 .hero-stats { display: grid; grid-template-columns: repeat(4, minmax(0, 170px)); gap: 12px; margin-top: 34px; }
 .hero-stat { display: flex; flex-direction: column; gap: 2px; padding: 16px 16px 14px; border-radius: 16px; background: rgba(18, 18, 18, .72); border: 1px solid var(--line-2); backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px); }
 .hero-stat-ic { display: inline-grid; place-items: center; width: 36px; height: 36px; border-radius: 10px; background: rgba(255, 115, 0, .14); color: var(--orange); margin-bottom: 8px; }
@@ -622,7 +622,7 @@ details[open] > summary::before { content: "▾ "; }
 @media (max-width: 1100px) { .feat-grid, .how-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
 @media (max-width: 860px) {
   .hero-split-inner { padding-top: 150px; }
-  .hero-kicker { font-size: 11px; margin-bottom: 16px; }
+  .hero-pill { font-size: 11px; margin-bottom: 16px; }
   .hero-stats { grid-template-columns: repeat(2, minmax(0, 1fr)); margin-top: 26px; }
   .hero-stat b { font-size: 24px; }
   .feat-sec { margin-top: 34px; }

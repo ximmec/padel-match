@@ -42,7 +42,7 @@ export default async function Home() {
           <img src="/hero-mapa.webp" alt="" width={903} height={732} fetchPriority="high" />
         </div>
         <div className="hero-split-inner">
-          <span className="hero-kicker"><Icon name="bolt" size={16} /> {T.home.kicker}</span>
+          <span className="hero-pill"><Icon name="bolt" size={16} /> {T.home.kicker}</span>
           <h1 className="hero-title">{T.home.title1} <span>{T.home.title2}</span></h1>
           <p className="hero-lead">{T.home.lead}</p>
           <form action="/buscar" className="hero-search">
