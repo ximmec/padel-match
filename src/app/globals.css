@@ -556,7 +556,7 @@ details[open] > summary::before { content: "▾ "; }
 /* ----- Portada (imagen al costado, oscurecida) ----- */
 .hero-split { position: relative; overflow: hidden; background: #050505; min-height: clamp(560px, 46vw, 800px); display: flex; align-items: center; border-bottom: 1px solid var(--line); }
 .hero-split-bg { position: absolute; top: 0; right: 0; bottom: 0; width: 64%; }
-.hero-split-bg img { width: 100%; height: 100%; object-fit: cover; object-position: 50% 40%; filter: saturate(.9) brightness(.62); }
+.hero-split-bg img { width: 100%; height: 100%; object-fit: cover; object-position: 62% 50%; filter: saturate(1.05) brightness(.8); }
 .hero-split-bg::after { content: ""; position: absolute; inset: 0; background:
   linear-gradient(90deg, #050505 0%, rgba(5, 5, 5, .85) 18%, rgba(5, 5, 5, .35) 50%, rgba(5, 5, 5, .15) 100%),
   linear-gradient(0deg, #050505 0%, transparent 30%), linear-gradient(180deg, rgba(5, 5, 5, .6) 0%, transparent 25%); }
@@ -581,7 +581,7 @@ details[open] > summary::before { content: "▾ "; }
 @media (max-width: 860px) {
   .hero-split { min-height: 0; align-items: flex-end; }
   .hero-split-bg { width: 100%; }
-  .hero-split-bg img { object-position: 55% 30%; filter: brightness(.45); }
+  .hero-split-bg img { object-position: 74% 50%; filter: brightness(.55); }
   .hero-split-bg::after { background: linear-gradient(180deg, rgba(5, 5, 5, .3) 0%, rgba(5, 5, 5, .55) 45%, #050505 100%); }
   .hero-split-inner { padding: 120px 18px 34px; }
   .hero-search { flex-direction: column; border-radius: 18px; background: transparent; border: 0; padding: 0; backdrop-filter: none; -webkit-backdrop-filter: none; }

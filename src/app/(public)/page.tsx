@@ -6,9 +6,9 @@ import { InstallApp } from "@/components/InstallApp";
 import { getT } from "@/i18n/server";
 
 const FEATURES = [
-  { href: "#torneos", icon: "trophy", img: "/login-cancha.webp", pos: "50% 70%" },
+  { href: "#torneos", icon: "trophy", img: "/cancha-atardecer.webp", pos: "62% 50%" },
   { href: "/buscar", icon: "calendar", img: "/hero-mapa.webp", pos: "30% 40%" },
-  { href: "/ranking", icon: "chart", img: "/login-cancha.webp", pos: "50% 30%" },
+  { href: "/ranking", icon: "chart", img: "/login-cancha.webp", pos: "50% 40%" },
   { href: "/jugadores", icon: "bell", img: "/hero-mapa.webp", pos: "80% 30%" },
 ];
 const HOW_ICONS = ["edit", "grid", "trophy", "chart"];
@@ -39,7 +39,7 @@ export default async function Home() {
       <section className="hero-split">
         <div className="hero-split-bg" aria-hidden>
           {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img src="/hero-mapa.webp" alt="" width={903} height={732} fetchPriority="high" />
+          <img src="/cancha-atardecer.webp" alt="" width={1920} height={1080} fetchPriority="high" />
         </div>
         <div className="hero-split-inner">
           <span className="hero-pill"><Icon name="bolt" size={16} /> {T.home.kicker}</span>
