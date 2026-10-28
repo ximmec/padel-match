@@ -388,7 +388,7 @@ test("jugadores: registro, vínculo y notificación desde el panel", async ({ pa
   const [org] = await db<{ id: string }[]>`SELECT id FROM organizations LIMIT 1`;
   await db`INSERT INTO players (org_id, code, first_name, last_name, gender) VALUES (${org.id}, ${"PM-J" + Date.now()}, 'Jugador', 'Prueba', 'M')`;
   await db.end();
-  const ctx = await browser.newContext({ viewport: { width: 390, height: 844 } });
+  const ctx = await browser.newContext({ viewport: { width: 390, height: 844 }, locale: "es-AR" });
   const pp = await ctx.newPage();
   await pp.goto("/jugadores");
   await expect(pp.getByRole("link", { name: "Crear cuenta gratis" })).toBeVisible();
@@ -434,7 +434,7 @@ test("instalar la app: botón y guía en iPhone, Android y navegador de Instagra
   const iphone = "Mozilla/5.0 (iPhone; CPU iPhone OS 17_5 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.5 Mobile/15E148 Safari/604.1";
   const android = "Mozilla/5.0 (Linux; Android 14; Pixel 8) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/129.0.0.0 Mobile Safari/537.36";
   const insta = iphone + " Instagram 350.0.0.0";
-  const phone = async (ua: string) => browser.newContext({ viewport: { width: 390, height: 844 }, userAgent: ua, isMobile: true, hasTouch: true });
+  const phone = async (ua: string) => browser.newContext({ viewport: { width: 390, height: 844 }, userAgent: ua, isMobile: true, hasTouch: true, locale: "es-AR" });
 
   const c1 = await phone(iphone); const p1 = await c1.newPage();
   await p1.goto("/");
@@ -456,4 +456,42 @@ test("instalar la app: botón y guía en iPhone, Android y navegador de Instagra
   await expect(p3.getByText(/no se puede instalar/)).toBeVisible();
   await p3.screenshot({ path: "e2e-shots/63-guia-instagram.png" });
   await c3.close();
+});
+
+
+test("idiomas: inglés según el celular, selector 🇪🇸/🇬🇧 y se recuerda", async ({ browser }) => {
+  const ctx = await browser.newContext({ viewport: { width: 390, height: 844 }, locale: "en-GB", userAgent: "Mozilla/5.0 (iPhone; CPU iPhone OS 17_5 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.5 Mobile/15E148 Safari/604.1", isMobile: true, hasTouch: true });
+  const p = await ctx.newPage();
+  await p.goto("/");
+  await expect(p.getByText("in real time")).toBeVisible();
+  await expect(p.getByRole("button", { name: /Install Padel-Match/ })).toBeVisible();
+  await p.screenshot({ path: "e2e-shots/70-home-en.png", fullPage: true });
+  await p.getByRole("button", { name: /Install Padel-Match/ }).click();
+  await expect(p.getByText("Add to Home Screen").first()).toBeVisible();
+  await p.screenshot({ path: "e2e-shots/71-install-en.png" });
+  await p.goto("/");
+  // Torneo público en inglés
+  const slugLink = p.locator("a.tcard2-public").first();
+  if (await slugLink.count()) {
+    await slugLink.click();
+    await expect(p.getByText(/Upcoming matches|Latest results/).first()).toBeVisible();
+    await p.screenshot({ path: "e2e-shots/72-tournament-en.png", fullPage: true });
+    const cat = p.locator(".chips a").first();
+    if (await cat.count()) {
+      await cat.click();
+      await p.getByRole("link", { name: "Draw" }).click();
+      await p.screenshot({ path: "e2e-shots/73-draw-en.png", fullPage: true });
+    }
+  }
+  // Cambiar a español con el selector y que quede recordado
+  await p.goto("/jugadores");
+  await expect(p.getByText("My Padel Match").first()).toBeVisible();
+  await p.screenshot({ path: "e2e-shots/74-me-en.png", fullPage: true });
+  await p.locator(".lang-switch button").first().click();
+  await expect(p.getByRole("link", { name: "Crear cuenta gratis" })).toBeVisible();
+  await p.reload();
+  await expect(p.getByRole("link", { name: "Crear cuenta gratis" })).toBeVisible();
+  await p.locator(".lang-switch button").nth(1).click();
+  await expect(p.getByRole("link", { name: "Create free account" })).toBeVisible();
+  await ctx.close();
 });

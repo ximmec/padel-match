@@ -5,11 +5,12 @@ import { isUuid } from "@/server/action";
 import { loadCategory, entryLabel, type LoadedCategory } from "@/server/category";
 import { playerPointsHistory } from "@/server/ranking";
 import { MatchLine, StandingsTable } from "@/components/views";
-import { STAGE_LABELS, type Stage } from "@/core/bracket";
+import { getT } from "@/i18n/server";
 import { fmtDate } from "@/lib/format";
 
 export default async function PublicPlayer({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
+  const { lang, t: T } = await getT();
   if (!isUuid(id)) notFound();
   const [p] = await sql<{ id: string; first_name: string; last_name: string; code: string; city: string | null; org_id: string }[]>`
     SELECT id, first_name, last_name, code, city, org_id FROM players WHERE id = ${id} AND deleted_at IS NULL`;
@@ -33,7 +34,7 @@ export default async function PublicPlayer({ params }: { params: Promise<{ id: s
       <section className="hero">
         <div className="inner">
           <h1>{p.first_name} {p.last_name}</h1>
-          <p>{p.city ? `${p.city} · ` : ""}<span className="badge lime">{total} pts de ranking</span></p>
+          <p>{p.city ? `${p.city} · ` : ""}<span className="badge lime">{T.player.pts(total)}</span></p>
         </div>
       </section>
       <main className="container stack">
@@ -52,50 +53,50 @@ export default async function PublicPlayer({ params }: { params: Promise<{ id: s
                 <div className="row between">
                   <div>
                     <h2 style={{ margin: 0 }}><Link href={`/t/${e.slug}`}>{e.tournament}</Link></h2>
-                    <div className="muted">{lc.tc.category_name} · Pareja: <b>{entryLabel(entry)}</b>{zone ? ` · Zona ${zone.name}` : ""}</div>
+                    <div className="muted">{lc.tc.category_name} · {T.player.pair}: <b>{entryLabel(entry)}</b>{zone ? ` · ${T.g.zone(zone.name)}` : ""}</div>
                   </div>
-                  <Link className="btn ghost sm" href={`/t/${e.slug}/c/${lc.tc.id}`}>Ver categoría</Link>
+                  <Link className="btn ghost sm" href={`/t/${e.slug}/c/${lc.tc.id}`}>{T.player.seeCategory}</Link>
                 </div>
-                {entry.status === "WITHDRAWN" && <div className="alert warn">La pareja figura como retirada.</div>}
+                {entry.status === "WITHDRAWN" && <div className="alert warn">{T.player.withdrawn}</div>}
               </div>
               <div className="grid grid-2">
                 <div className="card flush">
-                  <div className="card-head"><h3>Próximos partidos</h3></div>
-                  {next.map((m) => <MatchLine key={m.id} lc={lc} m={m} />)}
-                  {next.length === 0 && <div className="empty">No hay partidos pendientes.</div>}
+                  <div className="card-head"><h3>{T.player.next}</h3></div>
+                  {next.map((m) => <MatchLine key={m.id} lc={lc} m={m} lang={lang} />)}
+                  {next.length === 0 && <div className="empty">{T.player.noNext}</div>}
                 </div>
                 <div className="card flush">
-                  <div className="card-head"><h3>Resultados</h3></div>
-                  {done.map((m) => <MatchLine key={m.id} lc={lc} m={m} />)}
-                  {done.length === 0 && <div className="empty">Todavía no jugó.</div>}
+                  <div className="card-head"><h3>{T.player.results}</h3></div>
+                  {done.map((m) => <MatchLine key={m.id} lc={lc} m={m} lang={lang} />)}
+                  {done.length === 0 && <div className="empty">{T.player.noResults}</div>}
                 </div>
               </div>
-              {zone && <StandingsTable lc={lc} zoneId={zone.id} compact />}
+              {zone && <StandingsTable lc={lc} zoneId={zone.id} compact lang={lang} />}
             </div>
           );
         })}
-        {current.length === 0 && <div className="card empty">No está inscripto en torneos en curso.</div>}
+        {current.length === 0 && <div className="card empty">{T.player.notPlaying}</div>}
 
         <div className="card flush">
-          <div className="card-head"><h2>Historial de puntos</h2><Link href="/ranking">Ranking completo</Link></div>
+          <div className="card-head"><h2>{T.player.history}</h2><Link href="/ranking">{T.player.fullRanking}</Link></div>
           <div className="table-wrap"><table>
-            <thead><tr><th>Torneo</th><th>Instancia</th><th className="num">Puntos</th></tr></thead>
+            <thead><tr><th>{T.player.tournament}</th><th>{T.player.stage}</th><th className="num">{T.player.points}</th></tr></thead>
             <tbody>
               {points.map((x) => (
                 <tr key={x.id}>
-                  <td>{x.tournament_slug ? <Link href={`/t/${x.tournament_slug}`}>{x.tournament_name}</Link> : x.tournament_name ?? "Ajuste"}<div className="muted" style={{ fontSize: 12 }}>{x.category_name ?? ""} {x.start_date ? `· ${fmtDate(x.start_date)}` : ""}</div></td>
-                  <td>{x.kind === "AUTO" ? STAGE_LABELS[x.stage as Stage] : `Ajuste: ${x.reason}`}</td>
+                  <td>{x.tournament_slug ? <Link href={`/t/${x.tournament_slug}`}>{x.tournament_name}</Link> : x.tournament_name ?? T.player.adjust}<div className="muted" style={{ fontSize: 12 }}>{x.category_name ?? ""} {x.start_date ? `· ${fmtDate(x.start_date, lang)}` : ""}</div></td>
+                  <td>{x.kind === "AUTO" ? T.g.stage[x.stage ?? ""] : T.player.adjustR(x.reason ?? "")}</td>
                   <td className="num"><b>{x.points}</b></td>
                 </tr>
               ))}
-              {points.length === 0 && <tr><td colSpan={3} className="empty">Sin puntos todavía.</td></tr>}
+              {points.length === 0 && <tr><td colSpan={3} className="empty">{T.player.noPoints}</td></tr>}
             </tbody>
           </table></div>
         </div>
         {entries.length > current.length && (
           <div className="card">
-            <h3>Torneos anteriores</h3>
-            <ul>{entries.filter((e) => !current.includes(e)).map((e) => <li key={e.entry_id}><Link href={`/t/${e.slug}`}>{e.tournament}</Link> · {fmtDate(e.start_date)}</li>)}</ul>
+            <h3>{T.player.previous}</h3>
+            <ul>{entries.filter((e) => !current.includes(e)).map((e) => <li key={e.entry_id}><Link href={`/t/${e.slug}`}>{e.tournament}</Link> · {fmtDate(e.start_date, lang)}</li>)}</ul>
           </div>
         )}
       </main>

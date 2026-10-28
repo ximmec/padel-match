@@ -9,7 +9,7 @@ import { notifyScheduleChange } from "./autoNotify";
 import { NeedsConfirmation } from "./errors";
 import { loadCategory, entryLabel, type LoadedCategory, type MatchRow, zoneSideLabel } from "./category";
 import { generateSchedule, rescheduleFrom, validateSchedule, type CourtInput, type SchedMatch, type Assignment } from "@/core/scheduling";
-import { roundName } from "@/core/bracket";
+import { dict, type Lang } from "@/i18n";
 
 export interface TournamentSchedule {
   tournament: { id: string; name: string; match_duration_min: number; min_rest_min: number; venue_id: string | null; no_schedule: boolean; ignore_restrictions: boolean };
@@ -40,7 +40,8 @@ export interface ScheduleItem {
   ready: boolean;
 }
 
-export async function loadTournamentSchedule(db: Db, tournamentId: string, orgId: string | null): Promise<TournamentSchedule> {
+export async function loadTournamentSchedule(db: Db, tournamentId: string, orgId: string | null, lang: Lang = "es"): Promise<TournamentSchedule> {
+  const g = dict(lang).g;
   const [t] = await db<TournamentSchedule["tournament"][]>`
     SELECT id, name, match_duration_min, min_rest_min, venue_id, no_schedule, ignore_restrictions FROM tournaments WHERE id = ${tournamentId} ${orgId ? db`AND org_id = ${orgId}` : db``}`;
   if (!t) throw new UserError("Torneo no encontrado.");
@@ -84,9 +85,9 @@ export async function loadTournamentSchedule(db: Db, tournamentId: string, orgId
         const z = lc.zones.find((x) => x.id === m.zone_id);
         items.push({
           matchId: m.id, tcId: lc.tc.id, categoryName: lc.tc.category_name,
-          label: `${lc.tc.category_name} · Zona ${z?.name ?? "?"}`, stage: `Zona ${z?.name ?? "?"}`,
+          label: `${lc.tc.category_name} · ${g.zone(z?.name ?? "?")}`, stage: g.zone(z?.name ?? "?"),
           players: [...playersOf(m.entry_a), ...playersOf(m.entry_b)],
-          sideA: zoneSideLabel(lc, m, "a"), sideB: zoneSideLabel(lc, m, "b"),
+          sideA: zoneSideLabel(lc, m, "a", lang), sideB: zoneSideLabel(lc, m, "b", lang),
           status: m.status, courtId: m.court_id, start: m.scheduled_at, locked: m.schedule_locked,
           dependsOn: m.slot ? lc.matches.filter((x) => x.zone_id === m.zone_id && x.round === 1 && x.status !== "ANNULLED").map((x) => x.id) : [],
           priority: m.round * 100 + ci, version: m.version, ready: !!(m.entry_a && m.entry_b), daily: dailyOf([m.entry_a, m.entry_b]),
@@ -111,9 +112,9 @@ export async function loadTournamentSchedule(db: Db, tournamentId: string, orgId
         const b = rm.b.kind === "ENTRY" ? rm.b.entryId : null;
         items.push({
           matchId: m.id, tcId: lc.tc.id, categoryName: lc.tc.category_name,
-          label: `${lc.tc.category_name} · ${roundName(perRound.get(def.round) ?? 1)}`, stage: roundName(perRound.get(def.round) ?? 1),
+          label: `${lc.tc.category_name} · ${g.round(perRound.get(def.round) ?? 1)}`, stage: g.round(perRound.get(def.round) ?? 1),
           players: [...playersOf(a), ...playersOf(b)],
-          sideA: a ? entryLabel(lc.entryMap.get(a)) : "A definir", sideB: b ? entryLabel(lc.entryMap.get(b)) : "A definir",
+          sideA: a ? entryLabel(lc.entryMap.get(a)) : g.tbd, sideB: b ? entryLabel(lc.entryMap.get(b)) : g.tbd,
           status: m.status, courtId: m.court_id, start: m.scheduled_at, locked: m.schedule_locked,
           dependsOn: [...realDeps, ...zoneIds], priority: (maxRound + def.round) * 100 + ci, version: m.version, ready: !!(a && b), daily: dailyOf([a, b]),
         });

@@ -1,5 +1,7 @@
 "use client";
 import { useEffect, useState } from "react";
+import { useT } from "@/i18n/client";
+import type { Dict } from "@/i18n";
 
 type Platform = "ios" | "android" | "desktop";
 type PromptEvent = Event & { prompt: () => Promise<void>; userChoice: Promise<{ outcome: "accepted" | "dismissed" }> };
@@ -36,6 +38,8 @@ export function InstallApp({ variant = "card", autoOpen = false }: { variant?: "
   const [, force] = useState(0);
   const [open, setOpen] = useState(false);
   const [done, setDone] = useState(false);
+  const T = useT();
+  const I = T.install;
 
   useEffect(() => {
     const d = detect();
@@ -49,8 +53,8 @@ export function InstallApp({ variant = "card", autoOpen = false }: { variant?: "
   }, [autoOpen]);
 
   if (!env) return null;
-  if (env.standalone) return variant === "card" ? <div className="install-ok">✅ {APP_NAME} está instalada en este celular.</div> : null;
-  if (env.platform === "desktop" && !autoOpen) return variant === "card" ? <div className="install-desk">📲 Para instalar la app, abrí <b>padel-match.net/app</b> desde tu celular.</div> : null;
+  if (env.standalone) return variant === "card" ? <div className="install-ok">{I.installed(APP_NAME)}</div> : null;
+  if (env.platform === "desktop" && !autoOpen) return variant === "card" ? <div className="install-desk">{I.desk1}<b>padel-match.net/app</b>{I.desk2}</div> : null;
 
   const click = async () => {
     if (env.platform === "android" && deferred && !env.inApp) {
@@ -65,19 +69,20 @@ export function InstallApp({ variant = "card", autoOpen = false }: { variant?: "
     <>
       <button type="button" className={`install-btn ${variant}`} onClick={click}>
         <span className="install-ico" aria-hidden>📲</span>
-        <span><b>Instalar Padel-Match</b><small>{done ? `¡Listo! Buscá «${APP_NAME}» en tu pantalla de inicio` : "Gratis · sin App Store ni Play Store · recibí los avisos de tus partidos"}</small></span>
+        <span><b>{I.btn}</b><small>{done ? I.done(APP_NAME) : I.sub}</small></span>
       </button>
-      {open && <InstallGuide env={env} onClose={() => setOpen(false)} />}
+      {open && <InstallGuide env={env} onClose={() => setOpen(false)} t={T} />}
     </>
   );
 }
 
 function CopyLink() {
   const [ok, setOk] = useState(false);
+  const I = useT().install;
   return (
     <button type="button" className="btn primary block" onClick={async () => {
-      try { await navigator.clipboard.writeText(SHARE_URL); setOk(true); } catch { window.prompt("Copiá este enlace:", SHARE_URL); }
-    }}>{ok ? "✓ Enlace copiado" : "Copiar enlace"}</button>
+      try { await navigator.clipboard.writeText(SHARE_URL); setOk(true); } catch { window.prompt(I.copyPrompt, SHARE_URL); }
+    }}>{ok ? I.copied : I.copy}</button>
   );
 }
 
@@ -89,61 +94,63 @@ const PlusSquare = () => (
 );
 const Dots = () => <span className="g-dots" aria-hidden>⋮</span>;
 
-function InstallGuide({ env, onClose }: { env: ReturnType<typeof detect>; onClose: () => void }) {
+function InstallGuide({ env, onClose, t }: { env: ReturnType<typeof detect>; onClose: () => void; t: Dict }) {
+  const I = t.install;
+  const browser = env.platform === "ios" ? "Safari" : "Chrome";
   return (
-    <div className="install-modal" role="dialog" aria-modal="true" aria-label="Cómo instalar la app" onClick={onClose}>
+    <div className="install-modal" role="dialog" aria-modal="true" aria-label={I.title(APP_NAME)} onClick={onClose}>
       <div className="install-sheet" onClick={(e) => e.stopPropagation()}>
         <div className="install-sheet-head">
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img src="/icon-192.png" alt="" width={56} height={56} />
-          <div><b>Instalá {APP_NAME}</b><small>Va a aparecer en tu pantalla de inicio como una app más.</small></div>
-          <button type="button" className="install-x" onClick={onClose} aria-label="Cerrar">✕</button>
+          <div><b>{I.title(APP_NAME)}</b><small>{I.subtitle}</small></div>
+          <button type="button" className="install-x" onClick={onClose} aria-label={I.close}>✕</button>
         </div>
 
         {env.inApp ? (
           <div className="stack">
-            <div className="alert warn">Abriste el enlace desde otra app (Instagram, Facebook, WhatsApp…). Desde acá <b>no se puede instalar</b>.</div>
+            <div className="alert warn">{I.inApp1}<b>{I.inAppB}</b>{I.inApp2}</div>
             <ol className="g-steps">
-              <li><span className="g-n">1</span><div>Tocá <b>⋮</b> o <b>···</b> (arriba a la derecha) y elegí <b>«Abrir en {env.platform === "ios" ? "Safari" : "Chrome"}»</b>.</div></li>
-              <li><span className="g-n">2</span><div>O copiá el enlace y pegalo en {env.platform === "ios" ? "Safari" : "Chrome"}:</div></li>
+              <li><span className="g-n">1</span><div>{I.inAppS1(browser)}</div></li>
+              <li><span className="g-n">2</span><div>{I.inAppS2(browser)}</div></li>
             </ol>
             <CopyLink />
           </div>
         ) : env.platform === "ios" ? (
           <div className="stack">
-            {env.iosOtherBrowser && <div className="alert warn">Para que te lleguen las notificaciones, hacelo desde <b>Safari</b>. Copiá el enlace y pegalo en Safari. <CopyLink /></div>}
+            {env.iosOtherBrowser && <div className="alert warn">{I.iosOther} <CopyLink /></div>}
             <ol className="g-steps">
-              <li><span className="g-n">1</span><div>Tocá el botón <b>Compartir</b> <span className="g-key"><ShareIcon /></span><small>Está abajo en el medio (o arriba a la derecha en iPad). Si no lo ves, deslizá la página un poco hacia arriba.</small></div></li>
-              <li><span className="g-n">2</span><div>Bajá y tocá <b>«Agregar a pantalla de inicio»</b>
-                <div className="g-mock"><span>Agregar a pantalla de inicio</span><PlusSquare /></div>
-                <small>Si no aparece, tocá «Editar acciones» al final de la lista y agregalo.</small></div></li>
-              <li><span className="g-n">3</span><div>Tocá <b>«Agregar»</b> (arriba a la derecha)
+              <li><span className="g-n">1</span><div><b>{I.ios1}</b> <span className="g-key"><ShareIcon /></span><small>{I.ios1s}</small></div></li>
+              <li><span className="g-n">2</span><div><b>{I.ios2}</b>
+                <div className="g-mock"><span>{I.ios2mock}</span><PlusSquare /></div>
+                <small>{I.ios2s}</small></div></li>
+              <li><span className="g-n">3</span><div><b>{I.ios3}</b>
                 <div className="g-mock g-mock-add">
                   {/* eslint-disable-next-line @next/next/no-img-element */}
-                  <img src="/icon-192.png" alt="" width={34} height={34} /><span>{APP_NAME}</span><b>Agregar</b>
+                  <img src="/icon-192.png" alt="" width={34} height={34} /><span>{APP_NAME}</span><b>{I.ios3mock}</b>
                 </div></div></li>
-              <li><span className="g-n">4</span><div>Abrí <b>{APP_NAME}</b> desde el ícono nuevo, ingresá y tocá <b>«Activar notificaciones»</b>.<small>En iPhone las notificaciones solo funcionan abriendo la app desde el ícono (iOS 16.4 o más nuevo).</small></div></li>
+              <li><span className="g-n">4</span><div><b>{I.ios4(APP_NAME)}</b><small>{I.ios4s}</small></div></li>
             </ol>
-            <div className="g-arrow" aria-hidden>⬇︎ El botón Compartir está acá abajo ⬇︎</div>
+            <div className="g-arrow" aria-hidden>{I.arrow}</div>
           </div>
         ) : env.platform === "android" ? (
           <div className="stack">
             <ol className="g-steps">
-              <li><span className="g-n">1</span><div>Abrí esta página en <b>Google Chrome</b>.</div></li>
-              <li><span className="g-n">2</span><div>Tocá el menú <span className="g-key"><Dots /></span> (arriba a la derecha).</div></li>
-              <li><span className="g-n">3</span><div>Tocá <b>«Instalar app»</b> o <b>«Agregar a pantalla principal»</b>
-                <div className="g-mock"><span>Instalar app</span><PlusSquare /></div></div></li>
-              <li><span className="g-n">4</span><div>Confirmá con <b>«Instalar»</b>. Después abrí <b>{APP_NAME}</b> desde el ícono y tocá <b>«Activar notificaciones»</b>.</div></li>
+              <li><span className="g-n">1</span><div>{I.and1}</div></li>
+              <li><span className="g-n">2</span><div>{I.and2} <span className="g-key"><Dots /></span></div></li>
+              <li><span className="g-n">3</span><div><b>{I.and3}</b>
+                <div className="g-mock"><span>{I.and3mock}</span><PlusSquare /></div></div></li>
+              <li><span className="g-n">4</span><div>{I.and4(APP_NAME)}</div></li>
             </ol>
           </div>
         ) : (
           <div className="stack">
-            <p>Abrí este enlace desde tu <b>celular</b> para instalar la app:</p>
+            <p>{I.deskOpen}</p>
             <div className="g-link">{SHARE_URL.replace("https://", "")}</div>
             <CopyLink />
           </div>
         )}
-        <button type="button" className="btn ghost block" style={{ marginTop: 14 }} onClick={onClose}>Entendido</button>
+        <button type="button" className="btn ghost block" style={{ marginTop: 14 }} onClick={onClose}>{I.ok}</button>
       </div>
     </div>
   );

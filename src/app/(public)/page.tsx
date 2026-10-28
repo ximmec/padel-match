@@ -3,8 +3,10 @@ import Link from "next/link";
 import { sql } from "@/server/db";
 import { Icon } from "@/components/Icon";
 import { InstallApp } from "@/components/InstallApp";
+import { getT } from "@/i18n/server";
 
 export default async function Home() {
+  const { lang, t: T } = await getT();
   const rows = await sql<Row[]>`
     SELECT t.id, t.name, t.slug, t.start_date, t.end_date, t.start_time::text AS start_time, t.entry_fee, (SELECT sum(COALESCE(NULLIF(tc.rules->>'maxEntries', '')::int, t.max_entries))::int FROM tournament_categories tc WHERE tc.tournament_id = t.id) AS max_entries, t.logo, t.card_bg, t.status, v.name AS venue, o.name AS org_name, ci.name AS circuit_name, ci.logo AS circuit_logo,
       (SELECT string_agg(c.name, ' · ' ORDER BY c.name) FROM tournament_categories tc JOIN categories c ON c.id = tc.category_id WHERE tc.tournament_id = t.id) AS categories,
@@ -21,12 +23,7 @@ export default async function Home() {
   const upcoming = rows.filter((t) => t.status === "OPEN");
   const past = rows.filter((t) => t.status === "FINISHED");
 
-  const steps = [
-    ["01", "Inscripción", "Las parejas se inscriben por categoría: Beginner, Advanced, masculina, femenina o mixta."],
-    ["02", "Zonas", "Zonas sorteadas y posiciones que se actualizan solas con cada resultado."],
-    ["03", "Playoffs", "Cuadro eliminatorio automático hasta la final, con horarios y canchas."],
-    ["04", "Ranking", "Cada jugador suma puntos según la instancia alcanzada, torneo tras torneo."],
-  ];
+  const steps = T.home.steps;
 
   return (
     <>
@@ -36,23 +33,23 @@ export default async function Home() {
           <img src="/hero-mapa.webp" alt="" width={903} height={732} fetchPriority="high" />
         </div>
         <div className="hero-split-inner">
-          <h1 className="hero-title">Tu torneo de pádel, <span>en tiempo real</span></h1>
-          <p className="hero-lead">Zonas, resultados, cuadros, horarios y ranking en un solo lugar. Buscá tu nombre y enterate cuándo y en qué cancha jugás.</p>
+          <h1 className="hero-title">{T.home.title1} <span>{T.home.title2}</span></h1>
+          <p className="hero-lead">{T.home.lead}</p>
           <form action="/buscar" className="hero-search">
-            <input name="q" placeholder="Buscá tu nombre o apellido…" aria-label="Buscar jugador" />
-            <button className="btn primary pill">Buscar <span aria-hidden>→</span></button>
+            <input name="q" placeholder={T.home.searchPh} aria-label={T.home.searchAria} />
+            <button className="btn primary pill">{T.home.search} <span aria-hidden>→</span></button>
           </form>
           <InstallApp variant="hero" />
           <div className="hero-links">
-            <Link href="#torneos"><Icon name="trophy" size={24} /> Torneos</Link>
-            <Link href="/buscar"><Icon name="calendar" size={24} /> ¿Cuándo juego?</Link>
-            <Link href="/ranking"><Icon name="chart" size={24} /> Ranking</Link>
-            <Link href="/login"><Icon name="users" size={24} /> Organizadores</Link>
+            <Link href="#torneos"><Icon name="trophy" size={24} /> {T.nav.tournaments}</Link>
+            <Link href="/buscar"><Icon name="calendar" size={24} /> {T.nav.when}</Link>
+            <Link href="/ranking"><Icon name="chart" size={24} /> {T.nav.ranking}</Link>
+            <Link href="/login"><Icon name="users" size={24} /> {T.home.organizers}</Link>
           </div>
           <div className="hero-mini-stats">
-            <span><b>{stats.tournaments}</b> torneos</span>
-            <span><b>{stats.players}</b> jugadores</span>
-            <span><b>{stats.played}</b> partidos jugados</span>
+            <span><b>{stats.tournaments}</b> {T.home.tournamentsL}</span>
+            <span><b>{stats.players}</b> {T.home.playersL}</span>
+            <span><b>{stats.played}</b> {T.home.playedL}</span>
           </div>
         </div>
       </section>
@@ -60,25 +57,25 @@ export default async function Home() {
       <main className="container stack" id="torneos">
         {live.length > 0 && (
           <>
-            <h2 className="section-title"><span className="badge live">En vivo</span> Jugándose ahora</h2>
-            <div className="tgrid">{live.map((t) => <TournamentCard key={t.id} t={t} />)}</div>
+            <h2 className="section-title"><span className="badge live">{T.live.on}</span> {T.home.liveNow}</h2>
+            <div className="tgrid">{live.map((t) => <TournamentCard key={t.id} t={t} lang={lang} />)}</div>
           </>
         )}
         {upcoming.length > 0 && (
           <>
-            <h2 className="section-title">Próximos torneos</h2>
-            <div className="tgrid">{upcoming.map((t) => <TournamentCard key={t.id} t={t} />)}</div>
+            <h2 className="section-title">{T.home.upcoming}</h2>
+            <div className="tgrid">{upcoming.map((t) => <TournamentCard key={t.id} t={t} lang={lang} />)}</div>
           </>
         )}
         {past.length > 0 && (
           <>
-            <h2 className="section-title">Finalizados</h2>
-            <div className="tgrid">{past.map((t) => <TournamentCard key={t.id} t={t} />)}</div>
+            <h2 className="section-title">{T.home.finished}</h2>
+            <div className="tgrid">{past.map((t) => <TournamentCard key={t.id} t={t} lang={lang} />)}</div>
           </>
         )}
-        {rows.length === 0 && <div className="card empty">Todavía no hay torneos publicados. ¡Volvé pronto!</div>}
+        {rows.length === 0 && <div className="card empty">{T.home.empty}</div>}
 
-        <h2 className="section-title" style={{ marginTop: 34 }}>Cómo funciona</h2>
+        <h2 className="section-title" style={{ marginTop: 34 }}>{T.home.how}</h2>
         <div className="grid grid-4">
           {steps.map(([n, title, text]) => (
             <div key={n} className="card">

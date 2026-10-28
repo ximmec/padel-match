@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
+import { useT } from "@/i18n/client";
 
 /**
  * Actualización automática: consulta cada `seconds` si hubo cambios en el torneo
@@ -11,6 +12,7 @@ export function AutoRefresh({ tournamentId, seconds = 15 }: { tournamentId: stri
   const router = useRouter();
   const last = useRef<string | null>(null);
   const [live, setLive] = useState(true);
+  const t = useT().live;
 
   useEffect(() => {
     let stop = false;
@@ -35,8 +37,8 @@ export function AutoRefresh({ tournamentId, seconds = 15 }: { tournamentId: stri
   }, [tournamentId, seconds, router]);
 
   return (
-    <span className={`badge ${live ? "ok" : ""}`} title="La página se actualiza sola cuando hay resultados u horarios nuevos">
-      <span className={`dot ${live ? "ok" : "idle"}`} /> {live ? "En vivo" : "Sin conexión"}
+    <span className={`badge ${live ? "ok" : ""}`} title={t.hint}>
+      <span className={`dot ${live ? "ok" : "idle"}`} /> {live ? t.on : t.off}
     </span>
   );
 }

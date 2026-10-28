@@ -1,13 +1,15 @@
 import Link from "next/link";
 import { sql } from "@/server/db";
 import { isUuid } from "@/server/action";
+import { getT } from "@/i18n/server";
 
 const fold = (s: string) => s.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase();
 
-export const metadata = { title: "¿Cuándo juego?" };
+export async function generateMetadata() { return { title: (await getT()).t.search.title }; }
 
 export default async function Search({ searchParams }: { searchParams: Promise<{ q?: string; t?: string }> }) {
   const sp = await searchParams;
+  const { t: T } = await getT();
   const q = (sp.q ?? "").trim();
   const t = sp.t && isUuid(sp.t) ? sp.t : null;
   const words = fold(q).split(/\s+/).filter((w) => w.length >= 2).slice(0, 4);
@@ -30,22 +32,22 @@ export default async function Search({ searchParams }: { searchParams: Promise<{
     <>
       <section className="hero">
         <div className="inner">
-          <h1>¿Cuándo juego?</h1>
-          <p>Buscá tu nombre para ver tu pareja, zona, próximos partidos, cancha y horario.</p>
+          <h1>{T.search.title}</h1>
+          <p>{T.search.lead}</p>
           <form className="search-big">
-            <input name="q" defaultValue={q} placeholder="Nombre y/o apellido" autoFocus aria-label="Nombre" />
+            <input name="q" defaultValue={q} placeholder={T.search.ph} autoFocus aria-label={T.search.ph} />
             {t && <input type="hidden" name="t" value={t} />}
-            <button className="btn primary">Buscar</button>
+            <button className="btn primary">{T.search.button}</button>
           </form>
         </div>
       </section>
       <main className="container narrow stack" style={{ margin: "0 auto" }}>
-        {q && rows.length === 0 && <div className="card empty">No encontramos jugadores con «{q}» en torneos publicados.</div>}
+        {q && rows.length === 0 && <div className="card empty">{T.search.none(q)}</div>}
         {rows.map((p) => (
           <Link key={p.id} href={`/jugador/${p.id}`} className="tcard">
             <div className="card row between">
-              <div><b style={{ fontSize: 17 }}>{p.first_name} {p.last_name}</b><div className="muted" style={{ fontSize: 13 }}>{p.tournaments ?? "Sin torneos en curso"}</div></div>
-              <span className="btn sm">Ver partidos →</span>
+              <div><b style={{ fontSize: 17 }}>{p.first_name} {p.last_name}</b><div className="muted" style={{ fontSize: 13 }}>{p.tournaments ?? T.search.noCurrent}</div></div>
+              <span className="btn sm">{T.search.see}</span>
             </div>
           </Link>
         ))}

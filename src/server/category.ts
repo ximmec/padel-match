@@ -9,6 +9,7 @@ import {
 } from "@/core/engine";
 import { resolveQualification, type BracketMatchDef, type Resolved } from "@/core/bracket";
 import type { MatchOutcome } from "@/core/scoring";
+import { dict, type Lang } from "@/i18n";
 
 export interface TcRow {
   id: string;
@@ -160,16 +161,17 @@ export function buildState(tc: TcRow, zones: ZoneRow[], matches: MatchRow[], ent
 }
 
 /** Etiqueta de un lado de un partido de 2ª ronda GvG que todavía no tiene parejas. */
-export function slotLabel(m: Pick<MatchRow, "slot">, side: "a" | "b"): string {
-  if (m.slot === "GVG") return side === "a" ? "Ganador del partido 1" : "Ganador del partido 2";
-  if (m.slot === "PVP") return side === "a" ? "Perdedor del partido 1" : "Perdedor del partido 2";
-  return "A definir";
+export function slotLabel(m: Pick<MatchRow, "slot">, side: "a" | "b", lang: Lang = "es"): string {
+  const g = dict(lang).g;
+  if (m.slot === "GVG") return g.winnerMatch(side === "a" ? 1 : 2);
+  if (m.slot === "PVP") return g.loserMatch(side === "a" ? 1 : 2);
+  return g.tbd;
 }
 
 /** Nombre de un lado de un partido de zona (o «Ganador del partido 1» si todavía no se sabe). */
-export function zoneSideLabel(lc: { entryMap: Map<string, EntryRow> }, m: Pick<MatchRow, "slot" | "entry_a" | "entry_b">, side: "a" | "b"): string {
+export function zoneSideLabel(lc: { entryMap: Map<string, EntryRow> }, m: Pick<MatchRow, "slot" | "entry_a" | "entry_b">, side: "a" | "b", lang: Lang = "es"): string {
   const id = side === "a" ? m.entry_a : m.entry_b;
-  return id ? entryLabel(lc.entryMap.get(id)) : slotLabel(m, side);
+  return id ? entryLabel(lc.entryMap.get(id)) : slotLabel(m, side, lang);
 }
 
 /** «desde 20:00 · hasta 23:00» para mostrar la restricción horaria de una pareja. */
@@ -189,10 +191,10 @@ export function entryFullLabel(e: EntryRow | undefined | null): string {
   return e.players.map((p) => `${p.first_name} ${p.last_name}`).join(" / ");
 }
 
-export function resolvedLabel(r: Resolved, entryMap: Map<string, EntryRow>, fallback = "A definir"): string {
+export function resolvedLabel(r: Resolved, entryMap: Map<string, EntryRow>, fallback?: string, lang: Lang = "es"): string {
   if (r.kind === "ENTRY") return entryLabel(entryMap.get(r.entryId));
-  if (r.kind === "BYE") return "Pase libre";
-  return fallback;
+  if (r.kind === "BYE") return dict(lang).g.bye;
+  return fallback ?? dict(lang).g.tbd;
 }
 
 /** Cupo de parejas de la categoría (propio o el del torneo). null = sin límite. */

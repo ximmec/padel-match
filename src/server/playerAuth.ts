@@ -8,6 +8,7 @@ import { cache } from "react";
 import { sql, UserError } from "./db";
 import { clientIp, isLoginBlocked } from "./auth";
 import { hashPassword, newToken, sha256, verifyPassword } from "./password";
+import { getT } from "@/i18n/server";
 
 export const PLAYER_COOKIE = "pm_player";
 const SESSION_DAYS = 180; // la sesión queda iniciada ~6 meses
@@ -23,9 +24,9 @@ export interface CurrentPlayer {
   linkNote: string | null;
 }
 
-export function playerPasswordProblems(pw: string): string | null {
-  if (pw.length < 8) return "La contraseña debe tener al menos 8 caracteres.";
-  if (!/[A-Za-z]/.test(pw) || !/\d/.test(pw)) return "La contraseña debe combinar letras y números.";
+export function playerPasswordProblems(pw: string, msg = { short: "La contraseña debe tener al menos 8 caracteres.", mix: "La contraseña debe combinar letras y números." }): string | null {
+  if (pw.length < 8) return msg.short;
+  if (!/[A-Za-z]/.test(pw) || !/\d/.test(pw)) return msg.mix;
   return null;
 }
 
@@ -47,24 +48,26 @@ async function startSession(accountId: string) {
 }
 
 export async function registerPlayer(input: { name: string; email: string; password: string; phone: string | null; document: string | null; orgSlug?: string | null }) {
+  const { lang, t } = await getT();
+  const E = t.err;
   const email = input.email.trim().toLowerCase();
   const name = input.name.trim().replace(/\s+/g, " ");
-  if (name.length < 3 || name.length > 80) throw new UserError("Escribí tu nombre y apellido.");
-  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email) || email.length > 120) throw new UserError("Email inválido.");
-  const pwErr = playerPasswordProblems(input.password);
+  if (name.length < 3 || name.length > 80) throw new UserError(E.name);
+  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email) || email.length > 120) throw new UserError(E.email);
+  const pwErr = playerPasswordProblems(input.password, { short: E.pwShort, mix: E.pwMix });
   if (pwErr) throw new UserError(pwErr);
   const ip = await clientIp();
   const [r] = await sql<{ n: number }[]>`SELECT count(*)::int AS n FROM login_attempts WHERE email = ${"registro:" + ip} AND created_at > now() - interval '1 hour'`;
-  if (r.n >= 10) throw new UserError("Demasiados registros desde esta conexión. Probá más tarde.");
+  if (r.n >= 10) throw new UserError(E.tooMany);
   await sql`INSERT INTO login_attempts (email, ip, success) VALUES (${"registro:" + ip}, ${ip}, true)`;
   const org = await playerOrg(input.orgSlug);
   const hash = await hashPassword(input.password);
-  const doc = input.document?.replace(/\D/g, "") || null;
+  const doc = input.document?.replace(/[^0-9A-Za-z]/g, "").toUpperCase() || null;
   const rows = await sql<{ id: string }[]>`
-    INSERT INTO player_accounts (org_id, email, name, password_hash, phone, document)
-    VALUES (${org.id}, ${email}, ${name}, ${hash}, ${input.phone?.trim() || null}, ${doc})
+    INSERT INTO player_accounts (org_id, email, name, password_hash, phone, document, lang)
+    VALUES (${org.id}, ${email}, ${name}, ${hash}, ${input.phone?.trim() || null}, ${doc}, ${lang})
     ON CONFLICT (org_id, email) DO NOTHING RETURNING id`;
-  if (!rows.length) throw new UserError("Ya hay una cuenta con ese email. Ingresá con tu contraseña.");
+  if (!rows.length) throw new UserError(E.exists);
   await suggestLink(rows[0].id);
   await startSession(rows[0].id);
 }
@@ -76,11 +79,11 @@ export async function registerPlayer(input: { name: string; email: string; passw
 export async function suggestLink(accountId: string, nameHint?: string | null, docHint?: string | null) {
   const [a] = await sql<{ org_id: string; name: string; document: string | null; link_status: string }[]>`SELECT org_id, name, document, link_status FROM player_accounts WHERE id = ${accountId}`;
   if (!a || a.link_status === "APPROVED") return;
-  const doc = (docHint ?? a.document)?.replace(/\D/g, "") || null;
+  const doc = (docHint ?? a.document)?.replace(/[^0-9A-Za-z]/g, "").toUpperCase() || null;
   const name = (nameHint ?? a.name).trim();
   let pid: string | null = null;
   if (doc) {
-    const byDoc = await sql<{ id: string }[]>`SELECT id FROM players WHERE org_id = ${a.org_id} AND deleted_at IS NULL AND regexp_replace(coalesce(document, ''), '\\D', '', 'g') = ${doc}`;
+    const byDoc = await sql<{ id: string }[]>`SELECT id FROM players WHERE org_id = ${a.org_id} AND deleted_at IS NULL AND upper(regexp_replace(coalesce(document, ''), '[^0-9A-Za-z]', '', 'g')) = ${doc}`;
     if (byDoc.length === 1) pid = byDoc[0].id;
   }
   if (!pid) {
@@ -94,16 +97,20 @@ export async function suggestLink(accountId: string, nameHint?: string | null, d
 }
 
 export async function loginPlayer(emailRaw: string, password: string, orgSlug?: string | null) {
+  const { t } = await getT();
   const email = emailRaw.trim().toLowerCase();
   const ip = await clientIp();
   const key = "jugador:" + email;
-  if (await isLoginBlocked(key, ip)) throw new UserError("Demasiados intentos fallidos. Esperá 15 minutos y volvé a intentar.");
+  if (await isLoginBlocked(key, ip)) throw new UserError(t.err.blocked);
   const org = await playerOrg(orgSlug);
   const [a] = await sql<{ id: string; password_hash: string; active: boolean }[]>`SELECT id, password_hash, active FROM player_accounts WHERE org_id = ${org.id} AND email = ${email}`;
   const ok = !!a && a.active && (await verifyPassword(password, a.password_hash));
   await sql`INSERT INTO login_attempts (email, ip, success) VALUES (${key}, ${ip}, ${ok})`;
-  if (!ok) throw new UserError("Email o contraseña incorrectos.");
+  if (!ok) throw new UserError(t.err.bad);
   await startSession(a.id);
+  // El idioma que eligió el jugador lo sigue en este dispositivo
+  const [{ lang }] = await sql<{ lang: string }[]>`SELECT lang FROM player_accounts WHERE id = ${a.id}`;
+  (await cookies()).set("lang", lang, { path: "/", maxAge: 60 * 60 * 24 * 365, sameSite: "lax", secure: process.env.NODE_ENV === "production" });
 }
 
 export async function logoutPlayer() {

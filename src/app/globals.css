@@ -922,3 +922,12 @@ details[open] > summary::before { content: "▾ "; }
 .g-link { padding: 10px 14px; border-radius: 12px; background: #222; font-weight: 800; text-align: center; }
 .push-pill { display: inline-block; margin-left: 6px; padding: 2px 8px; border-radius: 999px; font-size: 11px; font-weight: 800; background: #2a2a2a; color: #c9ccd3; vertical-align: 2px; }
 .push-pill.on { background: rgba(200, 230, 0, .15); color: var(--lime); }
+
+/* ---------- Selector de idioma ---------- */
+.lang-switch { display: inline-flex; border: 1px solid var(--line-2); border-radius: 999px; padding: 3px; gap: 2px; background: rgba(255,255,255,.03); }
+.lang-switch button { border: 0; background: transparent; color: #a8abb3; font: inherit; font-size: 13px; font-weight: 800; padding: 5px 10px; border-radius: 999px; cursor: pointer; display: inline-flex; gap: 5px; align-items: center; }
+.lang-switch button.on { background: var(--orange); color: #111; }
+.lang-switch.busy { opacity: .6; }
+@media (max-width: 560px) { .top-cta .btn.primary { display: none; } .lang-switch button { padding: 5px 8px; } }
+.auth-top .lang-switch { margin-left: auto; margin-right: 10px; }
+.en-box { border: 1px dashed var(--line-2); border-radius: 12px; padding: 10px 14px; } .en-box > summary { cursor: pointer; font-weight: 700; }

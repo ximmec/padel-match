@@ -7,17 +7,19 @@ import { AutoRefresh } from "@/components/AutoRefresh";
 import { StatusBadge } from "@/components/views";
 import { scoreText } from "@/core/scoring";
 import { fmtDate, fmtDay, fmtTime, dayKey } from "@/lib/format";
+import { getT } from "@/i18n/server";
 
 export async function generateMetadata({ params }: { params: Promise<{ slug: string }> }) {
   const t = await publicTournamentBySlug((await params).slug);
-  return { title: t?.name ?? "Torneo" };
+  return { title: t?.name ?? (await getT()).t.tournament.fallbackTitle };
 }
 
 export default async function PublicTournament({ params }: { params: Promise<{ slug: string }> }) {
   const { slug } = await params;
+  const { lang, t: T } = await getT();
   const t = await publicTournamentBySlug(slug);
   if (!t) notFound();
-  const [cats, s] = await Promise.all([publicTournamentCategories(t.id), loadTournamentSchedule(sql, t.id, null)]);
+  const [cats, s] = await Promise.all([publicTournamentCategories(t.id), loadTournamentSchedule(sql, t.id, null, lang)]);
   const court = (id: string | null) => s.courts.find((c) => c.id === id)?.name ?? "";
   const lcBy = new Map(s.categories.map((c) => [c.tc.id, c]));
   const live = s.items.filter((i) => i.status === "IN_PLAY");
@@ -35,9 +37,9 @@ export default async function PublicTournament({ params }: { params: Promise<{ s
     <>
       <section className="hero">
         <div className="inner">
-          <div className="row"><StatusBadge status={t.status} /><AutoRefresh tournamentId={t.id} /></div>
+          <div className="row"><StatusBadge status={t.status} lang={lang} /><AutoRefresh tournamentId={t.id} /></div>
           <h1 style={{ marginTop: 8 }}>{t.name}</h1>
-          <p>{fmtDate(t.start_date)}{t.end_date !== t.start_date ? ` al ${fmtDate(t.end_date)}` : ""}{t.venue ? ` · ${t.venue}` : ""}{t.address ? ` (${t.address})` : ""} · {t.org_name}</p>
+          <p>{fmtDate(t.start_date, lang)}{t.end_date !== t.start_date ? ` ${T.tournament.to} ${fmtDate(t.end_date, lang)}` : ""}{t.venue ? ` · ${t.venue}` : ""}{t.address ? ` (${t.address})` : ""} · {t.org_name}</p>
         </div>
       </section>
       <main className="container stack">
@@ -45,18 +47,18 @@ export default async function PublicTournament({ params }: { params: Promise<{ s
           {cats.map((c) => <Link key={c.id} href={`/t/${slug}/c/${c.id}`}>{c.name} <span className="muted">({c.entries})</span></Link>)}
         </div>
         <form action="/buscar" className="row">
-          <input name="q" placeholder="Buscá tu nombre para ver tus partidos" style={{ maxWidth: 360 }} />
+          <input name="q" placeholder={T.tournament.searchPh} style={{ maxWidth: 360 }} />
           <input type="hidden" name="t" value={t.id} />
-          <button className="btn">Buscar</button>
+          <button className="btn">{T.tournament.search}</button>
         </form>
 
         {live.length > 0 && (
           <div className="card flush">
-            <div className="card-head"><h2>🔴 Jugándose ahora</h2></div>
+            <div className="card-head"><h2>{T.tournament.liveNow}</h2></div>
             {live.map((i) => (
               <div key={i.matchId} className="match">
                 <div><div className="side">{i.sideA}</div><div className="side">{i.sideB}</div></div>
-                <span className="badge live">En juego</span>
+                <span className="badge live">{T.tournament.inPlay}</span>
                 <div className="meta"><span className="badge">{i.categoryName}</span><span>{i.stage}</span>{i.courtId && <span>📍 {court(i.courtId)}</span>}</div>
               </div>
             ))}
@@ -65,23 +67,23 @@ export default async function PublicTournament({ params }: { params: Promise<{ s
 
         <div className="grid grid-2">
           <div className="card flush">
-            <div className="card-head"><h2>Próximos partidos</h2></div>
+            <div className="card-head"><h2>{T.tournament.upcoming}</h2></div>
             {[...byDay.entries()].map(([k, items]) => (
               <div key={k}>
-                <div style={{ padding: "8px 12px", background: "var(--surface-3)", color: "var(--orange-hi)", fontWeight: 700, fontSize: 13, textTransform: "capitalize" }}>{fmtDay(items[0].start)}</div>
+                <div style={{ padding: "8px 12px", background: "var(--surface-3)", color: "var(--orange-hi)", fontWeight: 700, fontSize: 13, textTransform: "capitalize" }}>{fmtDay(items[0].start, lang)}</div>
                 {items.slice(0, 60).map((i) => (
                   <div key={i.matchId} className="match">
                     <div><div className="side">{i.sideA}</div><div className="side">{i.sideB}</div></div>
-                    <div style={{ textAlign: "right" }}><b style={{ fontSize: 18 }}>{fmtTime(i.start)}</b><div className="muted" style={{ fontSize: 12 }}>{court(i.courtId)}</div></div>
+                    <div style={{ textAlign: "right" }}><b style={{ fontSize: 18 }}>{fmtTime(i.start, lang)}</b><div className="muted" style={{ fontSize: 12 }}>{court(i.courtId)}</div></div>
                     <div className="meta"><span className="badge">{i.categoryName}</span><span>{i.stage}</span></div>
                   </div>
                 ))}
               </div>
             ))}
-            {upcoming.length === 0 && <div className="empty">No hay partidos programados por ahora.</div>}
+            {upcoming.length === 0 && <div className="empty">{T.tournament.noUpcoming}</div>}
           </div>
           <div className="card flush">
-            <div className="card-head"><h2>Últimos resultados</h2></div>
+            <div className="card-head"><h2>{T.tournament.results}</h2></div>
             {recent.map((i) => {
               const o = outcome(i);
               const sum = lcBy.get(i.tcId)!.view.summaries;
@@ -95,16 +97,16 @@ export default async function PublicTournament({ params }: { params: Promise<{ s
                 </div>
               );
             })}
-            {recent.length === 0 && <div className="empty">Todavía no hay resultados.</div>}
+            {recent.length === 0 && <div className="empty">{T.tournament.noResults}</div>}
           </div>
         </div>
         <div className="row">
-          <Link className="btn ghost sm" href={`/ranking?org=${t.org_slug}&t=${t.id}`}>🏆 Ranking de este torneo</Link>
-          {t.circuit_id && <Link className="btn ghost sm" href={`/circuito/${t.circuit_id}`}>🌎 Circuito {t.circuit_name}</Link>}
-          {t.circuit_id && <Link className="btn ghost sm" href={`/ranking?org=${t.org_slug}&circuit=${t.circuit_id}`}>🏆 Ranking {t.circuit_name}</Link>}
+          <Link className="btn ghost sm" href={`/ranking?org=${t.org_slug}&t=${t.id}`}>{T.tournament.rankingThis}</Link>
+          {t.circuit_id && <Link className="btn ghost sm" href={`/circuito/${t.circuit_id}`}>{T.tournament.circuit(t.circuit_name ?? "")}</Link>}
+          {t.circuit_id && <Link className="btn ghost sm" href={`/ranking?org=${t.org_slug}&circuit=${t.circuit_id}`}>{T.tournament.rankingCircuit(t.circuit_name ?? "")}</Link>}
         </div>
-        {t.no_schedule && <div className="alert info">Los horarios de este torneo se asignan en el momento desde la mesa de control.</div>}
-        {t.rules_text && <div className="card"><h2>Información</h2><p style={{ whiteSpace: "pre-wrap" }}>{t.rules_text}</p></div>}
+        {t.no_schedule && <div className="alert info">{T.tournament.noSchedule}</div>}
+        {t.rules_text && <div className="card"><h2>{T.tournament.info}</h2><p style={{ whiteSpace: "pre-wrap" }}>{t.rules_text}</p></div>}
       </main>
     </>
   );

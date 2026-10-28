@@ -1,10 +1,15 @@
 import Link from "next/link";
 import { Brand } from "@/components/Brand";
 import { Icon } from "@/components/Icon";
+import { LangSwitch } from "@/components/LangSwitch";
+import { LangProvider } from "@/i18n/client";
+import { dict, type Lang } from "@/i18n";
 
 /** Pantalla dividida para ingresar / configurar: formulario a la izquierda, foto a la derecha. */
-export function AuthShell({ children }: { children: React.ReactNode }) {
+export function AuthShell({ children, lang, langSwitch = false }: { children: React.ReactNode; lang?: Lang; langSwitch?: boolean }) {
+  const t = dict(lang).auth;
   return (
+    <LangProvider lang={lang ?? "es"}>
     <div className="auth">
       <div className="auth-bg" aria-hidden>
         {/* eslint-disable-next-line @next/next/no-img-element */}
@@ -12,27 +17,24 @@ export function AuthShell({ children }: { children: React.ReactNode }) {
       </div>
       <header className="auth-top">
         <Brand />
-        <Link href="/" className="btn ghost sm auth-pill">← Ver torneos</Link>
+        {langSwitch && <LangSwitch />}
+        <Link href="/" className="btn ghost sm auth-pill">{dict(lang).nav.seeTournaments}</Link>
       </header>
       <main className="auth-main">
         <div className="auth-card">{children}</div>
         <div className="auth-tagline">
-          <div className="hero-kicker">Play around the world</div>
-          <h2>Organizá. Jugá. <span>Ganá.</span></h2>
-          <p>La plataforma para organizar torneos de pádel de manera simple y profesional: los jugadores siguen todo en vivo desde el celular.</p>
+          <div className="hero-kicker">{t.tagKicker}</div>
+          <h2>{t.tag1}<span>{t.tag2}</span></h2>
+          <p>{t.tagText}</p>
           <ul className="auth-feats">
-            {[
-              ["grid", "Zonas y cuadros", "Sorteo automático, byes y cruces editables."],
-              ["bolt", "Resultados en vivo", "Posiciones que se actualizan solas."],
-              ["calendar", "Cronograma", "Canchas y horarios sin superposiciones."],
-              ["chart", "Ranking", "Puntos acumulados por circuito y temporada."],
-            ].map(([icon, title, text]) => (
+            {t.feats.map(([icon, title, text]) => (
               <li key={title}><span className="quick-ico"><Icon name={icon} size={20} /></span><span><b>{title}</b><small>{text}</small></span></li>
             ))}
           </ul>
         </div>
       </main>
     </div>
+    </LangProvider>
   );
 }
 

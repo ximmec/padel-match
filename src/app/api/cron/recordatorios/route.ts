@@ -42,7 +42,11 @@ export async function GET(req: Request) {
       }
       if (!a || !b) return;
       for (const [me, rival] of [[a, b], [b, a]] as const) {
-        await notifyEntry(tx, d.org_id, me, "⏰ Tu partido empieza pronto", `${lc.tc.category_name}: vs ${entryLabel(lc.entryMap.get(rival))} a las ${fmtTime(d.scheduled_at)}${d.court ? ` · ${d.court}` : ""}.`, `/t/${lc.tc.tournament_slug}/c/${lc.tc.id}`);
+        const vs = entryLabel(lc.entryMap.get(rival)), court = d.court ? ` · ${d.court}` : "";
+        await notifyEntry(tx, d.org_id, me, {
+          es: { title: "⏰ Tu partido empieza pronto", body: `${lc.tc.category_name}: vs ${vs} a las ${fmtTime(d.scheduled_at, "es")}${court}.` },
+          en: { title: "⏰ Your match starts soon", body: `${lc.tc.category_name}: vs ${vs} at ${fmtTime(d.scheduled_at, "en")}${court}.` },
+        }, `/t/${lc.tc.tournament_slug}/c/${lc.tc.id}`);
       }
       reminded++;
     });

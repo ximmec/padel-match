@@ -5,38 +5,41 @@ import { AuthShell, FieldIcon } from "@/components/AuthShell";
 import { PasswordInput } from "@/components/PasswordInput";
 import { playerRegisterAction } from "@/server/actions/jugadores";
 import { getCurrentPlayer } from "@/server/playerAuth";
+import { getT } from "@/i18n/server";
 
-export const metadata = { title: "Crear cuenta · Jugadores" };
+export async function generateMetadata() { const { t } = await getT(); return { title: `${t.me.create} · ${t.me.title}` }; }
 
 export default async function PlayerRegisterPage() {
   if (await getCurrentPlayer()) redirect("/jugadores");
+  const { lang, t } = await getT();
+  const a = t.auth;
   return (
-    <AuthShell>
-      <h1>Creá tu <span className="accent">cuenta</span></h1>
-      <p className="muted auth-sub">Mirá tus partidos y recibí avisos en el celular: horarios, canchas y resultados.</p>
+    <AuthShell lang={lang} langSwitch>
+      <h1>{a.regTitle1}<span className="accent">{a.regTitle2}</span></h1>
+      <p className="muted auth-sub">{a.regSub}</p>
       <ActionForm action={playerRegisterAction}>
-        <div className="field"><label htmlFor="name">Nombre y apellido</label>
-          <div className="input-icon"><FieldIcon name="user" /><input id="name" name="name" autoComplete="name" placeholder="Como figurás en los torneos" required maxLength={80} /></div>
+        <div className="field"><label htmlFor="name">{a.name}</label>
+          <div className="input-icon"><FieldIcon name="user" /><input id="name" name="name" autoComplete="name" placeholder={a.namePh} required maxLength={80} /></div>
         </div>
-        <div className="field"><label htmlFor="email">Email</label>
+        <div className="field"><label htmlFor="email">{a.email}</label>
           <div className="input-icon"><FieldIcon name="mail" /><input id="email" name="email" type="email" autoComplete="email" placeholder="tu@correo.com" required /></div>
         </div>
-        <div className="field"><label htmlFor="document">DNI (opcional)</label>
-          <input id="document" name="document" inputMode="numeric" placeholder="Nos ayuda a encontrar tu ficha de jugador" maxLength={15} />
+        <div className="field"><label htmlFor="document">{a.doc}</label>
+          <input id="document" name="document" placeholder={a.docPh} maxLength={15} />
         </div>
-        <div className="field"><label htmlFor="phone">Celular (opcional)</label>
+        <div className="field"><label htmlFor="phone">{a.phone}</label>
           <input id="phone" name="phone" type="tel" autoComplete="tel" placeholder="11 2345 6789" maxLength={30} />
         </div>
-        <div className="field"><label htmlFor="password">Contraseña</label>
-          <div className="input-icon"><FieldIcon name="lock" /><PasswordInput id="password" name="password" autoComplete="new-password" placeholder="Mínimo 8, con letras y números" required /></div>
+        <div className="field"><label htmlFor="password">{a.password}</label>
+          <div className="input-icon"><FieldIcon name="lock" /><PasswordInput id="password" name="password" autoComplete="new-password" placeholder={a.pwPh} required /></div>
         </div>
-        <div className="field"><label htmlFor="password2">Repetí la contraseña</label>
+        <div className="field"><label htmlFor="password2">{a.pw2}</label>
           <div className="input-icon"><FieldIcon name="lock" /><PasswordInput id="password2" name="password2" autoComplete="new-password" placeholder="••••••••" required /></div>
         </div>
-        <Submit className="btn primary block lg auth-submit" pendingText="Creando…">Crear cuenta →</Submit>
+        <Submit className="btn primary block lg auth-submit" pendingText={a.creating}>{a.create}</Submit>
       </ActionForm>
       <div className="auth-divider" />
-      <p className="auth-foot">¿Ya tenés cuenta? <Link href="/jugadores/ingresar">Ingresá</Link>.</p>
+      <p className="auth-foot">{a.have} <Link href="/jugadores/ingresar">{a.enter}</Link>.</p>
     </AuthShell>
   );
 }

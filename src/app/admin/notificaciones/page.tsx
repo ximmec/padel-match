@@ -8,7 +8,7 @@ import { fmtDateTime } from "@/lib/format";
 
 export const metadata = { title: "Notificaciones" };
 
-type Acc = { id: string; name: string; email: string; phone: string | null; document: string | null; link_status: string; link_note: string | null; active: boolean; created_at: Date; last_seen_at: Date | null; player_id: string | null; player_name: string | null; devices: number };
+type Acc = { lang: string; id: string; name: string; email: string; phone: string | null; document: string | null; link_status: string; link_note: string | null; active: boolean; created_at: Date; last_seen_at: Date | null; player_id: string | null; player_name: string | null; devices: number };
 
 const TABS: [string, string][] = [["enviar", "Enviar"], ["jugadores", "Jugadores registrados"], ["historial", "Historial"]];
 
@@ -18,7 +18,7 @@ export default async function NotificationsPage({ searchParams }: { searchParams
   const { tab = "enviar", q = "" } = await searchParams;
 
   const accounts = await sql<Acc[]>`
-    SELECT a.id, a.name, a.email, a.phone, a.document, a.link_status, a.link_note, a.active, a.created_at, a.last_seen_at, a.player_id,
+    SELECT a.lang, a.id, a.name, a.email, a.phone, a.document, a.link_status, a.link_note, a.active, a.created_at, a.last_seen_at, a.player_id,
       CASE WHEN p.id IS NULL THEN NULL ELSE p.first_name || ' ' || p.last_name END AS player_name,
       (SELECT count(*)::int FROM push_subscriptions s WHERE s.account_id = a.id) AS devices
     FROM player_accounts a LEFT JOIN players p ON p.id = a.player_id
@@ -50,6 +50,12 @@ export default async function NotificationsPage({ searchParams }: { searchParams
             <div className="fgrid">
               <div className="field span-2"><label>Título</label><input name="title" required maxLength={80} placeholder="Ej. Cambio de horario" /></div>
               <div className="field span-2"><label>Mensaje</label><textarea name="body" required maxLength={500} rows={3} placeholder="Ej. Tu partido de las 18:00 pasa a la cancha 3." /></div>
+              <details className="span-2 en-box">
+                <summary>🇬🇧 Versión en inglés (opcional)</summary>
+                <p className="muted" style={{ fontSize: 13, margin: "6px 0 10px" }}>Los jugadores que usan la app en inglés reciben este texto. Si lo dejás vacío, les llega en español.</p>
+                <div className="field"><label>Title (inglés)</label><input name="title_en" maxLength={80} placeholder="E.g. Schedule change" /></div>
+                <div className="field"><label>Message (inglés)</label><textarea name="body_en" maxLength={500} rows={3} placeholder="E.g. Your 6 pm match moves to court 3." /></div>
+              </details>
               <div className="field span-2"><label>Al tocar la notificación, abrir (opcional)</label><input name="url" placeholder="/t/nombre-del-torneo  (vacío = Mi Padel Match)" maxLength={300} />
                 <div className="hint">Una página de Padel Match (empieza con /) o un enlace https://</div></div>
             </div>
@@ -66,17 +72,18 @@ export default async function NotificationsPage({ searchParams }: { searchParams
           <div className="card flush" style={{ marginTop: 14 }}>
             <div className="card-head"><h3>Elegir jugadores</h3><span className="muted">Marcá y elegí «Solo los que marque»</span></div>
             <div className="table-wrap"><table>
-              <thead><tr><th></th><th>Jugador</th><th>Ficha</th><th className="num">Celulares</th></tr></thead>
+              <thead><tr><th></th><th>Jugador</th><th>Ficha</th><th>Idioma</th><th className="num">Celulares</th></tr></thead>
               <tbody>
                 {accounts.filter((a) => a.active).map((a) => (
                   <tr key={a.id}>
                     <td><input type="checkbox" name="acc" value={a.id} aria-label={`Elegir a ${a.name}`} /></td>
                     <td><b>{a.name}</b><div className="muted" style={{ fontSize: 12 }}>{a.email}</div></td>
                     <td>{a.link_status === "APPROVED" ? a.player_name : a.link_status === "PENDING" ? <span className="badge warn">Pendiente</span> : <span className="muted">—</span>}</td>
+                    <td>{a.lang === "en" ? "🇬🇧" : "🇪🇸"}</td>
                     <td className="num">{a.devices ? `🔔 ${a.devices}` : <span className="muted">0</span>}</td>
                   </tr>
                 ))}
-                {accounts.length === 0 && <tr><td colSpan={4} className="empty">Todavía no hay jugadores registrados.</td></tr>}
+                {accounts.length === 0 && <tr><td colSpan={5} className="empty">Todavía no hay jugadores registrados.</td></tr>}
               </tbody>
             </table></div>
           </div>
@@ -165,8 +172,8 @@ async function Accounts({ orgId, accounts: list, pending, q }: { orgId: string; 
 }
 
 async function History({ orgId }: { orgId: string }) {
-  const rows = await sql<{ id: string; kind: string; title: string; body: string; audience: string | null; created_at: Date; sender: string | null; total: number; sent: number; no_device: number; failed: number; pending: number; read: number }[]>`
-    SELECT n.id, n.kind, n.title, n.body, n.audience, n.created_at, u.name AS sender,
+  const rows = await sql<{ id: string; kind: string; title: string; body: string; has_en: boolean; audience: string | null; created_at: Date; sender: string | null; total: number; sent: number; no_device: number; failed: number; pending: number; read: number }[]>`
+    SELECT n.id, n.kind, n.title, n.body, (n.title_en IS NOT NULL OR n.body_en IS NOT NULL) AS has_en, n.audience, n.created_at, u.name AS sender,
       count(r.*)::int AS total,
       count(*) FILTER (WHERE r.push_status = 'SENT')::int AS sent,
       count(*) FILTER (WHERE r.push_status = 'NO_DEVICE')::int AS no_device,
@@ -185,7 +192,7 @@ async function History({ orgId }: { orgId: string }) {
           {rows.map((n) => (
             <tr key={n.id}>
               <td className="muted" style={{ fontSize: 12, whiteSpace: "nowrap" }}>{fmtDateTime(n.created_at)}</td>
-              <td><b>{n.title}</b> {n.kind === "AUTO" && <span className="badge">Automática</span>}<div className="muted" style={{ fontSize: 13 }}>{n.body}</div></td>
+              <td><b>{n.title}</b> {n.kind === "AUTO" && <span className="badge">Automática</span>} {n.has_en && <span className="badge info">🇬🇧 EN</span>}<div className="muted" style={{ fontSize: 13 }}>{n.body}</div></td>
               <td style={{ fontSize: 13 }}>{n.audience ?? "—"}{n.sender ? <div className="muted" style={{ fontSize: 12 }}>por {n.sender}</div> : null}</td>
               <td className="num">{n.sent}/{n.total}{n.pending ? <div className="muted" style={{ fontSize: 11 }}>{n.pending} enviando</div> : null}{n.failed ? <div className="muted" style={{ fontSize: 11 }}>{n.failed} con error</div> : null}</td>
               <td className="num">{n.no_device}</td>

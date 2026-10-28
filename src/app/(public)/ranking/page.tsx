@@ -2,15 +2,17 @@ import Link from "next/link";
 import { sql } from "@/server/db";
 import { isUuid } from "@/server/action";
 import { getRanking } from "@/server/ranking";
+import { getT } from "@/i18n/server";
 
 export const metadata = { title: "Ranking" };
 
 export default async function PublicRanking({ searchParams }: { searchParams: Promise<{ org?: string; category?: string; circuit?: string; season?: string; t?: string }> }) {
   const sp = await searchParams;
+  const { t: T } = await getT();
   const orgs = await sql<{ id: string; name: string; slug: string }[]>`
     SELECT o.id, o.name, o.slug FROM organizations o WHERE EXISTS (SELECT 1 FROM tournaments t WHERE t.org_id = o.id AND t.is_public) ORDER BY o.name`;
   const org = orgs.find((o) => o.slug === sp.org) ?? orgs[0];
-  if (!org) return <main className="container"><div className="card empty">Todavía no hay rankings publicados.</div></main>;
+  if (!org) return <main className="container"><div className="card empty">{T.ranking.none}</div></main>;
   const f = {
     categoryId: sp.category && isUuid(sp.category) ? sp.category : undefined,
     circuitId: sp.circuit && isUuid(sp.circuit) ? sp.circuit : undefined,
@@ -26,25 +28,25 @@ export default async function PublicRanking({ searchParams }: { searchParams: Pr
   ]);
   return (
     <>
-      <section className="hero"><div className="inner"><h1>Ranking{f.circuitId ? ` · ${circuits.find((c) => c.id === f.circuitId)?.name ?? ""}` : ""}</h1><p>{org.name} · puntos individuales acumulados{f.tournamentId ? ` en ${tournaments.find((x) => x.id === f.tournamentId)?.name ?? "el torneo"}` : f.circuitId ? " en este circuito" : ""}</p></div></section>
+      <section className="hero"><div className="inner"><h1>{T.ranking.title}{f.circuitId ? ` · ${circuits.find((c) => c.id === f.circuitId)?.name ?? ""}` : ""}</h1><p>{T.ranking.sub(org.name)}{f.tournamentId ? T.ranking.inT(tournaments.find((x) => x.id === f.tournamentId)?.name ?? "") : f.circuitId ? T.ranking.inCircuit : ""}</p></div></section>
       <main className="container stack">
         {circuits.length > 0 && (
           <nav className="filter-pills">
-            <Link href={`/ranking`} className={!f.circuitId ? "active" : ""}>Ranking general</Link>
+            <Link href={`/ranking`} className={!f.circuitId ? "active" : ""}>{T.ranking.general}</Link>
             {circuits.map((c) => <Link key={c.id} href={`/ranking?circuit=${c.id}`} className={f.circuitId === c.id ? "active" : ""}>{c.name}</Link>)}
           </nav>
         )}
         <form className="card row">
           {orgs.length > 1 && <select name="org" defaultValue={org.slug} className="sm">{orgs.map((o) => <option key={o.id} value={o.slug}>{o.name}</option>)}</select>}
           {orgs.length === 1 && <input type="hidden" name="org" value={org.slug} />}
-          <select name="category" defaultValue={f.categoryId ?? ""} className="sm"><option value="">General (todas las categorías)</option>{categories.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}</select>
-          {circuits.length > 0 && <select name="circuit" defaultValue={f.circuitId ?? ""} className="sm"><option value="">Todos los circuitos</option>{circuits.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}</select>}
-          {seasons.length > 0 && <select name="season" defaultValue={f.seasonId ?? ""} className="sm"><option value="">Todas las temporadas</option>{seasons.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}</select>}
-          {tournaments.length > 0 && <select name="t" defaultValue={f.tournamentId ?? ""} className="sm"><option value="">Todos los torneos</option>{tournaments.filter((t) => !f.circuitId || t.circuit_id === f.circuitId).map((t) => <option key={t.id} value={t.id}>{t.name}</option>)}</select>}
-          <button className="btn sm">Ver</button>
+          <select name="category" defaultValue={f.categoryId ?? ""} className="sm"><option value="">{T.ranking.allCats}</option>{categories.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}</select>
+          {circuits.length > 0 && <select name="circuit" defaultValue={f.circuitId ?? ""} className="sm"><option value="">{T.ranking.allCircuits}</option>{circuits.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}</select>}
+          {seasons.length > 0 && <select name="season" defaultValue={f.seasonId ?? ""} className="sm"><option value="">{T.ranking.allSeasons}</option>{seasons.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}</select>}
+          {tournaments.length > 0 && <select name="t" defaultValue={f.tournamentId ?? ""} className="sm"><option value="">{T.ranking.allT}</option>{tournaments.filter((t) => !f.circuitId || t.circuit_id === f.circuitId).map((t) => <option key={t.id} value={t.id}>{t.name}</option>)}</select>}
+          <button className="btn sm">{T.ranking.see}</button>
         </form>
         <div className="card flush"><div className="table-wrap"><table>
-          <thead><tr><th className="num">#</th><th>Jugador</th><th className="num">Torneos</th><th className="num">Puntos</th></tr></thead>
+          <thead><tr><th className="num">#</th><th>{T.ranking.player}</th><th className="num">{T.ranking.tournaments}</th><th className="num">{T.ranking.points}</th></tr></thead>
           <tbody>
             {rows.map((r) => (
               <tr key={r.player_id}>
@@ -54,7 +56,7 @@ export default async function PublicRanking({ searchParams }: { searchParams: Pr
                 <td className="num"><b>{r.points}</b></td>
               </tr>
             ))}
-            {rows.length === 0 && <tr><td colSpan={4} className="empty">Sin puntos para este filtro.</td></tr>}
+            {rows.length === 0 && <tr><td colSpan={4} className="empty">{T.ranking.empty}</td></tr>}
           </tbody>
         </table></div></div>
       </main>

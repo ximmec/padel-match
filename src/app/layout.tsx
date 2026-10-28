@@ -2,6 +2,7 @@ import { env } from "@/lib/env";
 import type { Metadata, Viewport } from "next";
 import { Barlow, Exo_2, Outfit } from "next/font/google";
 import "./globals.css";
+import { getLang } from "@/i18n/server";
 
 const body = Barlow({ subsets: ["latin"], weight: ["400", "500", "600", "700"], variable: "--font-body", display: "swap" });
 const hero = Outfit({ subsets: ["latin"], weight: ["600", "700", "800", "900"], variable: "--font-hero", display: "swap" });
@@ -23,9 +24,10 @@ export const viewport: Viewport = {
   initialScale: 1,
 };
 
-export default function RootLayout({ children }: { children: React.ReactNode }) {
+export default async function RootLayout({ children }: { children: React.ReactNode }) {
+  const lang = await getLang();
   return (
-    <html lang="es" className={`${body.variable} ${display.variable} ${hero.variable}`}>
+    <html lang={lang} className={`${body.variable} ${display.variable} ${hero.variable}`}>
       <body>{children}</body>
     </html>
   );

@@ -2,25 +2,27 @@ export const APP_TZ = process.env.NEXT_PUBLIC_APP_TZ || "America/Argentina/Bueno
 /** Desplazamiento fijo usado al interpretar fechas ingresadas en formularios (Argentina no usa horario de verano). */
 export const APP_TZ_OFFSET = process.env.NEXT_PUBLIC_APP_TZ_OFFSET || "-03:00";
 
-export function fmtDate(d: Date | string | null | undefined): string {
+const loc = (lang?: "es" | "en") => (lang === "en" ? "en-GB" : "es-AR");
+
+export function fmtDate(d: Date | string | null | undefined, lang?: "es" | "en"): string {
   if (!d) return "—";
   const date = typeof d === "string" ? new Date(d.length === 10 ? `${d}T12:00:00${APP_TZ_OFFSET}` : d) : d;
-  return new Intl.DateTimeFormat("es-AR", { timeZone: APP_TZ, day: "2-digit", month: "2-digit", year: "numeric" }).format(date);
+  return new Intl.DateTimeFormat(loc(lang), { timeZone: APP_TZ, day: "2-digit", month: "2-digit", year: "numeric" }).format(date);
 }
 
-export function fmtDay(d: Date | null | undefined): string {
+export function fmtDay(d: Date | null | undefined, lang?: "es" | "en"): string {
   if (!d) return "—";
-  return new Intl.DateTimeFormat("es-AR", { timeZone: APP_TZ, weekday: "short", day: "2-digit", month: "2-digit" }).format(d);
+  return new Intl.DateTimeFormat(loc(lang), { timeZone: APP_TZ, weekday: "short", day: "2-digit", month: "2-digit" }).format(d);
 }
 
-export function fmtTime(d: Date | null | undefined): string {
+export function fmtTime(d: Date | null | undefined, lang?: "es" | "en"): string {
   if (!d) return "—";
-  return new Intl.DateTimeFormat("es-AR", { timeZone: APP_TZ, hour: "2-digit", minute: "2-digit", hour12: false }).format(d);
+  return new Intl.DateTimeFormat(loc(lang), { timeZone: APP_TZ, hour: "2-digit", minute: "2-digit", hour12: false }).format(d);
 }
 
-export function fmtDateTime(d: Date | null | undefined): string {
+export function fmtDateTime(d: Date | null | undefined, lang?: "es" | "en"): string {
   if (!d) return "—";
-  return `${fmtDay(d)} ${fmtTime(d)}`;
+  return `${fmtDay(d, lang)} ${fmtTime(d, lang)}`;
 }
 
 /** Fecha → valor para <input type="datetime-local"> en la zona horaria de la app. */

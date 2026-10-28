@@ -5,7 +5,8 @@
 import type { Tx } from "./db";
 import { entryLabel, loadCategory, type LoadedCategory } from "./category";
 import { notifyEntry } from "./notify";
-import { roundName, type ResolvedMatch } from "@/core/bracket";
+import type { ResolvedMatch } from "@/core/bracket";
+import { dict } from "@/i18n";
 import { fmtDateTime } from "@/lib/format";
 
 async function safe(tx: Tx, fn: (sp: Tx) => Promise<void>) {
@@ -35,12 +36,15 @@ export async function notifyScheduleChange(tx: Tx, orgId: string, tcId: string, 
     const m = lc.matches.find((x) => x.id === matchId);
     if (!m || m.status === "PLAYED" || m.status === "ANNULLED") return;
     const [a, b] = sidesOf(lc, matchId);
-    const when = now.start ? fmtDateTime(now.start) : "horario a confirmar";
     const where = now.courtName ? ` · ${now.courtName}` : "";
-    const title = before.start || before.courtId ? "🕒 Cambio en tu partido" : "📅 Tu partido ya tiene horario";
+    const changed = !!(before.start || before.courtId);
     for (const [me, rival] of [[a, b], [b, a]] as const) {
       if (!me) continue;
-      await notifyEntry(sp, orgId, me, title, `${lc.tc.category_name}: vs ${rival ? entryLabel(lc.entryMap.get(rival)) : "a definir"} · ${when}${where}.`, url(lc));
+      const r = (l: "es" | "en") => (rival ? entryLabel(lc.entryMap.get(rival)) : l === "es" ? "a definir" : "TBD");
+      await notifyEntry(sp, orgId, me, {
+        es: { title: changed ? "🕒 Cambio en tu partido" : "📅 Tu partido ya tiene horario", body: `${lc.tc.category_name}: vs ${r("es")} · ${now.start ? fmtDateTime(now.start, "es") : "horario a confirmar"}${where}.` },
+        en: { title: changed ? "🕒 Your match has changed" : "📅 Your match is scheduled", body: `${lc.tc.category_name}: vs ${r("en")} · ${now.start ? fmtDateTime(now.start, "en") : "time to be confirmed"}${where}.` },
+      }, url(lc));
     }
   });
 }
@@ -52,19 +56,25 @@ export async function notifyBracketProgress(tx: Tx, orgId: string, lc: LoadedCat
     const perRound = new Map<number, number>();
     for (const m of after) perRound.set(m.round, (perRound.get(m.round) ?? 0) + 1);
     const lastRound = Math.max(...after.map((m) => m.round));
-    const label = (id: string | null) => (id ? entryLabel(lc.entryMap.get(id)) : "a definir");
+    const label = (id: string | null) => (id ? entryLabel(lc.entryMap.get(id)) : "—");
     for (const m of after) {
       const old = before.find((x) => x.code === m.code);
       const had = new Set([old?.a, old?.b].filter((r) => r?.kind === "ENTRY").map((r) => (r as { entryId: string }).entryId));
-      const stage = roundName(perRound.get(m.round)!);
+      const stEs = dict("es").g.round(perRound.get(m.round)!).toLowerCase(), stEn = dict("en").g.round(perRound.get(m.round)!).toLowerCase();
       for (const [me, rival] of [[m.a, m.b], [m.b, m.a]] as const) {
         if (me.kind !== "ENTRY" || had.has(me.entryId)) continue;
         if (m.byeAdvance || rival.kind === "BYE") continue; // pase libre: avanza sola, se avisa en la ronda siguiente
-        const title = m.round === 1 ? `🎉 ¡Clasificaste a ${stage.toLowerCase()}!` : `💪 ¡Pasaste a ${stage.toLowerCase()}!`;
-        await notifyEntry(sp, orgId, me.entryId, title, `${lc.tc.category_name}: tu rival es ${rival.kind === "ENTRY" ? label(rival.entryId) : "a definir (se juega antes)"}.`, url(lc));
+        const known = rival.kind === "ENTRY" ? label(rival.entryId) : null;
+        await notifyEntry(sp, orgId, me.entryId, {
+          es: { title: m.round === 1 ? `🎉 ¡Clasificaste a ${stEs}!` : `💪 ¡Pasaste a ${stEs}!`, body: `${lc.tc.category_name}: tu rival es ${known ?? "a definir (se juega antes)"}.` },
+          en: { title: m.round === 1 ? `🎉 You qualified for the ${stEn}!` : `💪 You're through to the ${stEn}!`, body: `${lc.tc.category_name}: your opponent is ${known ?? "TBD (still being played)"}.` },
+        }, url(lc));
       }
       if (m.round === lastRound && m.winner && old?.winner !== m.winner && !m.staleResult) {
-        await notifyEntry(sp, orgId, m.winner, "🏆 ¡Campeones!", `Ganaron ${lc.tc.category_name} de ${lc.tc.tournament_name}. ¡Felicitaciones!`, url(lc));
+        await notifyEntry(sp, orgId, m.winner, {
+          es: { title: "🏆 ¡Campeones!", body: `Ganaron ${lc.tc.category_name} de ${lc.tc.tournament_name}. ¡Felicitaciones!` },
+          en: { title: "🏆 Champions!", body: `You won ${lc.tc.category_name} at ${lc.tc.tournament_name}. Congratulations!` },
+        }, url(lc));
       }
     }
   });

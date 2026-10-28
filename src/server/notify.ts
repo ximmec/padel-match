@@ -35,6 +35,9 @@ export interface NewNotification {
   orgId: string;
   title: string;
   body: string;
+  /** Versión en inglés (para jugadores con la app en inglés). Si falta, reciben el texto en español. */
+  titleEn?: string | null;
+  bodyEn?: string | null;
   url?: string | null;
   kind?: "MANUAL" | "AUTO";
   audience?: string | null;
@@ -47,8 +50,8 @@ export async function createNotification(db: Db | Tx, n: NewNotification): Promi
   const ids = [...new Set(n.accountIds)];
   if (!ids.length) return null;
   const [row] = await db<{ id: string }[]>`
-    INSERT INTO notifications (org_id, kind, title, body, url, audience, sent_by)
-    VALUES (${n.orgId}, ${n.kind ?? "MANUAL"}, ${n.title.slice(0, 120)}, ${n.body.slice(0, 600)}, ${n.url ?? null}, ${n.audience ?? null}, ${n.sentBy ?? null})
+    INSERT INTO notifications (org_id, kind, title, body, title_en, body_en, url, audience, sent_by)
+    VALUES (${n.orgId}, ${n.kind ?? "MANUAL"}, ${n.title.slice(0, 120)}, ${n.body.slice(0, 600)}, ${n.titleEn?.slice(0, 120) ?? null}, ${n.bodyEn?.slice(0, 600) ?? null}, ${n.url ?? null}, ${n.audience ?? null}, ${n.sentBy ?? null})
     RETURNING id`;
   await db`
     INSERT INTO notification_recipients (notification_id, account_id)
@@ -67,10 +70,12 @@ export async function accountsOfEntries(db: Db | Tx, entryIds: string[]): Promis
   return rows.map((r) => r.id);
 }
 
-/** Aviso automático a los jugadores de una pareja (si tienen cuenta vinculada). */
-export async function notifyEntry(db: Db | Tx, orgId: string, entryId: string, title: string, body: string, url?: string | null) {
+export type BiText = { es: { title: string; body: string }; en: { title: string; body: string } };
+
+/** Aviso automático a los jugadores de una pareja (si tienen cuenta vinculada), en español e inglés. */
+export async function notifyEntry(db: Db | Tx, orgId: string, entryId: string, msg: BiText, url?: string | null) {
   const ids = await accountsOfEntries(db, [entryId]);
-  if (ids.length) await createNotification(db, { orgId, kind: "AUTO", title, body, url, accountIds: ids, audience: "Aviso automático" });
+  if (ids.length) await createNotification(db, { orgId, kind: "AUTO", title: msg.es.title, body: msg.es.body, titleEn: msg.en.title, bodyEn: msg.en.body, url, accountIds: ids, audience: "Aviso automático" });
 }
 
 /* ----------------------------- Envío push ----------------------------- */
@@ -86,9 +91,11 @@ export async function deliverPending(limit = 300): Promise<{ sent: number; noDev
       SELECT notification_id, account_id FROM notification_recipients
       WHERE push_status = 'PENDING' LIMIT ${limit} FOR UPDATE SKIP LOCKED
     )
-    UPDATE notification_recipients r SET push_status = 'SENDING' FROM c, notifications n
-    WHERE r.notification_id = c.notification_id AND r.account_id = c.account_id AND n.id = r.notification_id
-    RETURNING r.notification_id, r.account_id, n.title, n.body, n.url`;
+    UPDATE notification_recipients r SET push_status = 'SENDING' FROM c, notifications n, player_accounts a
+    WHERE r.notification_id = c.notification_id AND r.account_id = c.account_id AND n.id = r.notification_id AND a.id = r.account_id
+    RETURNING r.notification_id, r.account_id,
+      CASE WHEN a.lang = 'en' AND n.title_en IS NOT NULL THEN n.title_en ELSE n.title END AS title,
+      CASE WHEN a.lang = 'en' AND n.body_en IS NOT NULL THEN n.body_en ELSE n.body END AS body, n.url`;
   if (!batch.length) return out;
   const keys = await vapidKeys();
   const subject = (env("APP_URL") || "https://padel-match.net").replace(/\/$/, "");
