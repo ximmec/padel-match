@@ -1,5 +1,6 @@
 export const CARD_BACKGROUNDS: [string, string, string | null][] = [
-  ["cancha", "Cancha al atardecer", "/login-cancha.webp"],
+  ["atardecer", "Cancha al atardecer (foto)", "/cancha-sunset.webp"],
+  ["cancha", "Cancha ilustrada", "/login-cancha.webp"],
   ["mapa", "Mapamundi", "/mapamundi.webp"],
   ["ninguno", "Sin imagen", null],
 ];

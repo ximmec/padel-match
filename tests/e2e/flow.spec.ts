@@ -365,6 +365,9 @@ test("circuitos: crear un circuito y un torneo dentro de él", async ({ page }) 
   await page.goto("/admin/tournaments");
   await expect(page.locator(".circuit-section h2", { hasText: "BLOKO PADEL TOUR" })).toBeVisible();
   await shot(page, "40-circuitos");
+  await page.goto("/admin/circuits");
+  await expect(page.locator(".circuit-card").first()).toBeVisible();
+  await shot(page, "41-circuitos-tarjetas");
 });
 
 test("finalizar y reabrir un torneo", async ({ page }) => {

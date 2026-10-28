@@ -8,7 +8,7 @@ const STATUS: Record<string, string> = { DRAFT: "Borrador", OPEN: "Abierto", IN_
 export function CardPublisher({ logo: initialLogo, bg: initialBg }: { logo?: string | null; bg?: string | null }) {
   const ref = useRef<HTMLDivElement>(null);
   const [logo, setLogo] = useState(initialLogo ?? "");
-  const [bg, setBg] = useState(initialBg ?? "cancha");
+  const [bg, setBg] = useState(initialBg ?? "atardecer");
   const [err, setErr] = useState("");
   const [p, setP] = useState({ name: "", date: "", time: "", venue: "", fee: "", status: "OPEN", cupo: "" });
 

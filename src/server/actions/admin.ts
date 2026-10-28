@@ -227,7 +227,7 @@ function cardFields(fd: FormData) {
   if (cupo !== null && (cupo < 2 || cupo > 512)) throw new UserError("El cupo debe estar entre 2 y 512 parejas.");
   const logo = str(fd, "logo");
   if (logo && (!/^data:image\/(png|jpeg|webp);base64,[A-Za-z0-9+/=]+$/.test(logo) || logo.length > 400_000)) throw new UserError("El logo no es válido o es demasiado grande.");
-  const bg = ["cancha", "mapa", "ninguno"].includes(str(fd, "card_bg")) ? str(fd, "card_bg") : "cancha";
+  const bg = ["atardecer", "cancha", "mapa", "ninguno"].includes(str(fd, "card_bg")) ? str(fd, "card_bg") : "atardecer";
   return { time: time || null, fee, cupo, logo: logo || null, bg };
 }
 
