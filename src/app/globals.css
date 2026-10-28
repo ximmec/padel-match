@@ -581,9 +581,9 @@ details[open] > summary::before { content: "▾ "; }
 .top-cta .btn { padding: 10px 22px; }
 @media (max-width: 860px) {
   .hero-split { min-height: 0; align-items: flex-end; }
-  .hero-split-bg { width: 100%; }
-  .hero-split-bg img { object-position: 29% 50%; filter: brightness(.85); }
-  .hero-split-bg::after { background: linear-gradient(180deg, rgba(5, 5, 5, .15) 0%, rgba(5, 5, 5, .45) 40%, rgba(5, 5, 5, .7) 70%, #050505 100%); }
+  .hero-split-bg { width: 100%; bottom: auto; height: 640px; }
+  .hero-split-bg img { object-position: 24% 50%; filter: brightness(1); }
+  .hero-split-bg::after { background: linear-gradient(180deg, rgba(5, 5, 5, .1) 0%, rgba(5, 5, 5, .35) 45%, rgba(5, 5, 5, .75) 80%, #050505 100%); }
   .hero-split-inner { padding: 120px 18px 34px; }
   .hero-search { flex-direction: column; border-radius: 18px; background: transparent; border: 0; padding: 0; backdrop-filter: none; -webkit-backdrop-filter: none; }
   .hero-search input { border: 1px solid var(--line-2) !important; background: rgba(10, 10, 10, .85) !important; border-radius: 14px; }
