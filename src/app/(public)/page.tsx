@@ -5,6 +5,14 @@ import { Icon } from "@/components/Icon";
 import { InstallApp } from "@/components/InstallApp";
 import { getT } from "@/i18n/server";
 
+const FEATURES = [
+  { href: "#torneos", icon: "trophy", img: "/login-cancha.webp", pos: "50% 70%" },
+  { href: "/buscar", icon: "calendar", img: "/hero-mapa.webp", pos: "30% 40%" },
+  { href: "/ranking", icon: "chart", img: "/login-cancha.webp", pos: "50% 30%" },
+  { href: "/jugadores", icon: "bell", img: "/hero-mapa.webp", pos: "80% 30%" },
+];
+const HOW_ICONS = ["edit", "grid", "trophy", "chart"];
+
 export default async function Home() {
   const { lang, t: T } = await getT();
   const rows = await sql<Row[]>`
@@ -14,8 +22,9 @@ export default async function Home() {
     FROM tournaments t JOIN organizations o ON o.id = t.org_id LEFT JOIN venues v ON v.id = t.venue_id LEFT JOIN circuits ci ON ci.id = t.circuit_id
     WHERE t.is_public AND t.status IN ('OPEN','IN_PROGRESS','FINISHED') AND t.end_date >= (now() - interval '60 days')::date
     ORDER BY CASE t.status WHEN 'IN_PROGRESS' THEN 0 WHEN 'OPEN' THEN 1 ELSE 2 END, t.start_date`;
-  const [stats] = await sql<{ tournaments: number; players: number; played: number }[]>`
+  const [stats] = await sql<{ tournaments: number; players: number; played: number; circuits: number }[]>`
     SELECT
+      (SELECT count(DISTINCT circuit_id)::int FROM tournaments WHERE is_public AND status <> 'DRAFT' AND circuit_id IS NOT NULL) AS circuits,
       (SELECT count(*)::int FROM tournaments WHERE is_public AND status <> 'DRAFT') AS tournaments,
       (SELECT count(DISTINCT ep.player_id)::int FROM entry_players ep JOIN entries e ON e.id = ep.entry_id JOIN tournament_categories tc ON tc.id = e.tc_id JOIN tournaments t ON t.id = tc.tournament_id WHERE t.is_public) AS players,
       (SELECT count(*)::int FROM matches m JOIN tournament_categories tc ON tc.id = m.tc_id JOIN tournaments t ON t.id = tc.tournament_id WHERE t.is_public AND m.status = 'PLAYED') AS played`;
@@ -33,6 +42,7 @@ export default async function Home() {
           <img src="/hero-mapa.webp" alt="" width={903} height={732} fetchPriority="high" />
         </div>
         <div className="hero-split-inner">
+          <span className="hero-kicker"><Icon name="bolt" size={16} /> {T.home.kicker}</span>
           <h1 className="hero-title">{T.home.title1} <span>{T.home.title2}</span></h1>
           <p className="hero-lead">{T.home.lead}</p>
           <form action="/buscar" className="hero-search">
@@ -46,10 +56,14 @@ export default async function Home() {
             <Link href="/ranking"><Icon name="chart" size={24} /> {T.nav.ranking}</Link>
             <Link href="/login"><Icon name="users" size={24} /> {T.home.organizers}</Link>
           </div>
-          <div className="hero-mini-stats">
-            <span><b>{stats.tournaments}</b> {T.home.tournamentsL}</span>
-            <span><b>{stats.players}</b> {T.home.playersL}</span>
-            <span><b>{stats.played}</b> {T.home.playedL}</span>
+          <div className="hero-stats">
+            {([["trophy", stats.tournaments, T.home.tournamentsL], ["users", stats.players, T.home.playersL], ["bolt", stats.played, T.home.playedL], ["globe", stats.circuits, T.home.circuitsL]] as const).map(([ic, n, l]) => (
+              <div key={l} className="hero-stat">
+                <span className="hero-stat-ic"><Icon name={ic} size={20} /></span>
+                <b>{n.toLocaleString(lang === "en" ? "en-US" : "es-AR")}</b>
+                <span>{l}</span>
+              </div>
+            ))}
           </div>
         </div>
       </section>
@@ -75,16 +89,39 @@ export default async function Home() {
         )}
         {rows.length === 0 && <div className="card empty">{T.home.empty}</div>}
 
-        <h2 className="section-title" style={{ marginTop: 34 }}>{T.home.how}</h2>
-        <div className="grid grid-4">
-          {steps.map(([n, title, text]) => (
-            <div key={n} className="card">
-              <div style={{ fontFamily: "var(--font-head)", fontStyle: "italic", fontWeight: 900, fontSize: 40, color: "var(--orange)", lineHeight: 1 }}>{n}</div>
-              <h3 style={{ margin: "8px 0 6px" }}>{title}</h3>
-              <p className="muted" style={{ margin: 0, fontSize: 14 }}>{text}</p>
-            </div>
-          ))}
-        </div>
+        <section className="feat-sec">
+          <h2 className="feat-title">{T.home.featTitle1} <span>{T.home.featTitle2}</span></h2>
+          <p className="feat-lead">{T.home.featLead}</p>
+          <div className="feat-grid">
+            {T.home.features.map(([title, text, cta], i) => {
+              const f = FEATURES[i];
+              return (
+                <Link key={title} href={f.href} className="feat-card">
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img src={f.img} alt="" loading="lazy" style={{ objectPosition: f.pos }} />
+                  <span className="feat-ic"><Icon name={f.icon} size={22} /></span>
+                  <h3>{title}</h3>
+                  <p>{text}</p>
+                  <span className="feat-cta">{cta} <span aria-hidden>→</span></span>
+                </Link>
+              );
+            })}
+          </div>
+        </section>
+
+        <section className="feat-sec">
+          <h2 className="feat-title">{T.home.how}</h2>
+          <div className="how-grid">
+            {steps.map(([n, title, text], i) => (
+              <div key={n} className="how-card">
+                <span className="how-num" aria-hidden>{n}</span>
+                <span className="how-ic"><Icon name={HOW_ICONS[i]} size={26} /></span>
+                <h3>{title}</h3>
+                <p>{text}</p>
+              </div>
+            ))}
+          </div>
+        </section>
       </main>
     </>
   );

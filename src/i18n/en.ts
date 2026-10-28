@@ -51,6 +51,16 @@ export const en: Dict = {
   card: { pairs: "Pairs", fee: "Entry fee", details: "See details" },
 
   home: {
+    kicker: "Tournaments · Groups · Playoffs · Ranking",
+    circuitsL: "circuits",
+    featTitle1: "Everything you need", featTitle2: "to follow your tournament",
+    featLead: "From registration to the final: schedules, results and instant alerts.",
+    features: [
+      ["Tournaments", "Groups, standings and draws that update with every result.", "See tournaments"],
+      ["When do I play?", "Search your name to see the time and court of your next match.", "Find my match"],
+      ["Ranking", "Points for the round reached, tournament after tournament and by circuit.", "See ranking"],
+      ["My Padel Match", "Install the app and get alerts about times, changes and results.", "Turn on alerts"],
+    ],
     title1: "Your padel tournament,", title2: "in real time",
     lead: "Groups, results, draws, schedules and rankings in one place. Search your name to see when and on which court you play.",
     searchPh: "Search your first or last name…", searchAria: "Search player", search: "Search",

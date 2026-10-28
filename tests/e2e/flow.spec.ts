@@ -501,3 +501,20 @@ test("idiomas: inglés según el celular, selector 🇪🇸/🇬🇧 y se recuer
   await expect(p.getByRole("link", { name: "Create free account" })).toBeVisible();
   await ctx.close();
 });
+
+test("portada nueva: escritorio y celular", async ({ browser }) => {
+  for (const [name, opts] of [
+    ["80-portada-escritorio", { viewport: { width: 1440, height: 900 }, locale: "es-AR" }],
+    ["81-portada-movil", { viewport: { width: 390, height: 844 }, locale: "es-AR", isMobile: true, hasTouch: true }],
+    ["82-portada-escritorio-en", { viewport: { width: 1440, height: 900 }, locale: "en-GB" }],
+  ] as const) {
+    const ctx = await browser.newContext(opts);
+    const p = await ctx.newPage();
+    await p.goto("/");
+    await expect(p.locator(".how-card").first()).toBeVisible();
+    await p.waitForTimeout(800);
+    await p.screenshot({ path: `e2e-shots/${name}-arriba.png` });
+    await p.screenshot({ path: `e2e-shots/${name}.png`, fullPage: true });
+    await ctx.close();
+  }
+});

@@ -53,6 +53,16 @@ export const es = {
   card: { pairs: "Parejas", fee: "Inscripción", details: "Ver detalle" },
 
   home: {
+    kicker: "Torneos · Zonas · Playoffs · Ranking",
+    circuitsL: "circuitos",
+    featTitle1: "Todo lo que necesitás", featTitle2: "para seguir tu torneo",
+    featLead: "Desde la inscripción hasta la final: horarios, resultados y avisos al instante.",
+    features: [
+      ["Torneos", "Zonas, posiciones y cuadros que se actualizan con cada resultado.", "Ver torneos"],
+      ["¿Cuándo juego?", "Buscá tu nombre y enterate el horario y la cancha de tu próximo partido.", "Buscar mi partido"],
+      ["Ranking", "Puntos por instancia alcanzada, torneo tras torneo y por circuito.", "Ver ranking"],
+      ["Mi Padel Match", "Instalá la app y recibí avisos de horarios, cambios y resultados.", "Activar avisos"],
+    ] as [string, string, string][],
     title1: "Tu torneo de pádel,", title2: "en tiempo real",
     lead: "Zonas, resultados, cuadros, horarios y ranking en un solo lugar. Buscá tu nombre y enterate cuándo y en qué cancha jugás.",
     searchPh: "Buscá tu nombre o apellido…", searchAria: "Buscar jugador", search: "Buscar",
