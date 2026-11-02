@@ -736,14 +736,14 @@ test("quitar una pareja retirada (partidos anulados) no cambia la zona ni las po
   await tx((x) => ops.withdrawEntry(x, user, c, "ANNUL_ALL", true));
   lc = await loadCategory(sql, tcId, orgId);
   const before = lc.view.standings.get(z.id)!.rows.map((r) => [r.entryId, r.position]);
-  const otherMatches = lc.matches.filter((m) => m.entry_a !== c && m.entry_b !== c).map((m) => [m.id, m.status]);
+  const otherMatches = lc.matches.filter((m) => m.entry_a !== c && m.entry_b !== c).map((m) => `${m.id}:${m.status}`).sort();
 
   await tx((x) => ops.deleteEntry(x, user, c));
   lc = await loadCategory(sql, tcId, orgId);
   assert.ok(!lc.entryMap.has(c), "la pareja ya no está");
   assert.ok(!lc.zones.find((x) => x.id === z.id)!.entry_ids.includes(c));
   assert.deepEqual(lc.view.standings.get(z.id)!.rows.map((r) => [r.entryId, r.position]), before, "posiciones iguales");
-  assert.deepEqual(lc.matches.map((m) => [m.id, m.status]), otherMatches, "los demás partidos quedan igual");
+  assert.deepEqual(lc.matches.map((m) => `${m.id}:${m.status}`).sort(), otherMatches, "los demás partidos quedan igual");
 
   // Retirada con W.O.: sus partidos cuentan, no se puede borrar
   await tx((x) => ops.withdrawEntry(x, user, b, "WO_PENDING", true));
