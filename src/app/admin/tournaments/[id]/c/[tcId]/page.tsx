@@ -215,6 +215,12 @@ async function EntriesTab({ lc, u, focus }: { lc: LoadedCategory; u: CurrentUser
                       <Submit className="btn quitar sm">Quitar</Submit>
                     </ActionForm>
                   )}
+                  {manage && zoneOf.has(e.id) && e.status === "WITHDRAWN" && e.withdrawal_policy === "ANNUL_ALL" && (
+                    <ActionForm action={A.deleteEntryAction} confirmText={`¿Borrar definitivamente a ${entryLabel(e)}? Ya está retirada y sus partidos anulados: la zona, los partidos y las posiciones de las demás parejas quedan igual.`}>
+                      <input type="hidden" name="entry_id" value={e.id} />
+                      <Submit className="btn quitar sm">Quitar</Submit>
+                    </ActionForm>
+                  )}
                 </div>
               </div>
               {manage && e.status === "ACTIVE" && (

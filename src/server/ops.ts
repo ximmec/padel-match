@@ -219,7 +219,21 @@ async function entryContext(tx: Tx, user: CurrentUser, entryId: string) {
 
 export async function deleteEntry(tx: Tx, user: CurrentUser, entryId: string) {
   const { lc, entry } = await entryContext(tx, user, entryId);
-  if (lc.matches.some((m) => m.entry_a === entryId || m.entry_b === entryId) || lc.zones.some((z) => z.entry_ids.includes(entryId))) {
+  const mine = lc.matches.filter((m) => m.entry_a === entryId || m.entry_b === entryId);
+  const inZone = lc.zones.some((z) => z.entry_ids.includes(entryId));
+  if (entry.status === "WITHDRAWN" && (mine.length || inZone)) {
+    // Pareja retirada con «anular todos sus partidos»: ya no cuenta en la tabla, así que se puede borrar sin cambiar nada de la zona
+    if (entry.withdrawal_policy !== "ANNUL_ALL") {
+      throw new UserError("Esta pareja se retiró con «W.O. en pendientes»: sus partidos siguen contando en la tabla de la zona, así que borrarla cambiaría las posiciones.");
+    }
+    if (mine.some((m) => m.phase !== "ZONE" || m.status !== "ANNULLED")) {
+      throw new UserError("La pareja tiene partidos que todavía cuentan (por ejemplo, en el cuadro). No se puede borrar sin cambiar resultados.");
+    }
+    if (mine.length) await tx`DELETE FROM matches WHERE id = ANY(${mine.map((m) => m.id)}::uuid[])`;
+    for (const z of lc.zones.filter((z) => (z.manual_order ?? []).includes(entryId))) {
+      await tx`UPDATE zones SET manual_order = ${j(z.manual_order.filter((x) => x !== entryId))}::text::jsonb WHERE id = ${z.id}`;
+    }
+  } else if (mine.length || inZone) {
     throw new UserError("La pareja ya está en una zona o tiene partidos. Usá «Retirar» para conservar el historial.");
   }
   await tx`DELETE FROM entries WHERE id = ${entryId}`;

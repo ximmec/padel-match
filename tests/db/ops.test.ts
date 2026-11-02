@@ -719,3 +719,36 @@ test("notificaciones: avisos automáticos a jugadores con cuenta vinculada (cuad
   const [{ n }] = await sql<{ n: number }[]>`SELECT count(*)::int AS n FROM notification_recipients WHERE account_id = ${acc} AND push_status IN ('PENDING','SENDING')`;
   assert.equal(n, 0, "no quedan pendientes");
 });
+
+test("quitar una pareja retirada (partidos anulados) no cambia la zona ni las posiciones", async () => {
+  const { tcId } = await makeTournament();
+  const players = await makePlayers(24);
+  await register(tcId, players.slice(0, 24)); // 12 parejas
+  await tx((x) => ops.generateZones(x, user, tcId, null, 1));
+  let lc = await loadCategory(sql, tcId, orgId);
+  const z = lc.zones.find((x) => x.entry_ids.length === 4) ?? lc.zones[0];
+  const [a, b, c] = z.entry_ids;
+  const mAB = lc.matches.find((m) => m.zone_id === z.id && [m.entry_a, m.entry_b].includes(a) && [m.entry_a, m.entry_b].includes(b))!;
+  const mAC = lc.matches.find((m) => m.zone_id === z.id && [m.entry_a, m.entry_b].includes(a) && [m.entry_a, m.entry_b].includes(c))!;
+  await result(mAB.id, [[6, 2], [6, 3]]);
+  await result(mAC.id, [[6, 4], [6, 4]]);
+  // c se retira anulando todo; b se retira con W.O.
+  await tx((x) => ops.withdrawEntry(x, user, c, "ANNUL_ALL", true));
+  lc = await loadCategory(sql, tcId, orgId);
+  const before = lc.view.standings.get(z.id)!.rows.map((r) => [r.entryId, r.position]);
+  const otherMatches = lc.matches.filter((m) => m.entry_a !== c && m.entry_b !== c).map((m) => [m.id, m.status]);
+
+  await tx((x) => ops.deleteEntry(x, user, c));
+  lc = await loadCategory(sql, tcId, orgId);
+  assert.ok(!lc.entryMap.has(c), "la pareja ya no está");
+  assert.ok(!lc.zones.find((x) => x.id === z.id)!.entry_ids.includes(c));
+  assert.deepEqual(lc.view.standings.get(z.id)!.rows.map((r) => [r.entryId, r.position]), before, "posiciones iguales");
+  assert.deepEqual(lc.matches.map((m) => [m.id, m.status]), otherMatches, "los demás partidos quedan igual");
+
+  // Retirada con W.O.: sus partidos cuentan, no se puede borrar
+  await tx((x) => ops.withdrawEntry(x, user, b, "WO_PENDING", true));
+  await assert.rejects(tx((x) => ops.deleteEntry(x, user, b)), /W\.O\. en pendientes/);
+  // Una pareja activa en zona tampoco
+  const d = lc.zones.find((x) => x.id !== z.id)!.entry_ids[0];
+  await assert.rejects(tx((x) => ops.deleteEntry(x, user, d)), /Usá «Retirar»/);
+});
